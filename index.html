@@ -139,7 +139,19 @@ small{color:var(--muted)}
 <small>Your progress is automatically saved in your browser.</small>
 </div>
 </div>
-
+ 
+.watermark{
+margin-top:40px;
+text-align:center;
+padding:25px;
+color:rgba(255,255,255,0.15);
+font-size:13px;
+font-weight:700;
+letter-spacing:3px;
+text-transform:uppercase;
+text-shadow:0 0 10px rgba(0,180,255,0.25);
+}
+ 
 <script>
 const defaults=[
 {name:"Dropper",now:1,max:5000},
@@ -192,5 +204,10 @@ function importData(){const input=document.createElement("input");input.type="fi
 function resetData(){localStorage.removeItem("eftracker_data");items=structuredClone(defaults);render();}
 render();
 </script>
+ 
+ <footer class="watermark">
+    Created by CassFoxy • Everything Factory Tracker
+</footer>
+ 
 </body>
 </html>
