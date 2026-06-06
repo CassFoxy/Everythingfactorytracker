@@ -11,39 +11,19 @@
  --muted:#94a3b8;--accent:#3b82f6;--good:#22c55e;
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--text);
-background:linear-gradient(rgba(5,10,20,.88),rgba(5,10,20,.92));}
-.container{max-width:1200px;margin:auto;padding:24px}
-.hero{text-align:center;margin-bottom:24px}
-.hero h1{margin:0;font-size:2.2rem}
-.hero p{color:var(--muted)}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
-.card{background:rgba(17,24,39,.9);border:1px solid #334155;border-radius:18px;padding:18px}
-input{width:100%;padding:10px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:white}
-.bar{height:16px;background:#334155;border-radius:999px;overflow:hidden;margin-top:10px}
-.fill{height:100%;background:linear-gradient(90deg,var(--good),var(--accent));width:0}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:20px}
-.stat{background:var(--card2);padding:14px;border-radius:14px}
-button{padding:10px 14px;border:none;border-radius:10px;background:var(--accent);color:white;cursor:pointer}
-.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}
-small{color:var(--muted)}
 
-.logo{
-max-width:500px;
-width:100%;
-height:auto;
-display:block;
-margin:0 auto 10px;
-filter:drop-shadow(0 0 25px rgba(59,130,246,.35));
+body{
+margin:0;
+font-family:Inter,Segoe UI,Arial,sans-serif;
+color:var(--text);
+background:linear-gradient(rgba(5,10,20,.88),rgba(5,10,20,.92));
 }
 
 body::before{
 content:"";
 position:fixed;
 inset:0;
-background:url("logo.png");
-background-repeat:no-repeat;
-background-position:center;
+background:url("logo.png") center center no-repeat;
 background-size:1200px;
 filter:blur(40px);
 opacity:.18;
@@ -58,15 +38,38 @@ background:radial-gradient(circle at center,rgba(59,130,246,.12),transparent 70%
 z-index:-1;
 }
 
-.hero{text-align:center;margin-bottom:30px;}
+.container{max-width:1200px;margin:auto;padding:24px}
+.hero{text-align:center;margin-bottom:30px}
+
+.logo{
+max-width:500px;
+width:100%;
+height:auto;
+display:block;
+margin:0 auto 10px;
+filter:drop-shadow(0 0 25px rgba(59,130,246,.35));
+}
+
+.hero p{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
 
 .card{
 background:rgba(17,24,39,.75);
 backdrop-filter:blur(12px);
 border:1px solid rgba(255,255,255,.08);
 box-shadow:0 8px 30px rgba(0,0,0,.25);
+border-radius:18px;
+padding:18px;
 }
 
+input{width:100%;padding:10px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:white}
+.bar{height:16px;background:#334155;border-radius:999px;overflow:hidden;margin-top:10px}
+.fill{height:100%;background:linear-gradient(90deg,var(--good),var(--accent));width:0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:20px}
+.stat{background:var(--card2);padding:14px;border-radius:14px}
+button{padding:10px 14px;border:none;border-radius:10px;background:var(--accent);color:white;cursor:pointer}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}
+small{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -106,20 +109,15 @@ const defaults=[
 {name:"Adder",now:1,max:5000},
 {name:"Furnace",now:1,max:5000}
 ];
-
 function tri(n){return n*(n+1)/2;}
-
 let items=JSON.parse(localStorage.getItem("eftracker_data")||"null") || defaults;
-
 const upgrades=document.getElementById("upgrades");
-
 function render(){
 upgrades.innerHTML="";
 items.forEach((item,i)=>{
 const div=document.createElement("div");
 div.className="card";
-div.innerHTML=`
-<h3>${item.name}</h3>
+div.innerHTML=`<h3>${item.name}</h3>
 <label>Current Level</label>
 <input type="number" id="now${i}" value="${item.now}">
 <label>Max Level</label>
@@ -130,66 +128,30 @@ upgrades.appendChild(div);
 });
 update();
 }
-
 function update(){
 let spent=0,req=0;
 items.forEach((item,i)=>{
 item.now=+document.getElementById(`now${i}`).value;
 item.max=+document.getElementById(`max${i}`).value;
-
-spent+=tri(item.now);
-req+=tri(item.max);
-
+spent+=tri(item.now); req+=tri(item.max);
 let pct=Math.min(100,(item.now/item.max)*100);
 document.getElementById(`bar${i}`).style.width=pct+"%";
 document.getElementById(`pct${i}`).textContent=pct.toFixed(2)+"% Complete";
 });
-
 const remaining=req-spent;
 const overall=req?spent/req*100:0;
-
 document.getElementById("overallBar").style.width=overall+"%";
 document.getElementById("overallText").textContent=overall.toFixed(2)+"% Complete";
 document.getElementById("spent").textContent=spent.toLocaleString();
 document.getElementById("required").textContent=req.toLocaleString();
 document.getElementById("remaining").textContent=remaining.toLocaleString();
 document.getElementById("completion").textContent=overall.toFixed(2)+"%";
-
 localStorage.setItem("eftracker_data",JSON.stringify(items));
 }
-
 document.addEventListener("input",update);
-
-function exportData(){
-const blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"});
-const a=document.createElement("a");
-a.href=URL.createObjectURL(blob);
-a.download="eftracker-save.json";
-a.click();
-}
-
-function importData(){
-const input=document.createElement("input");
-input.type="file";
-input.accept=".json";
-input.onchange=e=>{
-const file=e.target.files[0];
-const reader=new FileReader();
-reader.onload=()=>{
-items=JSON.parse(reader.result);
-render();
-};
-reader.readAsText(file);
-};
-input.click();
-}
-
-function resetData(){
-localStorage.removeItem("eftracker_data");
-items=structuredClone(defaults);
-render();
-}
-
+function exportData(){const blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="eftracker-save.json";a.click();}
+function importData(){const input=document.createElement("input");input.type="file";input.accept=".json";input.onchange=e=>{const file=e.target.files[0];const reader=new FileReader();reader.onload=()=>{items=JSON.parse(reader.result);render();};reader.readAsText(file);};input.click();}
+function resetData(){localStorage.removeItem("eftracker_data");items=structuredClone(defaults);render();}
 render();
 </script>
 </body>
