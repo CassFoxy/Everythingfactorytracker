@@ -108,6 +108,18 @@ button{padding:10px 14px;border:none;border-radius:10px;background:var(--accent)
 .actions button:nth-child(2){background:linear-gradient(135deg,#6d28d9,#9333ea);}
 .actions button:nth-child(3){background:#111827;}
 small{color:var(--muted)}
+ 
+.watermark{
+text-align:center;
+padding:30px 0;
+color:rgba(255,255,255,0.15);
+font-size:13px;
+font-weight:700;
+letter-spacing:3px;
+text-transform:uppercase;
+text-shadow:0 0 10px rgba(0,180,255,0.25);
+width:100%;
+}
 </style>
 </head>
 <body>
@@ -138,6 +150,11 @@ small{color:var(--muted)}
 </div>
 <small>Your progress is automatically saved in your browser.</small>
 </div>
+ 
+  <footer class="watermark">
+    Created by CassFoxy • Everything Factory Tracker
+</footer>
+ 
 </div>
  
 <script>
@@ -192,10 +209,6 @@ function importData(){const input=document.createElement("input");input.type="fi
 function resetData(){localStorage.removeItem("eftracker_data");items=structuredClone(defaults);render();}
 render();
 </script>
- 
- <footer class="watermark">
-    Created by CassFoxy • Everything Factory Tracker
-</footer>
  
 </body>
 </html>
