@@ -55,7 +55,32 @@ filter:
 drop-shadow(0 0 15px rgba(0,180,255,.4))
 drop-shadow(0 0 45px rgba(0,180,255,.25));
 }
+ 
+.hero{
+position:relative;
+text-align:center;
+margin-bottom:30px;
+}
 
+.hero::before{
+content:"";
+position:absolute;
+left:50%;
+top:180px;
+transform:translateX(-50%);
+width:700px;
+height:700px;
+border-radius:50%;
+background:radial-gradient(
+circle,
+rgba(0,180,255,.45),
+rgba(0,180,255,.15),
+transparent 70%
+);
+filter:blur(80px);
+z-index:-1;
+}
+ 
 .hero p{color:var(--muted)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
 
