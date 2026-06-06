@@ -188,7 +188,7 @@ let spent=0,req=0;
 items.forEach((item,i)=>{
 item.now = Math.max(0, +document.getElementById(`now${i}`).value || 0);
 document.getElementById(`now${i}`).value = item.now;
-item.max=+document.getElementById(`max${i}`).value;
+item.max = 5000;
 spent+=tri(item.now); req+=tri(item.max);
 let pct=Math.min(100,(item.now/item.max)*100);
 document.getElementById(`bar${i}`).style.width=pct+"%";
