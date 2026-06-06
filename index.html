@@ -159,10 +159,10 @@ width:100%;
  
 <script>
 const defaults=[
-{name:"Dropper",now:1,max:5000},
-{name:"Multiplier",now:1,max:5000},
-{name:"Adder",now:1,max:5000},
-{name:"Furnace",now:1,max:5000}
+{name:"Dropper",now:0,max:5000},
+{name:"Multiplier",now:0,max:5000},
+{name:"Adder",now:0,max:5000},
+{name:"Furnace",now:0,max:5000}
 ];
 function tri(n){return n*(n+1)/2;}
 let items=JSON.parse(localStorage.getItem("eftracker_data")||"null") || defaults;
@@ -174,9 +174,9 @@ const div=document.createElement("div");
 div.className="card";
 div.innerHTML=`<h3>${item.name}</h3>
 <label>Current Level</label>
-<input type="number" id="now${i}" value="${item.now}">
+<input type="number" id="now${i}" value="${item.now}" min="0">
 <label>Max Level</label>
-<input type="number" id="max${i}" value="${item.max}">
+<div style="font-size:18px;font-weight:600;">5000</div>
 <div class="bar"><div class="fill" id="bar${i}"></div></div>
 <p id="pct${i}"></p>`;
 upgrades.appendChild(div);
@@ -186,7 +186,8 @@ update();
 function update(){
 let spent=0,req=0;
 items.forEach((item,i)=>{
-item.now=+document.getElementById(`now${i}`).value;
+item.now = Math.max(0, +document.getElementById(`now${i}`).value || 0);
+document.getElementById(`now${i}`).value = item.now;
 item.max=+document.getElementById(`max${i}`).value;
 spent+=tri(item.now); req+=tri(item.max);
 let pct=Math.min(100,(item.now/item.max)*100);
