@@ -110,6 +110,10 @@ summary{cursor:pointer;font-weight:700}
         Set All Targets To Max
     </button>
 
+    <button onclick="resetProgressOnly()">
+        Reset Progress
+    </button>
+
     <button onclick="fullReset()">
         Full Reset
     </button>
@@ -170,8 +174,50 @@ let openShops =
     };
 const fmt=n=>Math.round(n).toLocaleString();
 const costBetween=(u,a,b)=>{let t=0;for(let i=a+1;i<=b;i++)t+=u.f(i);return t}
-function setAllTargetsToMax(){upgrades.forEach((u,i)=>save[i]={current:(save[i]?.current||0),target:u.m});persist();render()}
-    function fullReset(){
+function setAllTargetsToMax(){
+
+    upgrades.forEach((u,i)=>{
+
+        save[i] ??= {
+            current:0,
+            target:u.m
+        };
+
+        save[i].target = u.m;
+
+    });
+
+    persist();
+    render();
+
+}
+
+function resetProgressOnly(){
+
+    if(
+        !confirm(
+            "Reset all current levels to 0 but keep targets?"
+        )
+    ){
+        return;
+    }
+
+    upgrades.forEach((u,i)=>{
+
+        save[i] ??= {
+            current:0,
+            target:u.m
+        };
+
+        save[i].current = 0;
+    });
+
+    persist();
+    render();
+
+}
+
+function fullReset(){
 
     if(
         !confirm(
@@ -268,13 +314,24 @@ html+=`
         </div>
     </div>
 
-    <button
-        class="target-btn"
-        onclick="save[${i}]={current:${s.current},target:${u.m}};persist();render()">
+<button
+    class="target-btn"
+    onclick="
+        save[${i}] ??= {
+            current:0,
+            target:${u.m}
+        };
 
-        Target = Max
+        save[${i}].target = ${u.m};
 
-    </button>
+        persist();
+
+        render();
+    ">
+
+    Target = Max
+
+</button>
 
 </div>
 `;
