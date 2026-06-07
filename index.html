@@ -11,15 +11,22 @@ body:before{content:"";position:fixed;inset:-50px;background:url('new_goated_thu
 body:after{content:"";position:fixed;inset:0;background:rgba(2,8,20,.78);z-index:-1}
 .container{max-width:1500px;margin:auto;padding:20px}
 .logo{display:block;margin:auto;max-width:900px;width:95%}
-.card,details{background:rgba(4,12,28,.6);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;margin-bottom:12px}
- .upgrade-card{
+.card,details{
+    background:rgba(4,12,28,.6);
+    backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;
+    padding:12px;
+    margin-bottom:12px;
+}
+.upgrade-card{
     display:flex;
     flex-direction:column;
-    gap:12px;
+    gap:8px;
 }
 
 .upgrade-title{
-    font-size:1.35rem;
+    font-size:1.15rem;
     font-weight:700;
 }
 
@@ -52,10 +59,27 @@ body:after{content:"";position:fixed;inset:0;background:rgba(2,8,20,.78);z-index
 .target-btn{
     margin-top:12px;
 }
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+ .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    gap:12px;
+}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-input,button{width:100%;padding:10px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff}
-.bar{height:10px;background:#334155;border-radius:99px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,var(--good),var(--accent))}
+input,button{
+    width:100%;
+    padding:8px;
+    border-radius:8px;
+    border:1px solid #475569;
+    background:#0f172a;
+    color:#fff;
+}
+ .bar{
+    height:8px;
+    background:#334155;
+    border-radius:999px;
+    overflow:hidden;
+}
+ .fill{height:100%;background:linear-gradient(90deg,var(--good),var(--accent))}
 .links{position:fixed;right:20px;top:20px;display:flex;flex-direction:column;gap:12px}.links img{width:60px;border-radius:14px}
 summary{cursor:pointer;font-weight:700}
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}.links{position:static;flex-direction:row;justify-content:center}}
