@@ -146,6 +146,18 @@ const upgrades=[
 {c:"Scrap Shop",cur:"Flawless Scrap",n:"Flawless Banks",m:20,f:l=>8*Math.pow(1.25,l-1)}
 ];
 let save=JSON.parse(localStorage.getItem("efv2release")||"{}");
+
+let openShops =
+    JSON.parse(
+        localStorage.getItem("efv2_openShops")
+    ) || {
+
+        "Gem Shop": true,
+        "Stardust Shop": true,
+        "Junkyard Shop": true,
+        "Scrap Shop": true
+
+    };
 const fmt=n=>Math.round(n).toLocaleString();
 const costBetween=(u,a,b)=>{let t=0;for(let i=a+1;i<=b;i++)t+=u.f(i);return t}
 function setAllTargetsToMax(){upgrades.forEach((u,i)=>save[i]={current:(save[i]?.current||0),target:u.m});persist();render()}
@@ -156,7 +168,17 @@ upgrades.forEach((u,i)=>{if(q&&!u.n.toLowerCase().includes(q))return;(groups[u.c
 let html=''; let shopProg={};
 for(let [cat,list] of Object.entries(groups)){
  let avg=0;
- html+=`<details><summary>${cat} (${list.length} upgrades)</summary><div class="grid">`;
+html+=`
+<details
+    data-shop="${cat}"
+    ${openShops[cat] ? "open" : ""}>
+
+    <summary>
+        ${cat} (${list.length} upgrades)
+    </summary>
+
+    <div class="grid">
+`;
  list.forEach(([u,i])=>{
   let s=save[i]||{current:0,target:u.m}; let t=Math.max(s.current,Math.min(u.m,s.target)); avg+=s.current/u.m;
 html+=`
@@ -223,8 +245,75 @@ html+=`
  html+='</div></details>';
 }
 shops.innerHTML=html;
-document.querySelectorAll('[data-i]').forEach(e=>e.oninput=x=>{let i=x.target.dataset.i,k=x.target.dataset.k;save[i]??={current:0,target:upgrades[i].m};save[i][k]=+x.target.value;persist();render()});
+
+document
+.querySelectorAll("details[data-shop]")
+.forEach(detail => {
+
+    detail.addEventListener("toggle", () => {
+
+        openShops[
+            detail.dataset.shop
+        ] = detail.open;
+
+        localStorage.setItem(
+            "efv2_openShops",
+            JSON.stringify(openShops)
+        );
+
+    });
+
+});
+document.querySelectorAll('[data-i]').forEach(e=>e.oninput=x=>{
+
+    let i=x.target.dataset.i;
+    let k=x.target.dataset.k;
+
+    save[i]??={
+        current:0,
+        target:upgrades[i].m
+    };
+
+    save[i][k]=+x.target.value;
+
+    persist();
+
+    recalculate();
+
+});
 update(shopProg);
+}
+    function recalculate(){
+
+    let groups = {};
+    let shopProg = {};
+
+    upgrades.forEach((u,i)=>{
+        (groups[u.c] ??= []).push([u,i]);
+    });
+
+    for(const [cat,list] of Object.entries(groups)){
+
+        let avg = 0;
+
+        list.forEach(([u,i])=>{
+
+            let s = save[i] || {
+                current:0,
+                target:u.m
+            };
+
+            avg += s.current / u.m;
+
+        });
+
+        shopProg[cat] =
+            (avg / list.length * 100).toFixed(1);
+
+    }
+
+    update(shopProg);
+
 }
 function update(shopProg){
 let totals={Gems:0,Stardust:0,"Rusty Scrap":0,"Sturdy Scrap":0,"Flawless Scrap":0},afk=0,overall=0;
