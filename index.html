@@ -86,7 +86,9 @@ input,button{
         var(--good),
         var(--accent)
     );
-    transition:width .25s ease;
+
+    transition:
+        width .25s ease;
 }
 .links{position:fixed;right:20px;top:20px;display:flex;flex-direction:column;gap:12px}.links img{width:60px;border-radius:14px}
 summary{cursor:pointer;font-weight:700}
@@ -287,23 +289,37 @@ html+=`
     </div>
 
     <div class="cost-section">
-        <div><strong>Cost To Target:</strong>
-        ${fmt(costBetween(u,s.current,t))}</div>
+<div>
+    <strong>Cost To Target:</strong>
+    <span id="cost-target-${i}">
+        ${fmt(costBetween(u,s.current,t))}
+    </span>
+</div>
 
-        <div><strong>Cost To Max:</strong>
-        ${fmt(costBetween(u,s.current,u.m))}</div>
+<div>
+    <strong>Cost To Max:</strong>
+    <span id="cost-max-${i}">
+        ${fmt(costBetween(u,s.current,u.m))}
+    </span>
+</div>
     </div>
 
     <div class="progress-section">
-        <div class="bar">
-            <div class="fill"
-                style="width:${(s.current/u.m*100)}%">
-            </div>
-        </div>
+<div class="bar">
+    <div
+        id="bar-${i}"
+        class="fill"
+        style="width:${(s.current/u.m*100)}%">
+    </div>
+</div>
 
-        <div class="progress-text">
-            ${(s.current/u.m*100).toFixed(1)}% Complete
-        </div>
+<div
+    id="progress-${i}"
+    class="progress-text">
+
+    ${(s.current/u.m*100).toFixed(1)}% Complete
+
+</div>
     </div>
 
 <button
@@ -384,24 +400,20 @@ x.target.value = value;
 
 persist();
 
-clearTimeout(window.renderTimer);
-
-window.renderTimer =
-    setTimeout(
-        render,
-        150
-    );
+recalculate();
 
 });
 update(shopProg);
 }
-    function recalculate(){
+function recalculate(){
 
     let groups = {};
     let shopProg = {};
 
     upgrades.forEach((u,i)=>{
+
         (groups[u.c] ??= []).push([u,i]);
+
     });
 
     for(const [cat,list] of Object.entries(groups)){
@@ -415,12 +427,57 @@ update(shopProg);
                 target:u.m
             };
 
+            let t = Math.max(
+                s.current,
+                Math.min(
+                    u.m,
+                    s.target
+                )
+            );
+
             avg += s.current / u.m;
+
+            const pct =
+                (s.current / u.m) * 100;
+
+            document
+                .getElementById(`bar-${i}`)
+                ?.style.width =
+                    pct + "%";
+
+            document
+                .getElementById(`progress-${i}`)
+                ?.textContent =
+                    pct.toFixed(1) +
+                    "% Complete";
+
+            document
+                .getElementById(`cost-target-${i}`)
+                ?.textContent =
+                    fmt(
+                        costBetween(
+                            u,
+                            s.current,
+                            t
+                        )
+                    );
+
+            document
+                .getElementById(`cost-max-${i}`)
+                ?.textContent =
+                    fmt(
+                        costBetween(
+                            u,
+                            s.current,
+                            u.m
+                        )
+                    );
 
         });
 
         shopProg[cat] =
-            (avg / list.length * 100).toFixed(1);
+            (avg / list.length * 100)
+            .toFixed(1);
 
     }
 
