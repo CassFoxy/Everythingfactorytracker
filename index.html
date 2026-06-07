@@ -104,7 +104,17 @@ summary{cursor:pointer;font-weight:700}
 <div><b>AFK Time</b><div id="afk">0</div></div>
 </div>
 
-<div class="card"><button onclick="setAllTargetsToMax()">Set All Targets To Max</button></div>
+<div class="card stats">
+
+    <button onclick="setAllTargetsToMax()">
+        Set All Targets To Max
+    </button>
+
+    <button onclick="fullReset()">
+        Full Reset
+    </button>
+
+</div>
 <div id="shops"></div>
 </div>
 
@@ -161,6 +171,30 @@ let openShops =
 const fmt=n=>Math.round(n).toLocaleString();
 const costBetween=(u,a,b)=>{let t=0;for(let i=a+1;i<=b;i++)t+=u.f(i);return t}
 function setAllTargetsToMax(){upgrades.forEach((u,i)=>save[i]={current:(save[i]?.current||0),target:u.m});persist();render()}
+    function fullReset(){
+
+    if(
+        !confirm(
+            "Reset all levels to 0 and targets to max?"
+        )
+    ){
+        return;
+    }
+
+    upgrades.forEach((u,i)=>{
+
+        save[i]={
+            current:0,
+            target:u.m
+        };
+
+    });
+
+    persist();
+
+    render();
+
+}
 function persist(){localStorage.setItem("efv2release",JSON.stringify(save))}
 function render(){
 let q=search.value.toLowerCase(),groups={};
@@ -190,20 +224,24 @@ html+=`
 
     <div class="input-group">
         <label>Current Level</label>
-        <input
-            data-i="${i}"
-            data-k="current"
-            type="number"
-            value="${s.current}">
+<input
+    data-i="${i}"
+    data-k="current"
+    type="number"
+    min="0"
+    max="${u.m}"
+    value="${s.current}">
     </div>
 
     <div class="input-group">
         <label>Target Level</label>
-        <input
-            data-i="${i}"
-            data-k="target"
-            type="number"
-            value="${t}">
+<input
+    data-i="${i}"
+    data-k="target"
+    type="number"
+    min="0"
+    max="${u.m}"
+    value="${t}">
     </div>
 
     <div>
@@ -274,7 +312,26 @@ document.querySelectorAll('[data-i]').forEach(e=>e.oninput=x=>{
         target:upgrades[i].m
     };
 
-    save[i][k]=+x.target.value;
+let value = +x.target.value;
+
+value = Math.max(
+    0,
+    Math.min(
+        value,
+        upgrades[i].m
+    )
+);
+
+save[i][k] = value;
+    if(
+    save[i].target <
+    save[i].current
+){
+    save[i].target =
+        save[i].current;
+}
+
+x.target.value = value;
 
     persist();
 
