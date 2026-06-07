@@ -79,7 +79,15 @@ input,button{
     border-radius:999px;
     overflow:hidden;
 }
- .fill{height:100%;background:linear-gradient(90deg,var(--good),var(--accent))}
+.fill{
+    height:100%;
+    background:linear-gradient(
+        90deg,
+        var(--good),
+        var(--accent)
+    );
+    transition:width .25s ease;
+}
 .links{position:fixed;right:20px;top:20px;display:flex;flex-direction:column;gap:12px}.links img{width:60px;border-radius:14px}
 summary{cursor:pointer;font-weight:700}
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}.links{position:static;flex-direction:row;justify-content:center}}
@@ -194,14 +202,6 @@ function setAllTargetsToMax(){
 
 function resetProgressOnly(){
 
-    if(
-        !confirm(
-            "Reset all current levels to 0 but keep targets?"
-        )
-    ){
-        return;
-    }
-
     upgrades.forEach((u,i)=>{
 
         save[i] ??= {
@@ -210,22 +210,14 @@ function resetProgressOnly(){
         };
 
         save[i].current = 0;
+
     });
 
     persist();
     render();
 
 }
-
 function fullReset(){
-
-    if(
-        !confirm(
-            "Reset all levels to 0 and targets to max?"
-        )
-    ){
-        return;
-    }
 
     upgrades.forEach((u,i)=>{
 
@@ -390,9 +382,15 @@ save[i][k] = value;
 
 x.target.value = value;
 
-    persist();
+persist();
 
-    recalculate();
+clearTimeout(window.renderTimer);
+
+window.renderTimer =
+    setTimeout(
+        render,
+        150
+    );
 
 });
 update(shopProg);
