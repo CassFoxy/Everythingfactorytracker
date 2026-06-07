@@ -485,9 +485,21 @@ function recalculate(){
 
 }
 function update(shopProg){
-let totals={Gems:0,Stardust:0,"Rusty Scrap":0,"Sturdy Scrap":0,"Flawless Scrap":0},afk=0,overall=0;
-upgrades.forEach((u,i)=>{let s=save[i]||{current:0,target:u.m};let t=Math.max(s.current,Math.min(u.m,s.target));let c=costBetween(u,s.current,t);totals[u.cur]=(totals[u.cur]||0)+c;if(u.afk)afk+=c;overall+=s.current/u.m});
-totals.innerHTML=Object.entries(totals).map(([k,v])=>`<div class=card><b>${k}</b><br>${fmt(v)}</div>`).join('');
+
+let currencyTotals = {
+    Gems:0,
+    Stardust:0,
+    "Rusty Scrap":0,
+    "Sturdy Scrap":0,
+    "Flawless Scrap":0
+};
+
+let afk=0;
+let overall=0;
+upgrades.forEach((u,i)=>{let s=save[i]||{current:0,target:u.m};let t=Math.max(s.current,Math.min(u.m,s.target));let c=costBetween(u,s.current,t);currencyTotals[u.cur] =
+    (currencyTotals[u.cur] || 0) + c;if(u.afk)afk+=c;overall+=s.current/u.m});
+document.getElementById("totals").innerHTML =
+Object.entries(currencyTotals).map(([k,v])=>`<div class=card><b>${k}</b><br>${fmt(v)}</div>`).join('');
 let reb=Math.ceil(afk/(+spr.value||1)); document.getElementById('reb').textContent=fmt(reb);
 let hrs=(reb*(+sec.value||1))/3600; document.getElementById('afk').textContent=`${hrs.toFixed(1)} hrs`;
 completion.innerHTML=`Account Completion: ${(overall/upgrades.length*100).toFixed(1)}%<br>`+Object.entries(shopProg).map(([k,v])=>`${k}: ${v}%`).join('<br>');
