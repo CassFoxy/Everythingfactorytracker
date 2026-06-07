@@ -388,12 +388,22 @@ value = Math.max(
 );
 
 save[i][k] = value;
-    if(
+if(
     save[i].target <
     save[i].current
 ){
     save[i].target =
         save[i].current;
+
+    const targetInput =
+        document.querySelector(
+            `[data-i="${i}"][data-k="target"]`
+        );
+
+    if(targetInput){
+        targetInput.value =
+            save[i].target;
+    }
 }
 
 x.target.value = value;
@@ -440,38 +450,50 @@ function recalculate(){
             const pct =
                 (s.current / u.m) * 100;
 
-            document
-                .getElementById(`bar-${i}`)
-                ?.style.width =
-                    pct + "%";
+const bar =
+    document.getElementById(`bar-${i}`);
 
-            document
-                .getElementById(`progress-${i}`)
-                ?.textContent =
-                    pct.toFixed(1) +
-                    "% Complete";
+if(bar){
+    bar.style.width =
+        pct + "%";
+}
 
-            document
-                .getElementById(`cost-target-${i}`)
-                ?.textContent =
-                    fmt(
-                        costBetween(
-                            u,
-                            s.current,
-                            t
-                        )
-                    );
+const progress =
+    document.getElementById(`progress-${i}`);
 
-            document
-                .getElementById(`cost-max-${i}`)
-                ?.textContent =
-                    fmt(
-                        costBetween(
-                            u,
-                            s.current,
-                            u.m
-                        )
-                    );
+if(progress){
+    progress.textContent =
+        pct.toFixed(1) +
+        "% Complete";
+}
+
+const costTarget =
+    document.getElementById(`cost-target-${i}`);
+
+if(costTarget){
+    costTarget.textContent =
+        fmt(
+            costBetween(
+                u,
+                s.current,
+                t
+            )
+        );
+}
+
+const costMax =
+    document.getElementById(`cost-max-${i}`);
+
+if(costMax){
+    costMax.textContent =
+        fmt(
+            costBetween(
+                u,
+                s.current,
+                u.m
+            )
+        );
+}
 
         });
 
@@ -501,7 +523,23 @@ upgrades.forEach((u,i)=>{let s=save[i]||{current:0,target:u.m};let t=Math.max(s.
 document.getElementById("totals").innerHTML =
 Object.entries(currencyTotals).map(([k,v])=>`<div class=card><b>${k}</b><br>${fmt(v)}</div>`).join('');
 let reb=Math.ceil(afk/(+spr.value||1)); document.getElementById('reb').textContent=fmt(reb);
-let hrs=(reb*(+sec.value||1))/3600; document.getElementById('afk').textContent=`${hrs.toFixed(1)} hrs`;
+let totalSeconds =
+    reb * (+sec.value || 1);
+
+let days =
+    Math.floor(totalSeconds / 86400);
+
+let hours =
+    Math.floor((totalSeconds % 86400) / 3600);
+
+let minutes =
+    Math.floor((totalSeconds % 3600) / 60);
+
+let rawHours =
+    totalSeconds / 3600;
+
+document.getElementById('afk').textContent =
+    `${days}d ${hours}h ${minutes}m (${rawHours.toFixed(1)} hrs)`;
 completion.innerHTML=`Account Completion: ${(overall/upgrades.length*100).toFixed(1)}%<br>`+Object.entries(shopProg).map(([k,v])=>`${k}: ${v}%`).join('<br>');
 }
 search.oninput=render; spr.oninput=()=>update({}); sec.oninput=()=>update({});
