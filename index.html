@@ -172,6 +172,23 @@ transition:0.2s ease;
 .reddit-link:hover{
 transform:scale(1.1);
 }
+
+ .discord-link{
+position:fixed;
+top:200px;
+right:20px;
+display:flex;
+flex-direction:column;
+align-items:center;
+text-decoration:none;
+color:white;
+z-index:1000;
+transition:0.2s ease;
+}
+
+.discord-link:hover{
+transform:scale(1.1);
+}
 </style>
 </head>
 <body>
@@ -179,19 +196,29 @@ transform:scale(1.1);
 href="https://the-everything-factory.fandom.com/wiki/The_Everything_Factory_Wiki"
 target="_blank">
 
-<img src="fandom.png" alt="Wiki" class="wiki-icon">
-<span class="wiki-text">Wiki</span>
+    <img src="fandom.png" alt="Wiki" class="wiki-icon">
+    <span class="wiki-text">Wiki</span>
 
- <a class="reddit-link"
+</a>
+
+<a class="reddit-link"
 href="https://www.reddit.com/r/TheEverythingFactory/"
 target="_blank">
 
-<img src="Reddit_Logo.png" alt="Reddit" class="wiki-icon">
-<span class="wiki-text">Reddit</span>
+    <img src="Reddit_Logo.png" alt="Reddit" class="wiki-icon">
+    <span class="wiki-text">Reddit</span>
 
 </a>
 
+<a class="discord-link"
+href="https://discord.com/invite/gfRaJwXhJn"
+target="_blank">
+
+    <img src="DiscordLogo.png" alt="Discord" class="wiki-icon">
+    <span class="wiki-text">Discord</span>
+
 </a>
+ 
 <div class="container">
 <div class="hero">
 <img src="community_logo.png" alt="Everything Factory Logo" class="logo">
