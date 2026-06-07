@@ -12,6 +12,46 @@ body:after{content:"";position:fixed;inset:0;background:rgba(2,8,20,.78);z-index
 .container{max-width:1500px;margin:auto;padding:20px}
 .logo{display:block;margin:auto;max-width:900px;width:95%}
 .card,details{background:rgba(4,12,28,.6);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;margin-bottom:12px}
+ .upgrade-card{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+.upgrade-title{
+    font-size:1.35rem;
+    font-weight:700;
+}
+
+.currency-label{
+    color:var(--muted);
+    margin-top:-6px;
+}
+
+.input-group{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+}
+
+.cost-section{
+    margin-top:8px;
+    line-height:1.8;
+}
+
+.progress-section{
+    margin-top:8px;
+}
+
+.progress-text{
+    text-align:center;
+    color:var(--muted);
+    margin-top:4px;
+}
+
+.target-btn{
+    margin-top:12px;
+}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 input,button{width:100%;padding:10px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff}
@@ -64,6 +104,22 @@ const upgrades=[
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Multiplier Mutation Boost",m:5000,f:l=>l},
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Adder Mutation Boost",m:5000,f:l=>l},
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Furnace Mutation Boost",m:5000,f:l=>l}
+ ,
+{c:"Junkyard Shop",cur:"Gems",n:"Junkyard Luck",m:58,f:l=>1000*Math.pow(1.1,l-1)},
+{c:"Junkyard Shop",cur:"Gems",n:"Faster Restock",m:20,f:l=>100*Math.pow(1.5107,l-1)},
+{c:"Junkyard Shop",cur:"Stardust",n:"More Stock",m:12,f:l=>1000*Math.pow(1.7,l-1)}
+ ,
+{c:"Scrap Shop",cur:"Rusty Scrap",n:"Rusty Luck",m:40,f:l=>20*Math.pow(1.1765,l-1)},
+{c:"Scrap Shop",cur:"Rusty Scrap",n:"Rust-powered Dust",m:50,f:l=>40*Math.pow(1.132,l-1)},
+{c:"Scrap Shop",cur:"Rusty Scrap",n:"Rusty Cap",m:20,f:l=>50*Math.pow(1.338,l-1)},
+
+{c:"Scrap Shop",cur:"Sturdy Scrap",n:"Sturdy Luck",m:25,f:l=>10*Math.pow(1.29,l-1)},
+{c:"Scrap Shop",cur:"Sturdy Scrap",n:"Salvaged Slot",m:1,f:l=>2500},
+{c:"Scrap Shop",cur:"Sturdy Scrap",n:"Sturdy Banks",m:20,f:l=>20*Math.pow(1.239,l-1)},
+
+{c:"Scrap Shop",cur:"Flawless Scrap",n:"Flawless Luck",m:15,f:l=>5*Math.pow(1.4,l-1)},
+{c:"Scrap Shop",cur:"Flawless Scrap",n:"Golden Touch",m:10,f:l=>25*Math.pow(1.475,l-1)},
+{c:"Scrap Shop",cur:"Flawless Scrap",n:"Flawless Banks",m:20,f:l=>8*Math.pow(1.25,l-1)}
 ];
 let save=JSON.parse(localStorage.getItem("efv2release")||"{}");
 const fmt=n=>Math.round(n).toLocaleString();
@@ -79,13 +135,65 @@ for(let [cat,list] of Object.entries(groups)){
  html+=`<details><summary>${cat} (${list.length} upgrades)</summary><div class="grid">`;
  list.forEach(([u,i])=>{
   let s=save[i]||{current:0,target:u.m}; let t=Math.max(s.current,Math.min(u.m,s.target)); avg+=s.current/u.m;
-  html+=`<div class="card"><b>${u.n}</b><div>${u.cur}</div>
-  Current<input data-i="${i}" data-k="current" type="number" value="${s.current}">
-  Target<input data-i="${i}" data-k="target" type="number" value="${t}">
-  <div>Cost To Target: ${fmt(costBetween(u,s.current,t))}</div>
-  <div>Cost To Max: ${fmt(costBetween(u,s.current,u.m))}</div>
-  <div class="bar"><div class="fill" style="width:${(s.current/u.m*100)}%"></div></div>
-  <button onclick="save[${i}]={current:${s.current},target:${u.m}};persist();render()">Target = Max</button></div>`;
+html+=`
+<div class="card upgrade-card">
+
+    <div class="upgrade-title">${u.n}</div>
+
+    <div class="currency-label">${u.cur}</div>
+
+    <div class="input-group">
+        <label>Current Level</label>
+        <input
+            data-i="${i}"
+            data-k="current"
+            type="number"
+            value="${s.current}">
+    </div>
+
+    <div class="input-group">
+        <label>Target Level</label>
+        <input
+            data-i="${i}"
+            data-k="target"
+            type="number"
+            value="${t}">
+    </div>
+
+    <div>
+        Max Level: ${u.m}
+    </div>
+
+    <div class="cost-section">
+        <div><strong>Cost To Target:</strong>
+        ${fmt(costBetween(u,s.current,t))}</div>
+
+        <div><strong>Cost To Max:</strong>
+        ${fmt(costBetween(u,s.current,u.m))}</div>
+    </div>
+
+    <div class="progress-section">
+        <div class="bar">
+            <div class="fill"
+                style="width:${(s.current/u.m*100)}%">
+            </div>
+        </div>
+
+        <div class="progress-text">
+            ${(s.current/u.m*100).toFixed(1)}% Complete
+        </div>
+    </div>
+
+    <button
+        class="target-btn"
+        onclick="save[${i}]={current:${s.current},target:${u.m}};persist();render()">
+
+        Target = Max
+
+    </button>
+
+</div>
+`;
  });
  shopProg[cat]=(avg/list.length*100).toFixed(1);
  html+='</div></details>';
