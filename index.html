@@ -231,12 +231,27 @@ target="_blank">
 <h2>Overall Progress</h2>
 <div class="bar"><div class="fill" id="overallBar"></div></div>
 <h3 id="overallText"></h3>
-
+ 
 <div class="stats">
 <div class="stat"><strong>Spent</strong><div id="spent"></div></div>
 <div class="stat"><strong>Required</strong><div id="required"></div></div>
 <div class="stat"><strong>Remaining</strong><div id="remaining"></div></div>
 <div class="stat"><strong>Completion</strong><div id="completion"></div></div>
+
+<div class="stat">
+    <strong>Stardust Per Rebirth</strong>
+    <input
+        type="number"
+        id="stardustPerRebirth"
+        value="1"
+        min="0.000001"
+        step="any">
+</div>
+
+<div class="stat">
+    <strong>Rebirths Needed</strong>
+    <div id="rebirthsNeeded">0</div>
+</div>
 </div>
 
 <div class="actions">
@@ -262,9 +277,14 @@ const defaults=[
 ];
 function tri(n){return n*(n+1)/2;}
 let items=JSON.parse(localStorage.getItem("eftracker_data")||"null") || defaults;
+ const savedSPR =
+    localStorage.getItem("eftracker_spr") || 1;
 const upgrades=document.getElementById("upgrades");
 function render(){
 upgrades.innerHTML="";
+
+document.getElementById("stardustPerRebirth").value = savedSPR;
+
 items.forEach((item,i)=>{
 const div=document.createElement("div");
 div.className="card";
@@ -281,27 +301,55 @@ update();
 }
 function update(){
 let spent=0,req=0;
+
 items.forEach((item,i)=>{
-item.now = Math.min(
-    5000,
-    Math.max(0, +document.getElementById(`now${i}`).value || 0)
-);
-document.getElementById(`now${i}`).value = item.now;
-item.max = 5000;
-spent+=tri(item.now); req+=tri(item.max);
-let pct=Math.min(100,(item.now/item.max)*100);
-document.getElementById(`bar${i}`).style.width=pct+"%";
-document.getElementById(`pct${i}`).textContent=pct.toFixed(2)+"% Complete";
+    item.now = Math.min(
+        5000,
+        Math.max(0, +document.getElementById(`now${i}`).value || 0)
+    );
+
+    document.getElementById(`now${i}`).value = item.now;
+
+    item.max = 5000;
+
+    spent += tri(item.now);
+    req += tri(item.max);
+
+    let pct=Math.min(100,(item.now/item.max)*100);
+
+    document.getElementById(`bar${i}`).style.width=pct+"%";
+    document.getElementById(`pct${i}`).textContent=pct.toFixed(2)+"% Complete";
 });
-const remaining=req-spent;
-const overall=req?spent/req*100:0;
-document.getElementById("overallBar").style.width=overall+"%";
-document.getElementById("overallText").textContent=overall.toFixed(2)+"% Complete";
-document.getElementById("spent").textContent=spent.toLocaleString();
-document.getElementById("required").textContent=req.toLocaleString();
-document.getElementById("remaining").textContent=remaining.toLocaleString();
-document.getElementById("completion").textContent=overall.toFixed(2)+"%";
-localStorage.setItem("eftracker_data",JSON.stringify(items));
+
+const remaining = req - spent;
+const overall = req ? spent / req * 100 : 0;
+
+const stardustPerRebirth =
+    parseFloat(document.getElementById("stardustPerRebirth").value) || 1;
+
+const rebirthsNeeded =
+    Math.ceil(remaining / stardustPerRebirth);
+
+document.getElementById("overallBar").style.width = overall + "%";
+document.getElementById("overallText").textContent = overall.toFixed(2) + "% Complete";
+
+document.getElementById("spent").textContent = spent.toLocaleString();
+document.getElementById("required").textContent = req.toLocaleString();
+document.getElementById("remaining").textContent = remaining.toLocaleString();
+document.getElementById("completion").textContent = overall.toFixed(2) + "%";
+
+document.getElementById("rebirthsNeeded").textContent =
+    rebirthsNeeded.toLocaleString();
+
+localStorage.setItem(
+    "eftracker_spr",
+    stardustPerRebirth
+);
+
+localStorage.setItem(
+    "eftracker_data",
+    JSON.stringify(items)
+);
 }
 document.addEventListener("input",update);
 function exportData(){const blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="eftracker-save.json";a.click();}
