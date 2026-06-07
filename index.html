@@ -2,110 +2,106 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Everything Factory Tracker V2</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Everything Factory Tracker V2 Release</title>
 <style>
-body{margin:0;background:#020817;color:#e5e7eb;font-family:Inter,Arial,sans-serif}
-.container{max-width:1400px;margin:auto;padding:20px}
-.card,details{background:rgba(17,24,39,.9);border-radius:16px;padding:16px;margin-bottom:12px}
+:root{--text:#e5e7eb;--muted:#94a3b8;--accent:#3b82f6;--good:#22c55e}
+*{box-sizing:border-box} body{margin:0;color:var(--text);font-family:Inter,Arial,sans-serif;background:#020817}
+body:before{content:"";position:fixed;inset:-50px;background:url('new_goated_thumbnail.png') center/cover no-repeat;filter:blur(8px);transform:scale(1.05);z-index:-2}
+body:after{content:"";position:fixed;inset:0;background:rgba(2,8,20,.78);z-index:-1}
+.container{max-width:1500px;margin:auto;padding:20px}
+.logo{display:block;margin:auto;max-width:900px;width:95%}
+.card,details{background:rgba(4,12,28,.6);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;margin-bottom:12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-input,button{padding:8px;border-radius:8px}
-.bar{height:10px;background:#334155;border-radius:99px;overflow:hidden}
-.fill{height:100%;background:linear-gradient(90deg,#22c55e,#3b82f6)}
-@media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
+input,button{width:100%;padding:10px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff}
+.bar{height:10px;background:#334155;border-radius:99px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,var(--good),var(--accent))}
+.links{position:fixed;right:20px;top:20px;display:flex;flex-direction:column;gap:12px}.links img{width:60px;border-radius:14px}
+summary{cursor:pointer;font-weight:700}
+@media(max-width:768px){.grid,.stats{grid-template-columns:1fr}.links{position:static;flex-direction:row;justify-content:center}}
 </style>
 </head>
 <body>
 <div class="container">
-<h1>Everything Factory Tracker V2</h1>
-<p>Production-ready starter with Current → Target → Max planning.</p>
-<div class="card"><input id="search" placeholder="Search upgrades..." style="width:100%"></div>
-<div class="card stats" id="totals"></div>
-<div class="card">
-<button onclick="setAllTargetsToMax()">Set All Targets To Max</button>
+<img src="community_logo.png" class="logo">
+<div class="links">
+<img src="fandom.png"><img src="Reddit_Logo.png"><img src="DiscordLogo.png">
 </div>
+
+<div class="card"><input id="search" placeholder="Search upgrades..."></div>
+
+<div class="card"><h3>Completion Overview</h3><div id="completion"></div></div>
+<div class="card stats" id="totals"></div>
+
 <div class="card stats">
 <div><b>Stardust/Rebirth</b><input id="spr" value="1" type="number"></div>
 <div><b>Seconds/Rebirth</b><input id="sec" value="1" type="number"></div>
 <div><b>Rebirths Needed</b><div id="reb">0</div></div>
 <div><b>AFK Time</b><div id="afk">0</div></div>
 </div>
+
+<div class="card"><button onclick="setAllTargetsToMax()">Set All Targets To Max</button></div>
 <div id="shops"></div>
 </div>
+
 <script>
 const upgrades=[
+{c:"Gem Shop",cur:"Gems",n:"Spawn Rate",m:20,f:l=>3*Math.pow(1.6,l-1)},
+{c:"Gem Shop",cur:"Gems",n:"Factory Luck",m:90,f:l=>5*Math.pow(1.065,l-1)},
+{c:"Gem Shop",cur:"Gems",n:"Mutation Rate",m:20,f:l=>5*Math.pow(1.4,l-1)},
+{c:"Gem Shop",cur:"Gems",n:"Mutation Luck",m:150,f:l=>3*Math.pow(1.0568,l-1)},
+{c:"Gem Shop",cur:"Gems",n:"Ore Limit",m:25,f:l=>5*Math.pow(1.5,l-1)},
+{c:"Gem Shop",cur:"Gems",n:"Furnace Bank Size",m:45,f:l=>5*Math.pow(1.15,l-1)},
+{c:"Gem Shop",cur:"Gems",n:"Offline Earnings",m:20,f:l=>15*Math.pow(1.3,l-1)},
+{c:"Stardust Shop",cur:"Stardust",n:"Gem Chance",m:40,f:l=>2*l},
+{c:"Stardust Shop",cur:"Stardust",n:"More Mutation Luck",m:75,f:l=>{let c=5;for(let i=2;i<=l;i++)c+=Math.ceil(i/10);return c}},
+{c:"Stardust Shop",cur:"Stardust",n:"Plot Size",m:10,f:l=>6*l},
+{c:"Stardust Shop",cur:"Stardust",n:"Walk Speed",m:20,f:l=>l},
+{c:"Stardust Shop",cur:"Stardust",n:"Level Preservation",m:25,f:l=>2*l*l},
+{c:"Stardust Shop",cur:"Stardust",n:"Extra Permanent Pick",m:1,f:l=>1000},
+{c:"Stardust Shop",cur:"Stardust",n:"Scrap Boost",m:20,f:l=>50*Math.pow(1.475,l-1)},
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Dropper Mutation Boost",m:5000,f:l=>l},
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Multiplier Mutation Boost",m:5000,f:l=>l},
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Adder Mutation Boost",m:5000,f:l=>l},
-{c:"Stardust Shop",cur:"Stardust",afk:true,n:"Furnace Mutation Boost",m:5000,f:l=>l},
-{c:"Gem Shop",cur:"Gems",n:"Spawn Rate",m:20,f:l=>3*Math.pow(1.6,l-1)},
-{c:"Gem Shop",cur:"Gems",n:"Factory Luck",m:90,f:l=>5*Math.pow(1.065,l-1)}
+{c:"Stardust Shop",cur:"Stardust",afk:true,n:"Furnace Mutation Boost",m:5000,f:l=>l}
 ];
-let save=JSON.parse(localStorage.getItem("efv2planner")||"{}");
-function costBetween(u,a,b){let t=0;for(let i=a+1;i<=b;i++)t+=u.f(i);return t}
-function fmt(n){return Math.round(n).toLocaleString()}
+let save=JSON.parse(localStorage.getItem("efv2release")||"{}");
+const fmt=n=>Math.round(n).toLocaleString();
+const costBetween=(u,a,b)=>{let t=0;for(let i=a+1;i<=b;i++)t+=u.f(i);return t}
+function setAllTargetsToMax(){upgrades.forEach((u,i)=>save[i]={current:(save[i]?.current||0),target:u.m});persist();render()}
+function persist(){localStorage.setItem("efv2release",JSON.stringify(save))}
 function render(){
- let q=(document.getElementById('search').value||'').toLowerCase();
- let grouped={};
- upgrades.forEach((u,i)=>{
-   if(q && !u.n.toLowerCase().includes(q)) return;
-   (grouped[u.c]??=[]).push([u,i]);
+let q=search.value.toLowerCase(),groups={};
+upgrades.forEach((u,i)=>{if(q&&!u.n.toLowerCase().includes(q))return;(groups[u.c]??=[]).push([u,i])});
+let html=''; let shopProg={};
+for(let [cat,list] of Object.entries(groups)){
+ let avg=0;
+ html+=`<details><summary>${cat} (${list.length} upgrades)</summary><div class="grid">`;
+ list.forEach(([u,i])=>{
+  let s=save[i]||{current:0,target:u.m}; let t=Math.max(s.current,Math.min(u.m,s.target)); avg+=s.current/u.m;
+  html+=`<div class="card"><b>${u.n}</b><div>${u.cur}</div>
+  Current<input data-i="${i}" data-k="current" type="number" value="${s.current}">
+  Target<input data-i="${i}" data-k="target" type="number" value="${t}">
+  <div>Cost To Target: ${fmt(costBetween(u,s.current,t))}</div>
+  <div>Cost To Max: ${fmt(costBetween(u,s.current,u.m))}</div>
+  <div class="bar"><div class="fill" style="width:${(s.current/u.m*100)}%"></div></div>
+  <button onclick="save[${i}]={current:${s.current},target:${u.m}};persist();render()">Target = Max</button></div>`;
  });
- let html='';
- for(const [cat,list] of Object.entries(grouped)){
-  html+=`<details open><summary>${cat}</summary><div class="grid">`;
-  list.forEach(([u,i])=>{
-   let s=save[i]||{current:0,target:u.m};
-   let target=Math.max(s.current,Math.min(u.m,s.target));
-   let toTarget=costBetween(u,s.current,target);
-   let toMax=costBetween(u,s.current,u.m);
-   let pct=(s.current/u.m*100).toFixed(1);
-   html+=`<div class="card">
-   <b>${u.n}</b><div>${u.cur}</div>
-   Current <input type="number" value="${s.current}" min="0" max="${u.m}" data-f="c" data-i="${i}">
-   Target <input type="number" value="${target}" min="0" max="${u.m}" data-f="t" data-i="${i}">
-   <div>Max Level: ${u.m}</div>
-   <div>Cost To Target: ${fmt(toTarget)}</div>
-   <div>Cost To Max: ${fmt(toMax)}</div>
-   <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
-   <div>${pct}% Complete</div>
-   <button onclick="setMax(${i})">Target = Max</button>
-   </div>`;
-  });
-  html+='</div></details>';
- }
- document.getElementById('shops').innerHTML=html;
- document.querySelectorAll('[data-i]').forEach(el=>el.oninput=e=>{
-   let i=e.target.dataset.i;
-   save[i]??={current:0,target:upgrades[i].m};
-   if(e.target.dataset.f==='c') save[i].current=+e.target.value;
-   else save[i].target=+e.target.value;
-   localStorage.setItem('efv2planner',JSON.stringify(save));
-   render(); update();
- });
- update();
+ shopProg[cat]=(avg/list.length*100).toFixed(1);
+ html+='</div></details>';
 }
-function setMax(i){save[i]??={current:0,target:0}; save[i].target=upgrades[i].m; localStorage.setItem('efv2planner',JSON.stringify(save)); render();}
-function setAllTargetsToMax(){upgrades.forEach((u,i)=>{save[i]??={current:0,target:u.m}; save[i].target=u.m}); localStorage.setItem('efv2planner',JSON.stringify(save)); render();}
-function update(){
- let totals={Gems:0,Stardust:0,"Rusty Scrap":0,"Sturdy Scrap":0,"Flawless Scrap":0};
- let afk=0;
- upgrades.forEach((u,i)=>{
-  let s=save[i]||{current:0,target:u.m};
-  let target=Math.max(s.current,Math.min(u.m,s.target));
-  let cost=costBetween(u,s.current,target);
-  totals[u.cur]=(totals[u.cur]||0)+cost;
-  if(u.afk) afk+=cost;
- });
- document.getElementById('totals').innerHTML=Object.entries(totals).map(([k,v])=>`<div><b>${k}</b><br>${fmt(v)}</div>`).join('');
- let reb=Math.ceil(afk/((+spr.value)||1));
- reb.textContent;
- document.getElementById('reb').textContent=fmt(reb);
- let hrs=(reb*((+sec.value)||1))/3600;
- document.getElementById('afk').textContent=`${hrs.toFixed(1)} hrs`;
+shops.innerHTML=html;
+document.querySelectorAll('[data-i]').forEach(e=>e.oninput=x=>{let i=x.target.dataset.i,k=x.target.dataset.k;save[i]??={current:0,target:upgrades[i].m};save[i][k]=+x.target.value;persist();render()});
+update(shopProg);
 }
-search.oninput=render; spr.oninput=update; sec.oninput=update;
+function update(shopProg){
+let totals={Gems:0,Stardust:0,"Rusty Scrap":0,"Sturdy Scrap":0,"Flawless Scrap":0},afk=0,overall=0;
+upgrades.forEach((u,i)=>{let s=save[i]||{current:0,target:u.m};let t=Math.max(s.current,Math.min(u.m,s.target));let c=costBetween(u,s.current,t);totals[u.cur]=(totals[u.cur]||0)+c;if(u.afk)afk+=c;overall+=s.current/u.m});
+totals.innerHTML=Object.entries(totals).map(([k,v])=>`<div class=card><b>${k}</b><br>${fmt(v)}</div>`).join('');
+let reb=Math.ceil(afk/(+spr.value||1)); document.getElementById('reb').textContent=fmt(reb);
+let hrs=(reb*(+sec.value||1))/3600; document.getElementById('afk').textContent=`${hrs.toFixed(1)} hrs`;
+completion.innerHTML=`Account Completion: ${(overall/upgrades.length*100).toFixed(1)}%<br>`+Object.entries(shopProg).map(([k,v])=>`${k}: ${v}%`).join('<br>');
+}
+search.oninput=render; spr.oninput=()=>update({}); sec.oninput=()=>update({});
 render();
-</script>
-</body></html>
+</script></body></html>
