@@ -3,418 +3,122 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Everything Factory Tracker</title>
-<link rel="icon" type="image/png" href="logo(5).png">
+<title>Everything Factory Tracker V2</title>
 <style>
-:root{
- --bg:#0b1220;--card:#111827;--card2:#1f2937;--text:#e5e7eb;
- --muted:#94a3b8;--accent:#3b82f6;--good:#22c55e;
-}
-*{box-sizing:border-box}
-
-body{
-margin:0;
-font-family:Inter,Segoe UI,Arial,sans-serif;
-color:var(--text);
-background:#020817;
-overflow-x:hidden;
-min-height:100vh;
-position:relative;
-}
-
-body::before{
-content:"";
-position:fixed;
-inset:-50px;
-background-image:url("new_goated_thumbnail.png");
-filter:blur(8px);
-transform:scale(1.05);
-background-size:cover;
-background-position:center;
-background-repeat:no-repeat;
-z-index:-2;
-}
-
-body::after{
-content:"";
-position:fixed;
-inset:0;
-background:rgba(2,8,20,0.75);
-z-index:-1;
-}
-
-.container{max-width:1200px;margin:auto;padding:24px}
-.hero{text-align:center;margin-bottom:30px}
-
-.logo{
-width:min(850px,95vw);
-height:auto;
-display:block;
-margin:0 auto;
-filter:
-drop-shadow(0 0 15px rgba(0,180,255,.4))
-drop-shadow(0 0 45px rgba(0,180,255,.25));
-}
- 
-.hero{
-position:relative;
-text-align:center;
-margin-bottom:30px;
-}
-
-.hero::before{
-content:"";
-position:absolute;
-left:50%;
-top:180px;
-transform:translateX(-50%);
-width:700px;
-height:700px;
-border-radius:50%;
-background:radial-gradient(
-circle,
-rgba(0,180,255,.45),
-rgba(0,180,255,.15),
-transparent 70%
-);
-filter:blur(80px);
-z-index:-1;
-}
- 
-.hero p{color:var(--muted)}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
-
-.card{
-background:rgba(4,12,28,.55);
-backdrop-filter:blur(14px);
-border:1px solid rgba(255,255,255,.08);
-border-radius:22px;
-padding:20px;
-box-shadow:0 10px 40px rgba(0,0,0,.45);
-transition:.25s;
-}
-.card:hover{transform:translateY(-4px);}
-
-input{width:100%;padding:10px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:white}
-.bar{height:16px;background:#334155;border-radius:999px;overflow:hidden;margin-top:10px}
-.fill{height:100%;background:linear-gradient(90deg,var(--good),var(--accent));width:0}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:20px}
-.stat{background:var(--card2);padding:14px;border-radius:14px}
-button{padding:10px 14px;border:none;border-radius:10px;background:var(--accent);color:white;cursor:pointer}
-.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}
-#overallCard{background:rgba(4,12,28,.65);backdrop-filter:blur(18px);border-radius:24px;}
-.actions button{padding:14px 24px;font-size:16px;font-weight:600;}
-.actions button:nth-child(1){background:linear-gradient(135deg,#0d6efd,#2563eb);}
-.actions button:nth-child(2){background:linear-gradient(135deg,#6d28d9,#9333ea);}
-.actions button:nth-child(3){background:#111827;}
-small{color:var(--muted)}
- 
-.watermark{
-text-align:center;
-padding:30px 0;
-color:rgba(255,255,255,0.15);
-font-size:13px;
-font-weight:700;
-letter-spacing:3px;
-text-transform:uppercase;
-text-shadow:0 0 10px rgba(0,180,255,0.25);
-width:100%;
-}
- 
-.wiki-link{
-position:fixed;
-top:20px;
-right:20px;
-display:flex;
-flex-direction:column;
-align-items:center;
-text-decoration:none;
-color:white;
-z-index:1000;
-transition:0.2s ease;
-}
-
-.wiki-link:hover{
-transform:scale(1.1);
-}
-
-.wiki-icon{
-width:64px;
-height:64px;
-padding:8px;
-background:rgba(4,12,28,.75);
-backdrop-filter:blur(12px);
-border:1px solid rgba(255,255,255,.08);
-border-radius:16px;
-object-fit:contain;
-}
-
-.wiki-text{
-margin-top:4px;
-font-size:12px;
-font-weight:600;
-color:white;
-}
-
- .reddit-link{
-position:fixed;
-top:110px;
-right:20px;
-display:flex;
-flex-direction:column;
-align-items:center;
-text-decoration:none;
-color:white;
-z-index:1000;
-transition:0.2s ease;
-}
-
-.reddit-link:hover{
-transform:scale(1.1);
-}
-
- .discord-link{
-position:fixed;
-top:200px;
-right:20px;
-display:flex;
-flex-direction:column;
-align-items:center;
-text-decoration:none;
-color:white;
-z-index:1000;
-transition:0.2s ease;
-}
-
-.discord-link:hover{
-transform:scale(1.1);
-}
+body{font-family:Inter,Arial,sans-serif;background:#020817;color:#e5e7eb;margin:0;padding:20px}
+.container{max-width:1400px;margin:auto}
+.card,details{background:#111827;border-radius:16px;padding:16px;margin-bottom:12px}
+summary{cursor:pointer;font-weight:bold}
+input{width:100%;padding:8px;border-radius:8px;background:#0f172a;color:white;border:1px solid #475569}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.small{color:#94a3b8;font-size:.9em}
+@media(max-width:768px){.grid,.statgrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<a class="wiki-link"
-href="https://the-everything-factory.fandom.com/wiki/The_Everything_Factory_Wiki"
-target="_blank">
-
-    <img src="fandom.png" alt="Wiki" class="wiki-icon">
-    <span class="wiki-text">Wiki</span>
-
-</a>
-
-<a class="reddit-link"
-href="https://www.reddit.com/r/TheEverythingFactory/"
-target="_blank">
-
-    <img src="Reddit_Logo.png" alt="Reddit" class="wiki-icon">
-    <span class="wiki-text">Reddit</span>
-
-</a>
-
-<a class="discord-link"
-href="https://discord.com/invite/gfRaJwXhJn"
-target="_blank">
-
-    <img src="DiscordLogo.png" alt="Discord" class="wiki-icon">
-    <span class="wiki-text">Discord</span>
-
-</a>
- 
 <div class="container">
-<div class="hero">
-<img src="community_logo.png" alt="Everything Factory Logo" class="logo">
-<p style="font-size:1.35rem;color:#dbeafe;margin-top:10px;margin-bottom:30px;">Track Stardust Upgrades</p>
+<h1>Everything Factory Tracker V2</h1>
+
+<div class="card">
+<input id="search" placeholder="Search upgrades...">
 </div>
 
-<div class="grid" id="upgrades"></div>
+<div class="card statgrid" id="totals"></div>
 
-<div class="card" id="overallCard" style="margin-top:20px">
-<h2>Overall Progress</h2>
-<div class="bar"><div class="fill" id="overallBar"></div></div>
-<h3 id="overallText"></h3>
- 
-<div class="stats">
-<div class="stat"><strong>Spent</strong><div id="spent"></div></div>
-<div class="stat"><strong>Required</strong><div id="required"></div></div>
-<div class="stat"><strong>Remaining</strong><div id="remaining"></div></div>
-<div class="stat"><strong>Completion</strong><div id="completion"></div></div>
-
-<div class="stat">
-    <strong>Stardust Per Rebirth</strong>
-    <input
-        type="number"
-        id="stardustPerRebirth"
-        value="1"
-        min="0.000001"
-        step="any">
+<div class="card statgrid">
+<div><b>Stardust / Rebirth</b><input id="spr" type="number" value="1"></div>
+<div><b>Seconds / Rebirth</b><input id="sec" type="number" value="1"></div>
+<div><b>Rebirths Needed</b><div id="rebirths">0</div></div>
+<div><b>AFK Time</b><div id="afktime">0</div></div>
 </div>
 
-<div class="stat">
-    <strong>Rebirths Needed</strong>
-    <div id="rebirthsNeeded">0</div>
-</div>
- <div class="stat">
-    <strong>Seconds Per Rebirth</strong>
-    <input
-        type="number"
-        id="secondsPerRebirth"
-        value="1"
-        min="0.01"
-        step="0.01">
+<div id="shops"></div>
 </div>
 
-<div class="stat">
-    <strong>AFK Time Needed</strong>
-    <div id="afkTime">0m</div>
-</div>
-</div>
-
-<div class="actions">
-<button onclick="exportData()">Export Save</button>
-<button onclick="importData()">Import Save</button>
-<button onclick="resetData()">Reset</button>
-</div>
-<small>Your progress is automatically saved in your browser.</small>
-</div>
- 
-  <footer class="watermark">
-    Created by CassFoxy • Everything Factory Tracker
-</footer>
- 
-</div>
- 
 <script>
-const defaults=[
-{name:"Dropper",now:0,max:5000},
-{name:"Multiplier",now:0,max:5000},
-{name:"Adder",now:0,max:5000},
-{name:"Furnace",now:0,max:5000}
+const upgradesData = [
+{category:"Gem Shop",currency:"Gems",name:"Spawn Rate",max:20,formula:l=>3*Math.pow(1.6,l-1)},
+{category:"Gem Shop",currency:"Gems",name:"Factory Luck",max:90,formula:l=>5*Math.pow(1.065,l-1)},
+{category:"Gem Shop",currency:"Gems",name:"Mutation Rate",max:20,formula:l=>5*Math.pow(1.4,l-1)},
+{category:"Gem Shop",currency:"Gems",name:"Mutation Luck",max:150,formula:l=>3*Math.pow(1.0568,l-1)},
+{category:"Gem Shop",currency:"Gems",name:"Ore Limit",max:25,formula:l=>5*Math.pow(1.5,l-1)},
+{category:"Gem Shop",currency:"Gems",name:"Furnace Bank Size",max:45,formula:l=>5*Math.pow(1.15,l-1)},
+{category:"Gem Shop",currency:"Gems",name:"Offline Earnings",max:20,formula:l=>15*Math.pow(1.3,l-1)},
+{category:"Stardust Shop",currency:"Stardust",name:"Gem Chance",max:40,formula:l=>2*l},
+{category:"Stardust Shop",currency:"Stardust",name:"More Mutation Luck",max:75,formula:l=>{let c=5;for(let i=2;i<=l;i++)c+=Math.ceil(i/10);return c;}},
+{category:"Stardust Shop",currency:"Stardust",name:"Plot Size",max:10,formula:l=>6*l},
+{category:"Stardust Shop",currency:"Stardust",name:"Walk Speed",max:20,formula:l=>l},
+{category:"Stardust Shop",currency:"Stardust",name:"Level Preservation",max:25,formula:l=>2*l*l},
+{category:"Stardust Shop",currency:"Stardust",name:"Extra Permanent Pick",max:1,formula:()=>1000},
+{category:"Stardust Shop",currency:"Stardust",name:"Scrap Boost",max:20,formula:l=>50*Math.pow(1.475,l-1)},
+{category:"Stardust Shop",currency:"Stardust",afk:true,name:"Dropper Mutation Boost",max:5000,formula:l=>l},
+{category:"Stardust Shop",currency:"Stardust",afk:true,name:"Multiplier Mutation Boost",max:5000,formula:l=>l},
+{category:"Stardust Shop",currency:"Stardust",afk:true,name:"Adder Mutation Boost",max:5000,formula:l=>l},
+{category:"Stardust Shop",currency:"Stardust",afk:true,name:"Furnace Mutation Boost",max:5000,formula:l=>l}
 ];
-function tri(n){return n*(n+1)/2;}
-let items=JSON.parse(localStorage.getItem("eftracker_data")||"null") || defaults;
- const savedSPR =
-    localStorage.getItem("eftracker_spr") || 1;
- const savedSecondsPerRebirth =
-    localStorage.getItem("eftracker_seconds") || 1;
-const upgrades=document.getElementById("upgrades");
+
+let save=JSON.parse(localStorage.getItem("ef_v2"))||{};
+
+function cum(up,l){let t=0;for(let i=1;i<=l;i++)t+=up.formula(i);return t;}
+function fmtTime(s){const h=s/3600; let d=Math.floor(s/86400); s%=86400; let hr=Math.floor(s/3600); let m=Math.floor((s%3600)/60); return `${d?d+"d ":""}${hr}h ${m}m (${h.toLocaleString(undefined,{maximumFractionDigits:1})} hrs)`}
+
 function render(){
-upgrades.innerHTML="";
+const shops=document.getElementById("shops");
+shops.innerHTML="";
+const q=document.getElementById("search").value.toLowerCase();
 
-document.getElementById("stardustPerRebirth").value = savedSPR;
- document.getElementById("secondsPerRebirth").value =
-    savedSecondsPerRebirth;
-
-items.forEach((item,i)=>{
-const div=document.createElement("div");
-div.className="card";
-div.innerHTML=`<h3>${item.name}</h3>
-<label>Current Level</label>
-<input type="number" id="now${i}" value="${item.now}" min="0" max="5000">
-<label>Max Level</label>
-<div style="font-size:18px;font-weight:600;">5000</div>
-<div class="bar"><div class="fill" id="bar${i}"></div></div>
-<p id="pct${i}"></p>`;
-upgrades.appendChild(div);
+const grouped={};
+upgradesData.forEach((u,i)=>{
+ if(q && !u.name.toLowerCase().includes(q)) return;
+ grouped[u.category]??=[];
+ grouped[u.category].push([u,i]);
 });
+
+for(const [cat,list] of Object.entries(grouped)){
+ const d=document.createElement("details");
+ d.open=true;
+ d.innerHTML=`<summary>${cat}</summary><div class="grid" id="g_${cat}"></div>`;
+ shops.appendChild(d);
+ const g=d.querySelector("div");
+ list.forEach(([u,i])=>{
+  const lvl=save[i]||0;
+  const rem=(cum(u,u.max)-cum(u,lvl)).toFixed(0);
+  g.innerHTML+=`<div class="card"><b>${u.name}</b><div class="small">${u.currency}</div>
+  <input type="number" min="0" max="${u.max}" value="${lvl}" data-i="${i}">
+  <div>Max: ${u.max}</div><div>Remaining: ${Number(rem).toLocaleString()}</div></div>`;
+ });
+}
+document.querySelectorAll("[data-i]").forEach(el=>el.oninput=e=>{save[e.target.dataset.i]=+e.target.value;localStorage.setItem("ef_v2",JSON.stringify(save));update();});
 update();
 }
- function formatTime(seconds){
 
-    const years = Math.floor(seconds / 31536000);
-    seconds %= 31536000;
-
-    const days = Math.floor(seconds / 86400);
-    seconds %= 86400;
-
-    const hours = Math.floor(seconds / 3600);
-    seconds %= 3600;
-
-    const minutes = Math.floor(seconds / 60);
-
-    const parts = [];
-
-    if(years) parts.push(`${years}y`);
-    if(days) parts.push(`${days}d`);
-    if(hours) parts.push(`${hours}h`);
-    if(minutes) parts.push(`${minutes}m`);
-
-    return parts.length ? parts.join(" ") : "<1m";
-}
 function update(){
-let spent=0,req=0;
+const totals={"Gems":0,"Stardust":0,"Rusty Scrap":0,"Sturdy Scrap":0,"Flawless Scrap":0};
+let afkStardust=0;
 
-items.forEach((item,i)=>{
-    item.now = Math.min(
-        5000,
-        Math.max(0, +document.getElementById(`now${i}`).value || 0)
-    );
-
-    document.getElementById(`now${i}`).value = item.now;
-
-    item.max = 5000;
-
-    spent += tri(item.now);
-    req += tri(item.max);
-
-    let pct=Math.min(100,(item.now/item.max)*100);
-
-    document.getElementById(`bar${i}`).style.width=pct+"%";
-    document.getElementById(`pct${i}`).textContent=pct.toFixed(2)+"% Complete";
+upgradesData.forEach((u,i)=>{
+ const lvl=save[i]||0;
+ const rem=cum(u,u.max)-cum(u,lvl);
+ if(typeof u.currency==="string"){
+   totals[u.currency]=(totals[u.currency]||0)+rem;
+ }
+ if(u.afk) afkStardust+=rem;
 });
 
-const remaining = req - spent;
-const overall = req ? spent / req * 100 : 0;
+document.getElementById("totals").innerHTML=Object.entries(totals).map(([k,v])=>`<div><b>${k}</b><div>${Math.round(v).toLocaleString()}</div></div>`).join("");
 
-const stardustPerRebirth =
-    parseFloat(document.getElementById("stardustPerRebirth").value) || 1;
-
-const rebirthsNeeded =
-    Math.ceil(remaining / stardustPerRebirth);
- const secondsPerRebirth =
-    parseFloat(
-        document.getElementById("secondsPerRebirth").value
-    ) || 1;
-
-const totalSeconds =
-    rebirthsNeeded * secondsPerRebirth;
-
-document.getElementById("overallBar").style.width = overall + "%";
-document.getElementById("overallText").textContent = overall.toFixed(2) + "% Complete";
-
-document.getElementById("spent").textContent = spent.toLocaleString();
-document.getElementById("required").textContent = req.toLocaleString();
-document.getElementById("remaining").textContent = remaining.toLocaleString();
-document.getElementById("completion").textContent = overall.toFixed(2) + "%";
-
-document.getElementById("rebirthsNeeded").textContent =
-    rebirthsNeeded.toLocaleString();
-const totalHours = totalSeconds / 3600;
-
-document.getElementById("afkTime").innerHTML =
-    `${formatTime(totalSeconds)}<br>
-     <small>(${totalHours.toLocaleString(undefined,{
-        maximumFractionDigits:1
-     })} hours)</small>`;
-
-localStorage.setItem(
-    "eftracker_spr",
-    stardustPerRebirth
-);
- localStorage.setItem(
-    "eftracker_seconds",
-    secondsPerRebirth
-);
-
-localStorage.setItem(
-    "eftracker_data",
-    JSON.stringify(items)
-);
+const spr=+document.getElementById("spr").value||1;
+const sec=+document.getElementById("sec").value||1;
+const reb=Math.ceil(afkStardust/spr);
+document.getElementById("rebirths").textContent=reb.toLocaleString();
+document.getElementById("afktime").textContent=fmtTime(reb*sec);
 }
-document.addEventListener("input",update);
-function exportData(){const blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="eftracker-save.json";a.click();}
-function importData(){const input=document.createElement("input");input.type="file";input.accept=".json";input.onchange=e=>{const file=e.target.files[0];const reader=new FileReader();reader.onload=()=>{items=JSON.parse(reader.result);render();};reader.readAsText(file);};input.click();}
-function resetData(){localStorage.removeItem("eftracker_data");items=structuredClone(defaults);render();}
+
+document.getElementById("search").oninput=render;
+document.getElementById("spr").oninput=update;
+document.getElementById("sec").oninput=update;
 render();
 </script>
- 
 </body>
 </html>
