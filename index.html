@@ -252,6 +252,20 @@ target="_blank">
     <strong>Rebirths Needed</strong>
     <div id="rebirthsNeeded">0</div>
 </div>
+ <div class="stat">
+    <strong>Seconds Per Rebirth</strong>
+    <input
+        type="number"
+        id="secondsPerRebirth"
+        value="1"
+        min="0.01"
+        step="0.01">
+</div>
+
+<div class="stat">
+    <strong>AFK Time Needed</strong>
+    <div id="afkTime">0m</div>
+</div>
 </div>
 
 <div class="actions">
@@ -279,11 +293,15 @@ function tri(n){return n*(n+1)/2;}
 let items=JSON.parse(localStorage.getItem("eftracker_data")||"null") || defaults;
  const savedSPR =
     localStorage.getItem("eftracker_spr") || 1;
+ const savedSecondsPerRebirth =
+    localStorage.getItem("eftracker_seconds") || 1;
 const upgrades=document.getElementById("upgrades");
 function render(){
 upgrades.innerHTML="";
 
 document.getElementById("stardustPerRebirth").value = savedSPR;
+ document.getElementById("secondsPerRebirth").value =
+    savedSecondsPerRebirth;
 
 items.forEach((item,i)=>{
 const div=document.createElement("div");
@@ -298,6 +316,28 @@ div.innerHTML=`<h3>${item.name}</h3>
 upgrades.appendChild(div);
 });
 update();
+}
+ function formatTime(seconds){
+
+    const years = Math.floor(seconds / 31536000);
+    seconds %= 31536000;
+
+    const days = Math.floor(seconds / 86400);
+    seconds %= 86400;
+
+    const hours = Math.floor(seconds / 3600);
+    seconds %= 3600;
+
+    const minutes = Math.floor(seconds / 60);
+
+    const parts = [];
+
+    if(years) parts.push(`${years}y`);
+    if(days) parts.push(`${days}d`);
+    if(hours) parts.push(`${hours}h`);
+    if(minutes) parts.push(`${minutes}m`);
+
+    return parts.length ? parts.join(" ") : "<1m";
 }
 function update(){
 let spent=0,req=0;
@@ -329,6 +369,13 @@ const stardustPerRebirth =
 
 const rebirthsNeeded =
     Math.ceil(remaining / stardustPerRebirth);
+ const secondsPerRebirth =
+    parseFloat(
+        document.getElementById("secondsPerRebirth").value
+    ) || 1;
+
+const totalSeconds =
+    rebirthsNeeded * secondsPerRebirth;
 
 document.getElementById("overallBar").style.width = overall + "%";
 document.getElementById("overallText").textContent = overall.toFixed(2) + "% Complete";
@@ -340,10 +387,21 @@ document.getElementById("completion").textContent = overall.toFixed(2) + "%";
 
 document.getElementById("rebirthsNeeded").textContent =
     rebirthsNeeded.toLocaleString();
+const totalHours = totalSeconds / 3600;
+
+document.getElementById("afkTime").innerHTML =
+    `${formatTime(totalSeconds)}<br>
+     <small>(${totalHours.toLocaleString(undefined,{
+        maximumFractionDigits:1
+     })} hours)</small>`;
 
 localStorage.setItem(
     "eftracker_spr",
     stardustPerRebirth
+);
+ localStorage.setItem(
+    "eftracker_seconds",
+    secondsPerRebirth
 );
 
 localStorage.setItem(
