@@ -869,7 +869,21 @@ const upgrades=[
  ,
 {c:"Junkyard Shop",cur:"Gems",n:"Junkyard Luck",m:58,f:l=>1000*Math.pow(1.1,l-1)},
 {c:"Junkyard Shop",cur:"Gems",n:"Faster Restock",m:20,f:l=>100*Math.pow(1.5107,l-1)},
-{c:"Junkyard Shop",cur:"Stardust",n:"More Stock",m:12,f:l=>1000*Math.pow(1.7,l-1)}
+{c:"Junkyard Shop",cur:"Stardust",n:"More Stock",m:12,f:l=>1000*Math.pow(1.7,l-1)},
+
+{
+    c:"Junkyard Shop",
+    cur:"Multi",
+    n:"Junkyard Gold",
+    m:30,
+    multi:true,
+
+    rusty:l=>170*Math.pow(1.13,l-1),
+
+    sturdy:l=>42.6*Math.pow(1.13,l-1),
+
+    flawless:l=>8.5*Math.pow(1.13,l-1)
+}
  ,
 {c:"Scrap Shop",cur:"Rusty Scrap",n:"Rusty Luck",m:40,f:l=>20*Math.pow(1.1765,l-1)},
 {c:"Scrap Shop",cur:"Rusty Scrap",n:"Rust-powered Dust",m:50,f:l=>40*Math.pow(1.132,l-1)},
@@ -897,7 +911,28 @@ let openShops =
 
     };
 const fmt=n=>Math.round(n).toLocaleString();
-const costBetween=(u,a,b)=>{let t=0;for(let i=a+1;i<=b;i++)t+=u.f(i);return t}
+const costBetween=(u,a,b)=>{
+    let t=0;
+
+    for(let i=a+1;i<=b;i++){
+        t+=u.f(i);
+    }
+
+    return t;
+};
+
+function multiCostBetween(fn,a,b){
+
+    let total=0;
+
+    for(let i=a+1;i<=b;i++){
+
+        total += fn(i);
+
+    }
+
+    return total;
+}
 function setAllTargetsToMax(){
 
     upgrades.forEach((u,i)=>{
@@ -1010,6 +1045,25 @@ html+=`
 
     <div class="upgrade-title">${u.n}</div>
 
+${
+u.multi
+? `
+<div class="currency-label rusty">
+    <img src="LowScrap.png" class="mini-currency-icon">
+    Rusty Scrap
+</div>
+
+<div class="currency-label sturdy">
+    <img src="MidScrap.png" class="mini-currency-icon">
+    Sturdy Scrap
+</div>
+
+<div class="currency-label flawless">
+    <img src="HighScrap.png" class="mini-currency-icon">
+    Flawless Scrap
+</div>
+`
+: `
 <div class="
     currency-label
 
@@ -1029,6 +1083,30 @@ html+=`
         : "flawless"
     }
 ">
+
+    <img
+        src="${
+            u.cur==="Gems"
+            ? "Gem.png"
+
+            : u.cur==="Stardust"
+            ? "Dust.png"
+
+            : u.cur==="Rusty Scrap"
+            ? "LowScrap.png"
+
+            : u.cur==="Sturdy Scrap"
+            ? "MidScrap.png"
+
+            : "HighScrap.png"
+        }"
+        class="mini-currency-icon">
+
+    ${u.cur}
+
+</div>
+`
+}
 
     <img
         src="${
@@ -1308,8 +1386,41 @@ let currencyTotals = {
 
 let afk=0;
 let overall=0;
-upgrades.forEach((u,i)=>{let s=save[i]||{current:0,target:u.m};let t=Math.max(s.current,Math.min(u.m,s.target));let c=costBetween(u,s.current,t);currencyTotals[u.cur] =
-    (currencyTotals[u.cur] || 0) + c;if(u.afk)afk+=c;overall+=s.current/u.m});
+upgrades.forEach((u,i)=>{let s=save[i]||{current:0,target:u.m};let t=Math.max(s.current,Math.min(u.m,s.target));if(u.multi){
+
+    currencyTotals["Rusty Scrap"] +=
+        multiCostBetween(
+            u.rusty,
+            s.current,
+            t
+        );
+
+    currencyTotals["Sturdy Scrap"] +=
+        multiCostBetween(
+            u.sturdy,
+            s.current,
+            t
+        );
+
+    currencyTotals["Flawless Scrap"] +=
+        multiCostBetween(
+            u.flawless,
+            s.current,
+            t
+        );
+
+}else{
+
+    let c = costBetween(
+        u,
+        s.current,
+        t
+    );
+
+    currencyTotals[u.cur] =
+        (currencyTotals[u.cur] || 0) + c;
+
+}if(u.afk)afk+=c;overall+=s.current/u.m});
 const currencyIcons = {
 
     "Gems":"Gem.png",
