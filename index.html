@@ -718,7 +718,7 @@ summary{
         rgba(255,255,255,.35);
 
 }
-@media(max-width:768px){.grid,.stats{grid-template-columns:1fr}.links{position:static;flex-direction:row;justify-content:center}}
+@media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -1026,21 +1026,24 @@ html+=`
     card
     upgrade-card
 
-    ${
-        u.cur==="Gems"
-        ? "gems"
+${
+    u.multi
+    ? "rusty"
 
-        : u.cur==="Stardust"
-        ? "stardust"
+    : u.cur==="Gems"
+    ? "gems"
 
-        : u.cur==="Rusty Scrap"
-        ? "rusty"
+    : u.cur==="Stardust"
+    ? "stardust"
 
-        : u.cur==="Sturdy Scrap"
-        ? "sturdy"
+    : u.cur==="Rusty Scrap"
+    ? "rusty"
 
-        : "flawless"
-    }
+    : u.cur==="Sturdy Scrap"
+    ? "sturdy"
+
+    : "flawless"
+}
 ">
 
     <div class="upgrade-title">${u.n}</div>
@@ -1066,20 +1069,15 @@ u.multi
 : `
 <div class="
     currency-label
-
     ${
         u.cur==="Gems"
         ? "gems"
-
         : u.cur==="Stardust"
         ? "stardust"
-
         : u.cur==="Rusty Scrap"
         ? "rusty"
-
         : u.cur==="Sturdy Scrap"
         ? "sturdy"
-
         : "flawless"
     }
 ">
@@ -1088,16 +1086,12 @@ u.multi
         src="${
             u.cur==="Gems"
             ? "Gem.png"
-
             : u.cur==="Stardust"
             ? "Dust.png"
-
             : u.cur==="Rusty Scrap"
             ? "LowScrap.png"
-
             : u.cur==="Sturdy Scrap"
             ? "MidScrap.png"
-
             : "HighScrap.png"
         }"
         class="mini-currency-icon">
@@ -1107,28 +1101,6 @@ u.multi
 </div>
 `
 }
-
-    <img
-        src="${
-            u.cur==="Gems"
-            ? "Gem.png"
-
-            : u.cur==="Stardust"
-            ? "Dust.png"
-
-            : u.cur==="Rusty Scrap"
-            ? "LowScrap.png"
-
-            : u.cur==="Sturdy Scrap"
-            ? "MidScrap.png"
-
-            : "HighScrap.png"
-        }"
-        class="mini-currency-icon">
-
-    ${u.cur}
-
-</div>
 
     <div class="input-group">
         <label>Current Level</label>
@@ -1157,6 +1129,27 @@ u.multi
     </div>
 
     <div class="cost-section">
+${
+u.multi
+?
+`
+<div>
+    <strong>Rusty Scrap:</strong>
+    ${fmt(multiCostBetween(u.rusty,s.current,t))}
+</div>
+
+<div>
+    <strong>Sturdy Scrap:</strong>
+    ${fmt(multiCostBetween(u.sturdy,s.current,t))}
+</div>
+
+<div>
+    <strong>Flawless Scrap:</strong>
+    ${fmt(multiCostBetween(u.flawless,s.current,t))}
+</div>
+`
+:
+`
 <div>
     <strong>Cost To Target:</strong>
     <span id="cost-target-${i}">
@@ -1170,6 +1163,8 @@ u.multi
         ${fmt(costBetween(u,s.current,u.m))}
     </span>
 </div>
+`
+}
     </div>
 
     <div class="progress-section">
@@ -1335,32 +1330,44 @@ if(progress){
         "% Complete";
 }
 
-const costTarget =
-    document.getElementById(`cost-target-${i}`);
+if(!u.multi){
 
-if(costTarget){
-    costTarget.textContent =
-        fmt(
-            costBetween(
-                u,
-                s.current,
-                t
-            )
+    const costTarget =
+        document.getElementById(
+            `cost-target-${i}`
         );
-}
 
-const costMax =
-    document.getElementById(`cost-max-${i}`);
+    if(costTarget){
 
-if(costMax){
-    costMax.textContent =
-        fmt(
-            costBetween(
-                u,
-                s.current,
-                u.m
-            )
+        costTarget.textContent =
+            fmt(
+                costBetween(
+                    u,
+                    s.current,
+                    t
+                )
+            );
+
+    }
+
+    const costMax =
+        document.getElementById(
+            `cost-max-${i}`
         );
+
+    if(costMax){
+
+        costMax.textContent =
+            fmt(
+                costBetween(
+                    u,
+                    s.current,
+                    u.m
+                )
+            );
+
+    }
+
 }
 
         });
@@ -1420,7 +1427,16 @@ upgrades.forEach((u,i)=>{let s=save[i]||{current:0,target:u.m};let t=Math.max(s.
     currencyTotals[u.cur] =
         (currencyTotals[u.cur] || 0) + c;
 
-}if(u.afk)afk+=c;overall+=s.current/u.m});
+    if(u.afk){
+        afk += c;
+    }
+
+}
+
+overall += s.current / u.m;
+
+}); // CLOSE upgrades.forEach HERE
+
 const currencyIcons = {
 
     "Gems":"Gem.png",
