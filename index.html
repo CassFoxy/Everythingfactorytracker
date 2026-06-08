@@ -920,12 +920,30 @@ summary{
 
 .roadmap-item{
 
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
     padding:6px 10px;
 
     border-radius:8px;
 
     background:
         rgba(255,255,255,.03);
+
+    cursor:pointer;
+
+}
+
+.roadmap-item input{
+
+    width:18px;
+
+    height:18px;
+
+    cursor:pointer;
 
 }
 
@@ -1130,6 +1148,12 @@ const upgrades=[
 {c:"Scrap Shop",cur:"Flawless Scrap",n:"Flawless Banks",m:20,f:l=>8*Math.pow(1.25,l-1)}
 ];
 let save=JSON.parse(localStorage.getItem("efv2release")||"{}");
+    let progressionChecks =
+    JSON.parse(
+        localStorage.getItem(
+            "efv2_progression"
+        )
+    ) || {};
 
 let openShops =
     JSON.parse(
@@ -1771,15 +1795,14 @@ if(!u.multi){
 
             goal:
             "Make your setup permanent and focus on Gem Chance and Mutation Luck.",
-
-            checklist:[
-                [false,"Full Permanent Setup"],
-                [false,"Full Gold Setup"],
-                [false,"Full Akashic Setup"],
-                [false,"Max Scrap Boost"],
-                [false,"Max Rust Powered Dust"],
-                [false,"Scrapyard Gold Collection"]
-            ]
+checklist:[
+    "Full Permanent Setup",
+    "Full Gold Setup",
+    "Full Akashic Setup",
+    "Max Scrap Boost",
+    "Max Rust Powered Dust",
+    "Scrapyard Gold Collection"
+]
 
         };
 
@@ -1794,14 +1817,14 @@ if(!u.multi){
             goal:
             "Convert your setup into Gold items and begin rolling Akashics.",
 
-            checklist:[
-                [true,"Full Permanent Setup"],
-                [false,"Full Gold Setup"],
-                [false,"Full Akashic Setup"],
-                [false,"Max Scrap Boost"],
-                [false,"Max Rust Powered Dust"],
-                [false,"Scrapyard Gold Collection"]
-            ]
+checklist:[
+    "Full Permanent Setup",
+    "Full Gold Setup",
+    "Full Akashic Setup",
+    "Max Scrap Boost",
+    "Max Rust Powered Dust",
+    "Scrapyard Gold Collection"
+]
 
         };
 
@@ -1816,14 +1839,14 @@ if(!u.multi){
             goal:
             "Focus Scrap Boost, Rust-powered Dust and converting Golds to Akashics.",
 
-            checklist:[
-                [true,"Full Permanent Setup"],
-                [true,"Full Gold Setup"],
-                [false,"Full Akashic Setup"],
-                [scrapBoost>=20,"Max Scrap Boost"],
-                [rustPowered>=50,"Max Rust Powered Dust"],
-                [false,"Scrapyard Gold Collection"]
-            ]
+checklist:[
+    "Full Permanent Setup",
+    "Full Gold Setup",
+    "Full Akashic Setup",
+    "Max Scrap Boost",
+    "Max Rust Powered Dust",
+    "Scrapyard Gold Collection"
+]
 
         };
 
@@ -1836,14 +1859,14 @@ if(!u.multi){
         goal:
         "Collect Scrapyard Golds and push rebirths forever.",
 
-        checklist:[
-            [true,"Full Permanent Setup"],
-            [true,"Full Gold Setup"],
-            [true,"Full Akashic Setup"],
-            [true,"Max Scrap Boost"],
-            [true,"Max Rust Powered Dust"],
-            [false,"Scrapyard Gold Collection"]
-        ]
+checklist:[
+    "Full Permanent Setup",
+    "Full Gold Setup",
+    "Full Akashic Setup",
+    "Max Scrap Boost",
+    "Max Rust Powered Dust",
+    "Scrapyard Gold Collection"
+]
 
     };
 
@@ -2030,56 +2053,40 @@ ${
 
     const prog =
     getProgressionData();
-
 document.getElementById(
     "progressionGuide"
 ).innerHTML = `
-
-<div class="progress-stage">
-
-    ${prog.stage}
-
-</div>
-
-<div class="progress-goal">
-
-    ${prog.goal}
-
-</div>
-
-<div class="roadmap">
-
-${prog.checklist.map(item=>`
-
-<div class="
-    roadmap-item
-    ${item[0]
-        ? "complete"
-        : "incomplete"}
-">
-
-    ${item[0]
-        ? "☑"
-        : "☐"}
-
-    ${item[1]}
-
-</div>
-
-`).join("")}
-
-</div>
-
-<div style="
-    margin-top:12px;
-    font-size:.8rem;
-    color:#64748b;
-">
-
-    Based on ETOH95's Progression Guide
-
-</div>
+...
 `;
+
+document
+.querySelectorAll(
+    "[data-progress]"
+)
+.forEach(box=>{
+
+    box.onchange = ()=>{
+
+        progressionChecks[
+            box.dataset.progress
+        ] = box.checked;
+
+        localStorage.setItem(
+
+            "efv2_progression",
+
+            JSON.stringify(
+                progressionChecks
+            )
+
+        );
+
+        update(shopProg);
+
+    };
+
+});
+
 }
 search.oninput = render;
 
