@@ -104,10 +104,34 @@ input,button{
     height:42px;
     object-fit:contain;
 }
-
 .currency-name{
-    color:var(--muted);
     font-size:.9rem;
+    font-weight:600;
+}
+
+.gems{
+    color:#67d9ff;
+    text-shadow:0 0 8px rgba(103,217,255,.4);
+}
+
+.stardust{
+    color:#b57cff;
+    text-shadow:0 0 8px rgba(181,124,255,.4);
+}
+
+.rusty{
+    color:#d39a52;
+    text-shadow:0 0 8px rgba(211,154,82,.35);
+}
+
+.sturdy{
+    color:#cfd8e3;
+    text-shadow:0 0 8px rgba(207,216,227,.35);
+}
+
+.flawless{
+    color:#ffd84d;
+    text-shadow:0 0 8px rgba(255,216,77,.4);
 }
 
 .currency-value{
@@ -316,7 +340,25 @@ html+=`
 
     <div class="upgrade-title">${u.n}</div>
 
-<div class="currency-label">
+<div class="
+    currency-label
+
+    ${
+        u.cur==="Gems"
+        ? "gems"
+
+        : u.cur==="Stardust"
+        ? "stardust"
+
+        : u.cur==="Rusty Scrap"
+        ? "rusty"
+
+        : u.cur==="Sturdy Scrap"
+        ? "sturdy"
+
+        : "flawless"
+    }
+">
 
     <img
         src="${
@@ -621,9 +663,26 @@ Object.entries(currencyTotals)
 
     <div>
 
-        <div class="currency-name">
-            ${k}
-        </div>
+<div class="
+    currency-name
+    ${
+        k==="Gems"
+        ? "gems"
+
+        : k==="Stardust"
+        ? "stardust"
+
+        : k==="Rusty Scrap"
+        ? "rusty"
+
+        : k==="Sturdy Scrap"
+        ? "sturdy"
+
+        : "flawless"
+    }
+">
+    ${k}
+</div>
 
         <div class="currency-value">
             ${fmt(v)}
