@@ -244,6 +244,51 @@ input,button{
     text-shadow:0 0 8px rgba(255,216,77,.4);
 }
 
+    .multi-cost-row{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-top:4px;
+
+    font-size:.92rem;
+
+}
+
+.cost-divider{
+
+    border:none;
+
+    height:1px;
+
+    background:
+        rgba(255,255,255,.08);
+
+    margin:10px 0;
+
+}
+
+    .multi-cost-row.rusty{
+
+    color:#d39a52;
+
+}
+
+.multi-cost-row.sturdy{
+
+    color:#cfd8e3;
+
+}
+
+.multi-cost-row.flawless{
+
+    color:#ffd84d;
+
+}
+
     /* Shop Header Themes */
 
 details[data-shop="Gem Shop"] summary{
@@ -1134,18 +1179,95 @@ u.multi
 ?
 `
 <div>
-    <strong>Rusty Scrap:</strong>
-    ${fmt(multiCostBetween(u.rusty,s.current,t))}
+
+    <strong>Cost To Target</strong>
+
+    <div class="multi-cost-row rusty">
+        <span>Rusty Scrap</span>
+        <span>
+            ${fmt(
+                multiCostBetween(
+                    u.rusty,
+                    s.current,
+                    t
+                )
+            )}
+        </span>
+    </div>
+
+    <div class="multi-cost-row sturdy">
+        <span>Sturdy Scrap</span>
+        <span>
+            ${fmt(
+                multiCostBetween(
+                    u.sturdy,
+                    s.current,
+                    t
+                )
+            )}
+        </span>
+    </div>
+
+    <div class="multi-cost-row flawless">
+        <span>Flawless Scrap</span>
+        <span>
+            ${fmt(
+                multiCostBetween(
+                    u.flawless,
+                    s.current,
+                    t
+                )
+            )}
+        </span>
+    </div>
+
 </div>
 
-<div>
-    <strong>Sturdy Scrap:</strong>
-    ${fmt(multiCostBetween(u.sturdy,s.current,t))}
-</div>
+<hr class="cost-divider">
 
 <div>
-    <strong>Flawless Scrap:</strong>
-    ${fmt(multiCostBetween(u.flawless,s.current,t))}
+
+    <strong>Cost To Max</strong>
+
+    <div class="multi-cost-row rusty">
+        <span>Rusty Scrap</span>
+        <span>
+            ${fmt(
+                multiCostBetween(
+                    u.rusty,
+                    s.current,
+                    u.m
+                )
+            )}
+        </span>
+    </div>
+
+    <div class="multi-cost-row sturdy">
+        <span>Sturdy Scrap</span>
+        <span>
+            ${fmt(
+                multiCostBetween(
+                    u.sturdy,
+                    s.current,
+                    u.m
+                )
+            )}
+        </span>
+    </div>
+
+    <div class="multi-cost-row flawless">
+        <span>Flawless Scrap</span>
+        <span>
+            ${fmt(
+                multiCostBetween(
+                    u.flawless,
+                    s.current,
+                    u.m
+                )
+            )}
+        </span>
+    </div>
+
 </div>
 `
 :
