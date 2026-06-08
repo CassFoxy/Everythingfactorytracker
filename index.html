@@ -90,8 +90,64 @@ input,button{
     transition:
         width .25s ease;
 }
-.links{position:fixed;right:20px;top:20px;display:flex;flex-direction:column;gap:12px}.links img{width:60px;border-radius:14px}
-summary{cursor:pointer;font-weight:700}
+
+/* Currency Cards */
+
+.currency-card{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.currency-icon{
+    width:42px;
+    height:42px;
+    object-fit:contain;
+}
+
+.currency-name{
+    color:var(--muted);
+    font-size:.9rem;
+}
+
+.currency-value{
+    font-size:1.2rem;
+    font-weight:700;
+}
+
+/* Currency Labels */
+
+.currency-label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--muted);
+}
+
+.mini-currency-icon{
+    width:22px;
+    height:22px;
+    object-fit:contain;
+}
+
+.links{
+    position:fixed;
+    right:20px;
+    top:20px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+.links img{
+    width:60px;
+    border-radius:14px;
+}
+
+summary{
+    cursor:pointer;
+    font-weight:700;
+}
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}.links{position:static;flex-direction:row;justify-content:center}}
 </style>
 </head>
@@ -260,7 +316,29 @@ html+=`
 
     <div class="upgrade-title">${u.n}</div>
 
-    <div class="currency-label">${u.cur}</div>
+<div class="currency-label">
+
+    <img
+        src="${
+            u.cur==="Gems"
+            ? "Gem.png"
+
+            : u.cur==="Stardust"
+            ? "Dust.png"
+
+            : u.cur==="Rusty Scrap"
+            ? "LowScrap.png"
+
+            : u.cur==="Sturdy Scrap"
+            ? "MidScrap.png"
+
+            : "HighScrap.png"
+        }"
+        class="mini-currency-icon">
+
+    ${u.cur}
+
+</div>
 
     <div class="input-group">
         <label>Current Level</label>
@@ -520,8 +598,43 @@ let afk=0;
 let overall=0;
 upgrades.forEach((u,i)=>{let s=save[i]||{current:0,target:u.m};let t=Math.max(s.current,Math.min(u.m,s.target));let c=costBetween(u,s.current,t);currencyTotals[u.cur] =
     (currencyTotals[u.cur] || 0) + c;if(u.afk)afk+=c;overall+=s.current/u.m});
+const currencyIcons = {
+
+    "Gems":"Gem.png",
+    "Stardust":"Dust.png",
+
+    "Rusty Scrap":"LowScrap.png",
+    "Sturdy Scrap":"MidScrap.png",
+    "Flawless Scrap":"HighScrap.png"
+
+};
+
 document.getElementById("totals").innerHTML =
-Object.entries(currencyTotals).map(([k,v])=>`<div class=card><b>${k}</b><br>${fmt(v)}</div>`).join('');
+Object.entries(currencyTotals)
+.map(([k,v])=>`
+
+<div class="card currency-card">
+
+    <img
+        src="${currencyIcons[k]}"
+        class="currency-icon">
+
+    <div>
+
+        <div class="currency-name">
+            ${k}
+        </div>
+
+        <div class="currency-value">
+            ${fmt(v)}
+        </div>
+
+    </div>
+
+</div>
+
+`)
+.join('');
 let reb=Math.ceil(afk/(+spr.value||1)); document.getElementById('reb').textContent=fmt(reb);
 let totalSeconds =
     reb * (+sec.value || 1);
