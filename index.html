@@ -403,6 +403,43 @@ input,button{
     font-weight:700;
 }
 
+.dashboard-row{
+
+    display:grid;
+
+    grid-template-columns:
+        0.9fr
+        1.1fr;
+
+    gap:12px;
+
+}
+
+.afk-card{
+
+    border-color:
+        rgba(181,124,255,.25);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(181,124,255,.08),
+            rgba(4,12,28,.65)
+        );
+
+}
+
+@media(max-width:900px){
+
+    .dashboard-row{
+
+        grid-template-columns:
+            1fr;
+
+    }
+
+}
+
 /* Currency Labels */
 
 .currency-label{
@@ -450,22 +487,44 @@ summary{
 
 <div class="card"><input id="search" placeholder="Search upgrades..."></div>
 
-<div class="card completion-card">
+<div class="dashboard-row">
 
-    <h3 class="completion-title">
-        Completion Overview
-    </h3>
+    <div class="card completion-card">
+        <h3 class="completion-title">
+            Completion Overview
+        </h3>
 
-    <div id="completion"></div>
+        <div id="completion"></div>
+    </div>
 
-</div>
-<div class="card stats" id="totals"></div>
+    <div class="card afk-card">
 
-<div class="card stats">
-<div><b>Stardust/Rebirth</b><input id="spr" value="1" type="number"></div>
-<div><b>Seconds/Rebirth</b><input id="sec" value="1" type="number"></div>
-<div><b>Rebirths Needed</b><div id="reb">0</div></div>
-<div><b>AFK Time</b><div id="afk">0</div></div>
+        <div class="stats">
+
+            <div>
+                <b>Stardust/Rebirth</b>
+                <input id="spr" value="1" type="number">
+            </div>
+
+            <div>
+                <b>Seconds/Rebirth</b>
+                <input id="sec" value="1" type="number">
+            </div>
+
+            <div>
+                <b>Rebirths Needed</b>
+                <div id="reb">0</div>
+            </div>
+
+            <div>
+                <b>AFK Time</b>
+                <div id="afk">0</div>
+            </div>
+
+        </div>
+
+    </div>
+
 </div>
 
 <div class="card stats">
