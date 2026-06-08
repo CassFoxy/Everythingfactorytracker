@@ -858,6 +858,88 @@ summary{
     user-select:none;
 
 }
+
+    .progression-card{
+
+    border-color:
+        rgba(251,191,36,.25);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(251,191,36,.08),
+            rgba(4,12,28,.65)
+        );
+
+    transition:
+        transform .2s ease,
+        box-shadow .2s ease;
+
+}
+
+.progression-card:hover{
+
+    transform:
+        translateY(-2px);
+
+    box-shadow:
+        0 0 20px
+        rgba(251,191,36,.18);
+
+}
+
+.progress-stage{
+
+    font-size:1.2rem;
+
+    font-weight:700;
+
+    color:#fbbf24;
+
+    margin-bottom:10px;
+
+}
+
+.progress-goal{
+
+    color:#cbd5e1;
+
+    margin-bottom:14px;
+
+}
+
+.roadmap{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:6px;
+
+}
+
+.roadmap-item{
+
+    padding:6px 10px;
+
+    border-radius:8px;
+
+    background:
+        rgba(255,255,255,.03);
+
+}
+
+.complete{
+
+    color:#22c55e;
+
+}
+
+.incomplete{
+
+    color:#94a3b8;
+
+}
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
 </style>
 </head>
@@ -951,6 +1033,16 @@ summary{
         </div>
 
     </div>
+
+</div>
+
+<div class="card progression-card">
+
+    <h3 class="completion-title">
+        🎯 Progression Assistant
+    </h3>
+
+    <div id="progressionGuide"></div>
 
 </div>
 
@@ -1642,6 +1734,120 @@ if(!u.multi){
     update(shopProg);
 
 }
+
+    function getProgressionData(){
+
+    const perm =
+        save[12]?.current || 0;
+
+    const scrapBoost =
+        save[13]?.current || 0;
+
+    const rustPowered =
+        save[24]?.current || 0;
+
+    let completion = 0;
+
+    upgrades.forEach((u,i)=>{
+
+        let s =
+            save[i]?.current || 0;
+
+        completion +=
+            s / u.m;
+
+    });
+
+    completion =
+        completion /
+        upgrades.length *
+        100;
+
+    if(perm < 1){
+
+        return{
+
+            stage:"PRE-PERMANENT",
+
+            goal:
+            "Make your setup permanent and focus on Gem Chance and Mutation Luck.",
+
+            checklist:[
+                [false,"Full Permanent Setup"],
+                [false,"Full Gold Setup"],
+                [false,"Full Akashic Setup"],
+                [false,"Max Scrap Boost"],
+                [false,"Max Rust Powered Dust"],
+                [false,"Scrapyard Gold Collection"]
+            ]
+
+        };
+
+    }
+
+    if(completion < 70){
+
+        return{
+
+            stage:"PRE-FULL GOLD",
+
+            goal:
+            "Convert your setup into Gold items and begin rolling Akashics.",
+
+            checklist:[
+                [true,"Full Permanent Setup"],
+                [false,"Full Gold Setup"],
+                [false,"Full Akashic Setup"],
+                [false,"Max Scrap Boost"],
+                [false,"Max Rust Powered Dust"],
+                [false,"Scrapyard Gold Collection"]
+            ]
+
+        };
+
+    }
+
+    if(scrapBoost < 20 || rustPowered < 50){
+
+        return{
+
+            stage:"AKASHIC",
+
+            goal:
+            "Focus Scrap Boost, Rust-powered Dust and converting Golds to Akashics.",
+
+            checklist:[
+                [true,"Full Permanent Setup"],
+                [true,"Full Gold Setup"],
+                [false,"Full Akashic Setup"],
+                [scrapBoost>=20,"Max Scrap Boost"],
+                [rustPowered>=50,"Max Rust Powered Dust"],
+                [false,"Scrapyard Gold Collection"]
+            ]
+
+        };
+
+    }
+
+    return{
+
+        stage:"ENDGAME",
+
+        goal:
+        "Collect Scrapyard Golds and push rebirths forever.",
+
+        checklist:[
+            [true,"Full Permanent Setup"],
+            [true,"Full Gold Setup"],
+            [true,"Full Akashic Setup"],
+            [true,"Max Scrap Boost"],
+            [true,"Max Rust Powered Dust"],
+            [false,"Scrapyard Gold Collection"]
+        ]
+
+    };
+
+}
 function update(shopProg){
 
 let currencyTotals = {
@@ -1820,6 +2026,59 @@ ${
     `)
     .join('')
 }
+`;
+
+    const prog =
+    getProgressionData();
+
+document.getElementById(
+    "progressionGuide"
+).innerHTML = `
+
+<div class="progress-stage">
+
+    ${prog.stage}
+
+</div>
+
+<div class="progress-goal">
+
+    ${prog.goal}
+
+</div>
+
+<div class="roadmap">
+
+${prog.checklist.map(item=>`
+
+<div class="
+    roadmap-item
+    ${item[0]
+        ? "complete"
+        : "incomplete"}
+">
+
+    ${item[0]
+        ? "☑"
+        : "☐"}
+
+    ${item[1]}
+
+</div>
+
+`).join("")}
+
+</div>
+
+<div style="
+    margin-top:12px;
+    font-size:.8rem;
+    color:#64748b;
+">
+
+    Based on ETOH95's Progression Guide
+
+</div>
 `;
 }
 search.oninput = render;
