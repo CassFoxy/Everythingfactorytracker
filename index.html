@@ -119,9 +119,94 @@ input,button{
 /* Currency Cards */
 
 .currency-card{
+
     display:flex;
     align-items:center;
     gap:12px;
+
+    transition:
+        transform .2s ease,
+        box-shadow .2s ease;
+
+}
+
+    .currency-card.gems{
+    border-color:rgba(103,217,255,.35);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(103,217,255,.06),
+            rgba(4,12,28,.65)
+        );
+}
+
+.currency-card.stardust{
+    border-color:rgba(181,124,255,.35);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(181,124,255,.06),
+            rgba(4,12,28,.65)
+        );
+}
+
+.currency-card.rusty{
+    border-color:rgba(211,154,82,.35);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(211,154,82,.06),
+            rgba(4,12,28,.65)
+        );
+}
+
+.currency-card.sturdy{
+    border-color:rgba(207,216,227,.35);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(207,216,227,.06),
+            rgba(4,12,28,.65)
+        );
+}
+
+.currency-card.flawless{
+    border-color:rgba(255,216,77,.35);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255,216,77,.06),
+            rgba(4,12,28,.65)
+        );
+}
+
+    .currency-card:hover{
+    transform:translateY(-2px);
+}
+
+.currency-card.gems:hover{
+    box-shadow:0 0 20px rgba(103,217,255,.18);
+}
+
+.currency-card.stardust:hover{
+    box-shadow:0 0 20px rgba(181,124,255,.18);
+}
+
+.currency-card.rusty:hover{
+    box-shadow:0 0 20px rgba(211,154,82,.18);
+}
+
+.currency-card.sturdy:hover{
+    box-shadow:0 0 20px rgba(207,216,227,.18);
+}
+
+.currency-card.flawless:hover{
+    box-shadow:0 0 20px rgba(255,216,77,.18);
 }
 
 .currency-icon{
@@ -223,6 +308,67 @@ input,button{
         border-color .2s ease;
 }
 
+    /* Completion Overview */
+
+.completion-card{
+
+    border-color:
+        rgba(59,130,246,.25);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(59,130,246,.08),
+            rgba(4,12,28,.65)
+        );
+
+}
+
+.completion-title{
+
+    color:#93c5fd;
+
+    text-shadow:
+        0 0 12px
+        rgba(147,197,253,.35);
+
+}
+
+/* Completion Rows */
+
+.shop-complete{
+
+    display:flex;
+    justify-content:space-between;
+
+    margin-top:8px;
+
+    color:var(--muted);
+
+}
+
+.shop-complete span{
+
+    color:#60a5fa;
+
+    font-weight:700;
+
+}
+
+    .completion-card{
+    transition:
+        transform .2s ease,
+        box-shadow .2s ease;
+}
+
+.completion-card:hover{
+    transform:translateY(-2px);
+
+    box-shadow:
+        0 0 20px
+        rgba(59,130,246,.18);
+}
+
 .upgrade-card:hover{
     transform:translateY(-3px);
 }
@@ -304,7 +450,15 @@ summary{
 
 <div class="card"><input id="search" placeholder="Search upgrades..."></div>
 
-<div class="card"><h3>Completion Overview</h3><div id="completion"></div></div>
+<div class="card completion-card">
+
+    <h3 class="completion-title">
+        Completion Overview
+    </h3>
+
+    <div id="completion"></div>
+
+</div>
 <div class="card stats" id="totals"></div>
 
 <div class="card stats">
@@ -794,7 +948,26 @@ document.getElementById("totals").innerHTML =
 Object.entries(currencyTotals)
 .map(([k,v])=>`
 
-<div class="card currency-card">
+<div class="
+    card
+    currency-card
+
+    ${
+        k==="Gems"
+        ? "gems"
+
+        : k==="Stardust"
+        ? "stardust"
+
+        : k==="Rusty Scrap"
+        ? "rusty"
+
+        : k==="Sturdy Scrap"
+        ? "sturdy"
+
+        : "flawless"
+    }
+">
 
     <img
         src="${currencyIcons[k]}"
@@ -851,7 +1024,38 @@ let rawHours =
 
 document.getElementById('afk').textContent =
     `${days}d ${hours}h ${minutes}m (${rawHours.toFixed(1)} hrs)`;
-completion.innerHTML=`Account Completion: ${(overall/upgrades.length*100).toFixed(1)}%<br>`+Object.entries(shopProg).map(([k,v])=>`${k}: ${v}%`).join('<br>');
+completion.innerHTML = `
+
+<div class="shop-complete">
+<strong style="
+    color:#93c5fd;
+    font-size:1.1rem;
+">
+    Account Completion
+</strong>
+    <span>
+        ${(overall/upgrades.length*100).toFixed(1)}%
+    </span>
+</div>
+
+${
+    Object.entries(shopProg)
+    .map(([k,v])=>`
+
+        <div class="shop-complete">
+
+            ${k}
+
+            <span>
+                ${v}%
+            </span>
+
+        </div>
+
+    `)
+    .join('')
+}
+`;
 }
 search.oninput=render; spr.oninput=()=>update({}); sec.oninput=()=>update({});
 render();
