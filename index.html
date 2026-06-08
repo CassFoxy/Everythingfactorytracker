@@ -515,12 +515,142 @@ summary{
     font-size:1.15rem;
     padding:4px 0;
 }
+
+    .social-links{
+
+    display:flex;
+
+    justify-content:center;
+
+    gap:20px;
+
+    margin-bottom:20px;
+
+    flex-wrap:wrap;
+
+}
+
+.social-links a{
+
+    display:flex;
+
+    flex-direction:column;
+
+    align-items:center;
+
+    text-decoration:none;
+
+    color:white;
+
+    transition:.2s ease;
+
+}
+
+.social-links a:hover{
+
+    transform:translateY(-3px);
+
+}
+
+.social-links img{
+
+    width:60px;
+    height:60px;
+
+    padding:8px;
+
+    border-radius:14px;
+
+    background:
+        rgba(4,12,28,.75);
+
+    backdrop-filter:
+        blur(12px);
+
+    border:
+        1px solid
+        rgba(255,255,255,.08);
+
+}
+
+.social-links span{
+
+    margin-top:6px;
+
+    font-size:.8rem;
+
+    font-weight:600;
+
+}
+
+    .watermark{
+
+    text-align:center;
+
+    padding:30px 0;
+
+    color:
+        rgba(255,255,255,.15);
+
+    font-size:13px;
+
+    font-weight:700;
+
+    letter-spacing:3px;
+
+    text-transform:uppercase;
+
+    text-shadow:
+        0 0 10px
+        rgba(0,180,255,.25);
+        
+        transition:.25s ease;
+
+}
+
+    .watermark:hover{
+
+    color:
+        rgba(255,255,255,.35);
+
+}
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}.links{position:static;flex-direction:row;justify-content:center}}
 </style>
 </head>
 <body>
 <div class="container">
 <img src="community_logo.png" class="logo">
+
+<div class="social-links">
+
+    <a
+        href="https://the-everything-factory.fandom.com/wiki/The_Everything_Factory_Wiki"
+        target="_blank">
+
+        <img src="fandom.png">
+        <span>Wiki</span>
+
+    </a>
+
+    <a
+        href="https://www.reddit.com/r/TheEverythingFactory/"
+        target="_blank">
+
+        <img src="Reddit_Logo.png">
+        <span>Reddit</span>
+
+    </a>
+
+    <a
+        href="https://discord.com/invite/gfRaJwXhJn"
+        target="_blank">
+
+        <img src="DiscordLogo.png">
+        <span>Discord</span>
+
+    </a>
+
+</div>
 <div class="links">
 <img src="fandom.png"><img src="Reddit_Logo.png"><img src="DiscordLogo.png">
 </div>
@@ -605,6 +735,14 @@ summary{
 
 </div>
 <div id="shops"></div>
+
+<footer class="watermark">
+
+    Created by CassFoxy
+    •
+    Everything Factory Tracker
+
+</footer>
 </div>
 
 <script>
