@@ -244,6 +244,124 @@ input,button{
     text-shadow:0 0 8px rgba(255,216,77,.4);
 }
 
+    /* Shop Header Themes */
+
+details[data-shop="Gem Shop"] summary{
+
+    color:#67d9ff;
+
+    text-shadow:
+        0 0 10px
+        rgba(103,217,255,.35);
+
+}
+
+details[data-shop="Stardust Shop"] summary{
+
+    color:#b57cff;
+
+    text-shadow:
+        0 0 10px
+        rgba(181,124,255,.35);
+
+}
+
+details[data-shop="Junkyard Shop"] summary{
+
+    color:#7dd3fc;
+
+    text-shadow:
+        0 0 10px
+        rgba(125,211,252,.35);
+
+}
+
+details[data-shop="Scrap Shop"] summary{
+
+    color:#ffd84d;
+
+    text-shadow:
+        0 0 10px
+        rgba(255,216,77,.35);
+
+}
+
+    details[data-shop="Gem Shop"]{
+
+    border-color:
+        rgba(103,217,255,.25);
+
+}
+
+details[data-shop="Stardust Shop"]{
+
+    border-color:
+        rgba(181,124,255,.25);
+
+}
+
+details[data-shop="Junkyard Shop"]{
+
+    border-color:
+        rgba(125,211,252,.25);
+
+}
+
+details[data-shop="Scrap Shop"]{
+
+    border-color:
+        rgba(255,216,77,.25);
+
+}
+
+    details{
+
+    transition:
+        border-color .2s ease,
+        box-shadow .2s ease;
+
+}
+
+details:hover{
+
+    box-shadow:
+        0 0 18px
+        rgba(255,255,255,.05);
+
+}
+
+details[data-shop="Gem Shop"]:hover{
+
+    box-shadow:
+        0 0 24px
+        rgba(103,217,255,.15);
+
+}
+
+details[data-shop="Stardust Shop"]:hover{
+
+    box-shadow:
+        0 0 24px
+        rgba(181,124,255,.15);
+
+}
+
+details[data-shop="Junkyard Shop"]:hover{
+
+    box-shadow:
+        0 0 24px
+        rgba(125,211,252,.15);
+
+}
+
+details[data-shop="Scrap Shop"]:hover{
+
+    box-shadow:
+        0 0 24px
+        rgba(255,216,77,.15);
+
+}
+
     /* Currency Themed Upgrade Cards */
 
 .upgrade-card.gems{
@@ -495,20 +613,6 @@ input,button{
     object-fit:contain;
 }
 
-.links{
-    position:fixed;
-    right:20px;
-    top:20px;
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-}
-
-.links img{
-    width:60px;
-    border-radius:14px;
-}
-
 summary{
     cursor:pointer;
     font-weight:700;
@@ -650,9 +754,6 @@ summary{
 
     </a>
 
-</div>
-<div class="links">
-<img src="fandom.png"><img src="Reddit_Logo.png"><img src="DiscordLogo.png">
 </div>
 
 <div class="card"><input id="search" placeholder="Search upgrades..."></div>
@@ -860,9 +961,26 @@ html+=`
     data-shop="${cat}"
     ${openShops[cat] ? "open" : ""}>
 
-    <summary>
-        ${cat} (${list.length} upgrades)
-    </summary>
+<summary>
+
+    ${
+        cat==="Gem Shop"
+        ? "💎"
+
+        : cat==="Stardust Shop"
+        ? "✨"
+
+        : cat==="Junkyard Shop"
+        ? "📦"
+
+        : "⚙️"
+    }
+
+    ${cat}
+
+    (${list.length} upgrades)
+
+</summary>
 
     <div class="grid">
 `;
