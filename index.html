@@ -309,7 +309,7 @@ input,button{
 }
 
     /* Completion Overview */
-
+    
 .completion-card{
 
     border-color:
@@ -321,6 +321,10 @@ input,button{
             rgba(59,130,246,.08),
             rgba(4,12,28,.65)
         );
+
+    align-self:start;
+
+    height:auto;
 
 }
 
@@ -408,10 +412,12 @@ input,button{
     display:grid;
 
     grid-template-columns:
-        0.9fr
-        1.1fr;
+        0.8fr
+        1.2fr;
 
     gap:12px;
+
+    align-items:start;
 
 }
 
@@ -426,6 +432,40 @@ input,button{
             rgba(181,124,255,.08),
             rgba(4,12,28,.65)
         );
+
+}
+
+    .afk-grid{
+
+    display:grid;
+
+    grid-template-columns:
+        1fr
+        1fr;
+
+    gap:16px;
+
+}
+
+.afk-grid b{
+
+    display:block;
+
+    margin-bottom:6px;
+
+}
+
+    .afk-result{
+
+    font-size:1.35rem;
+
+    font-weight:700;
+
+    color:#b57cff;
+
+    text-shadow:
+        0 0 10px
+        rgba(181,124,255,.35);
 
 }
 
@@ -497,9 +537,13 @@ summary{
         <div id="completion"></div>
     </div>
 
-    <div class="card afk-card">
+<div class="card afk-card">
 
-        <div class="stats">
+    <h3 class="completion-title">
+        ✨ AFK Calculator
+    </h3>
+
+    <div class="afk-grid">
 
             <div>
                 <b>Stardust/Rebirth</b>
@@ -513,12 +557,24 @@ summary{
 
             <div>
                 <b>Rebirths Needed</b>
-                <div id="reb">0</div>
+<div
+    id="reb"
+    class="afk-result">
+
+    0
+
+</div>
             </div>
 
             <div>
                 <b>AFK Time</b>
-                <div id="afk">0</div>
+<div
+    id="afk"
+    class="afk-result">
+
+    0
+
+</div>
             </div>
 
         </div>
