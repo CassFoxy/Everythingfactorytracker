@@ -485,12 +485,6 @@ details[open][data-shop="Scrap Shop"]{
 
 }
 
-    box-shadow:
-        0 0 18px
-        rgba(255,255,255,.05);
-
-}
-
 details[data-shop="Gem Shop"]:hover{
 
     box-shadow:
@@ -1193,7 +1187,11 @@ Object.entries(groups).forEach(([cat,list])=>{
         .toFixed(1);
 
 });
- let avg=0;
+
+for(let [cat,list] of Object.entries(groups)){
+
+let avg=0;
+
 html+=`
 <details
     data-shop="${cat}"
@@ -1506,9 +1504,9 @@ u.multi
 </div>
 `;
  });
- shopProg[cat]=(avg/list.length*100).toFixed(1);
- html+='</div></details>';
+html+='</div></details>';
 }
+
 shops.innerHTML=html;
 
 document
