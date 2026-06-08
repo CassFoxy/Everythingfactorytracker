@@ -288,7 +288,26 @@ input,button{
     color:#ffd84d;
 
 }
+details{
+    position:relative;
+}
 
+details::before{
+
+    content:"";
+
+    position:absolute;
+
+    left:0;
+    right:0;
+    top:0;
+
+    height:3px;
+
+    border-radius:
+        18px 18px 0 0;
+
+}
     /* Shop Header Themes */
 
 details[data-shop="Gem Shop"] summary{
@@ -330,11 +349,24 @@ details[data-shop="Scrap Shop"] summary{
         rgba(255,216,77,.35);
 
 }
-
-    details[data-shop="Gem Shop"]{
+    
+details[data-shop="Gem Shop"]{
 
     border-color:
         rgba(103,217,255,.25);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(103,217,255,.03),
+            rgba(4,12,28,.65)
+        );
+
+}
+
+details[data-shop="Gem Shop"]::before{
+
+    background:#67d9ff;
 
 }
 
@@ -343,6 +375,19 @@ details[data-shop="Stardust Shop"]{
     border-color:
         rgba(181,124,255,.25);
 
+    background:
+        linear-gradient(
+            135deg,
+            rgba(181,124,255,.03),
+            rgba(4,12,28,.65)
+        );
+
+}
+
+details[data-shop="Stardust Shop"]::before{
+
+    background:#b57cff;
+
 }
 
 details[data-shop="Junkyard Shop"]{
@@ -350,12 +395,38 @@ details[data-shop="Junkyard Shop"]{
     border-color:
         rgba(125,211,252,.25);
 
+    background:
+        linear-gradient(
+            135deg,
+            rgba(125,211,252,.03),
+            rgba(4,12,28,.65)
+        );
+
+}
+
+details[data-shop="Junkyard Shop"]::before{
+
+    background:#7dd3fc;
+
 }
 
 details[data-shop="Scrap Shop"]{
 
     border-color:
         rgba(255,216,77,.25);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255,216,77,.03),
+            rgba(4,12,28,.65)
+        );
+
+}
+
+details[data-shop="Scrap Shop"]::before{
+
+    background:#ffd84d;
 
 }
 
@@ -368,6 +439,44 @@ details[data-shop="Scrap Shop"]{
 }
 
 details:hover{
+    details[open]{
+
+    transition:
+        box-shadow .25s ease;
+
+}
+
+details[open][data-shop="Gem Shop"]{
+
+    box-shadow:
+        0 0 28px
+        rgba(103,217,255,.15);
+
+}
+
+details[open][data-shop="Stardust Shop"]{
+
+    box-shadow:
+        0 0 28px
+        rgba(181,124,255,.15);
+
+}
+
+details[open][data-shop="Junkyard Shop"]{
+
+    box-shadow:
+        0 0 28px
+        rgba(125,211,252,.15);
+
+}
+
+details[open][data-shop="Scrap Shop"]{
+
+    box-shadow:
+        0 0 28px
+        rgba(255,216,77,.15);
+
+}
 
     box-shadow:
         0 0 18px
@@ -763,6 +872,27 @@ summary{
         rgba(255,255,255,.35);
 
 }
+
+    .shop-watermark{
+
+    position:absolute;
+
+    right:25px;
+
+    top:50%;
+
+    transform:
+        translateY(-50%);
+
+    font-size:120px;
+
+    opacity:.03;
+
+    pointer-events:none;
+
+    user-select:none;
+
+}
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
 </style>
 </head>
@@ -1033,8 +1163,29 @@ function persist(){localStorage.setItem("efv2release",JSON.stringify(save))}
 function render(){
 let q=search.value.toLowerCase(),groups={};
 upgrades.forEach((u,i)=>{if(q&&!u.n.toLowerCase().includes(q))return;(groups[u.c]??=[]).push([u,i])});
-let html=''; let shopProg={};
-for(let [cat,list] of Object.entries(groups)){
+let html='';
+let shopProg={};
+
+Object.entries(groups).forEach(([cat,list])=>{
+
+    let avg=0;
+
+    list.forEach(([u,i])=>{
+
+        let s=save[i]||{
+            current:0,
+            target:u.m
+        };
+
+        avg += s.current/u.m;
+
+    });
+
+    shopProg[cat] =
+        (avg/list.length*100)
+        .toFixed(1);
+
+});
  let avg=0;
 html+=`
 <details
@@ -1051,18 +1202,37 @@ html+=`
         ? "✨"
 
         : cat==="Junkyard Shop"
-        ? "📦"
+? "🏆"
 
-        : "⚙️"
+: "🔩"
     }
 
-    ${cat}
+${cat}
 
-    (${list.length} upgrades)
+• ${shopProg[cat]}%
+
+(${list.length} upgrades)
 
 </summary>
 
-    <div class="grid">
+<div class="shop-watermark">
+
+${
+    cat==="Gem Shop"
+    ? "💎"
+
+    : cat==="Stardust Shop"
+    ? "✨"
+
+    : cat==="Junkyard Shop"
+    ? "🏆"
+
+    : "🔩"
+}
+
+</div>
+
+<div class="grid">
 `;
  list.forEach(([u,i])=>{
   let s=save[i]||{current:0,target:u.m}; let t=Math.max(s.current,Math.min(u.m,s.target)); avg+=s.current/u.m;
