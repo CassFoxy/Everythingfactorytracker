@@ -1822,6 +1822,10 @@ ${
 }
 `;
 }
-search.oninput=render; spr.oninput=()=>update({}); sec.oninput=()=>update({});
+search.oninput = render;
+
+spr.oninput = recalculate;
+
+sec.oninput = recalculate;
 render();
 </script></body></html>
