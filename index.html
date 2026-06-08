@@ -2051,12 +2051,66 @@ ${
 }
 `;
 
-    const prog =
+const prog =
     getProgressionData();
+
 document.getElementById(
     "progressionGuide"
 ).innerHTML = `
-...
+
+<div class="progress-stage">
+
+    ${prog.stage}
+
+</div>
+
+<div class="progress-goal">
+
+    ${prog.goal}
+
+</div>
+
+<div class="roadmap">
+
+${prog.checklist.map(item=>`
+
+<label class="
+    roadmap-item
+    ${
+        progressionChecks[item]
+        ? "complete"
+        : "incomplete"
+    }
+">
+
+    <input
+        type="checkbox"
+        data-progress="${item}"
+        ${
+            progressionChecks[item]
+            ? "checked"
+            : ""
+        }
+    >
+
+    ${item}
+
+</label>
+
+`).join("")}
+
+</div>
+
+<div style="
+    margin-top:12px;
+    font-size:.8rem;
+    color:#64748b;
+">
+
+    Based on ETOH95's Progression Guide
+
+</div>
+
 `;
 
 document
