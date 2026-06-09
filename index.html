@@ -838,6 +838,12 @@ summary{
 
 }
 
+    .shop-percent{
+
+    font-weight:700;
+
+}
+
     .shop-watermark{
 
     position:absolute;
@@ -1291,10 +1297,16 @@ html+=`
 
 : "🔩"
     }
-
+    
 ${cat}
 
-• ${shopProg[cat]}%
+• <span
+    class="shop-percent"
+    id="shop-progress-${cat.replaceAll(' ','-')}">
+
+    ${shopProg[cat]}
+
+</span>%
 
 (${list.length} upgrades)
 
@@ -1861,11 +1873,22 @@ if(!u.multi){
 
         });
 
-        shopProg[cat] =
-            (avg / list.length * 100)
-            .toFixed(1);
+        
+shopProg[cat] =
+    (avg / list.length * 100)
+    .toFixed(1);
 
-    }
+const shopPercent =
+    document.getElementById(
+        `shop-progress-${cat.replaceAll(' ','-')}`
+    );
+
+if(shopPercent){
+
+    shopPercent.textContent =
+        shopProg[cat];
+
+}
 
     update(shopProg);
 
