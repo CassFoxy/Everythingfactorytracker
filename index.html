@@ -1437,22 +1437,22 @@ u.multi
 
     <strong>Cost To Target</strong>
 
-    <div class="multi-cost-row rusty">
-        <span>Rusty Scrap</span>
-        <span>
-            ${fmt(
-                multiCostBetween(
-                    u.rusty,
-                    s.current,
-                    t
-                )
-            )}
-        </span>
-    </div>
+<div class="multi-cost-row rusty">
+    <span>Rusty Scrap</span>
+    <span id="rusty-target-${i}">
+        ${fmt(
+            multiCostBetween(
+                u.rusty,
+                s.current,
+                t
+            )
+        )}
+    </span>
+</div>
 
-    <div class="multi-cost-row sturdy">
-        <span>Sturdy Scrap</span>
-        <span>
+<div class="multi-cost-row sturdy">
+    <span>Sturdy Scrap</span>
+    <span id="sturdy-target-${i}">
             ${fmt(
                 multiCostBetween(
                     u.sturdy,
@@ -1463,9 +1463,9 @@ u.multi
         </span>
     </div>
 
-    <div class="multi-cost-row flawless">
-        <span>Flawless Scrap</span>
-        <span>
+<div class="multi-cost-row flawless">
+    <span>Flawless Scrap</span>
+    <span id="flawless-target-${i}">
             ${fmt(
                 multiCostBetween(
                     u.flawless,
@@ -1484,9 +1484,9 @@ u.multi
 
     <strong>Cost To Max</strong>
 
-    <div class="multi-cost-row rusty">
-        <span>Rusty Scrap</span>
-        <span>
+<div class="multi-cost-row rusty">
+    <span>Rusty Scrap</span>
+    <span id="rusty-max-${i}">
             ${fmt(
                 multiCostBetween(
                     u.rusty,
@@ -1497,9 +1497,9 @@ u.multi
         </span>
     </div>
 
-    <div class="multi-cost-row sturdy">
-        <span>Sturdy Scrap</span>
-        <span>
+<div class="multi-cost-row sturdy">
+    <span>Sturdy Scrap</span>
+    <span id="sturdy-max-${i}">
             ${fmt(
                 multiCostBetween(
                     u.sturdy,
@@ -1510,9 +1510,9 @@ u.multi
         </span>
     </div>
 
-    <div class="multi-cost-row flawless">
-        <span>Flawless Scrap</span>
-        <span>
+<div class="multi-cost-row flawless">
+    <span>Flawless Scrap</span>
+    <span id="flawless-max-${i}">
             ${fmt(
                 multiCostBetween(
                     u.flawless,
@@ -1705,6 +1705,118 @@ if(progress){
     progress.textContent =
         pct.toFixed(1) +
         "% Complete";
+}
+
+            if(u.multi){
+
+    const rustyTarget =
+        document.getElementById(
+            `rusty-target-${i}`
+        );
+
+    if(rustyTarget){
+
+        rustyTarget.textContent =
+            fmt(
+                multiCostBetween(
+                    u.rusty,
+                    s.current,
+                    t
+                )
+            );
+
+    }
+
+    const sturdyTarget =
+        document.getElementById(
+            `sturdy-target-${i}`
+        );
+
+    if(sturdyTarget){
+
+        sturdyTarget.textContent =
+            fmt(
+                multiCostBetween(
+                    u.sturdy,
+                    s.current,
+                    t
+                )
+            );
+
+    }
+
+    const flawlessTarget =
+        document.getElementById(
+            `flawless-target-${i}`
+        );
+
+    if(flawlessTarget){
+
+        flawlessTarget.textContent =
+            fmt(
+                multiCostBetween(
+                    u.flawless,
+                    s.current,
+                    t
+                )
+            );
+
+    }
+
+    const rustyMax =
+        document.getElementById(
+            `rusty-max-${i}`
+        );
+
+    if(rustyMax){
+
+        rustyMax.textContent =
+            fmt(
+                multiCostBetween(
+                    u.rusty,
+                    s.current,
+                    u.m
+                )
+            );
+
+    }
+
+    const sturdyMax =
+        document.getElementById(
+            `sturdy-max-${i}`
+        );
+
+    if(sturdyMax){
+
+        sturdyMax.textContent =
+            fmt(
+                multiCostBetween(
+                    u.sturdy,
+                    s.current,
+                    u.m
+                )
+            );
+
+    }
+
+    const flawlessMax =
+        document.getElementById(
+            `flawless-max-${i}`
+        );
+
+    if(flawlessMax){
+
+        flawlessMax.textContent =
+            fmt(
+                multiCostBetween(
+                    u.flawless,
+                    s.current,
+                    u.m
+                )
+            );
+
+    }
+
 }
 
 if(!u.multi){
