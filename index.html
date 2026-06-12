@@ -1118,6 +1118,7 @@ const upgrades=[
 {c:"Stardust Shop",cur:"Stardust",n:"Level Preservation",m:25,f:l=>2*l*l},
 {c:"Stardust Shop",cur:"Stardust",n:"Extra Permanent Pick",m:1,f:l=>1000},
 {c:"Stardust Shop",cur:"Stardust",n:"Scrap Boost",m:20,f:l=>50*Math.pow(1.475,l-1)},
+{c:"Stardust Shop",cur:"Stardust",n:"Midas Touch",m:100,endless:true,f:l=>1000*Math.pow(2,l-1)},
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Dropper Mutation Boost",m:5000,f:l=>l},
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Multiplier Mutation Boost",m:5000,f:l=>l},
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Adder Mutation Boost",m:5000,f:l=>l},
@@ -1204,7 +1205,9 @@ function setAllTargetsToMax(){
             target:u.m
         };
 
-        save[i].target = u.m;
+if(!u.endless){
+    save[i].target = u.m;
+}
 
     });
 
@@ -1264,14 +1267,19 @@ Object.entries(groups).forEach(([cat,list])=>{
             target:u.m
         };
 
-        avg += s.current/u.m;
+if(!u.endless){
+    avg += s.current/u.m;
+}
 
     });
 
-    shopProg[cat] =
-        (avg/list.length*100)
-        .toFixed(1);
+const trackedCount =
+    list.filter(([u]) => !u.endless).length;
 
+shopProg[cat] =
+    trackedCount
+    ? (avg/trackedCount*100).toFixed(1)
+    : 100;
 });
 
 for(let [cat,list] of Object.entries(groups)){
@@ -1332,7 +1340,8 @@ ${
 <div class="grid">
 `;
  list.forEach(([u,i])=>{
-  let s=save[i]||{current:0,target:u.m}; let t=Math.max(s.current,Math.min(u.m,s.target)); avg+=s.current/u.m;
+let s=save[i]||{current:0,target:u.m};
+let t=Math.max(s.current,Math.min(u.m,s.target));
 html+=`
 <div class="
     card
@@ -1437,7 +1446,7 @@ u.multi
     </div>
 
     <div>
-        Max Level: ${u.m}
+Max Level: ${u.endless ? "Endless (Tracker Cap: 100)" : u.m}
     </div>
 
     <div class="cost-section">
@@ -1574,6 +1583,7 @@ u.multi
 </div>
     </div>
 
+${u.endless ? "" : `
 <button
     class="target-btn"
     onclick="
@@ -1592,6 +1602,7 @@ u.multi
     Target = Max
 
 </button>
+`}
 
 </div>
 `;
@@ -1697,7 +1708,9 @@ function recalculate(){
                 )
             );
 
-            avg += s.current / u.m;
+if(!u.endless){
+    avg += s.current / u.m;
+}
 
             const pct =
                 (s.current / u.m) * 100;
@@ -1874,9 +1887,13 @@ if(!u.multi){
         });
 
         
+const trackedCount =
+    list.filter(([u]) => !u.endless).length;
+
 shopProg[cat] =
-    (avg / list.length * 100)
-    .toFixed(1);
+    trackedCount
+    ? (avg/trackedCount*100).toFixed(1)
+    : 100;
 
 const shopPercent =
     document.getElementById(
@@ -1914,15 +1931,20 @@ function getProgressionData(){
         let s =
             save[i]?.current || 0;
 
-        completion +=
-            s / u.m;
+if(!u.endless){
+    completion += s / u.m;
+}
 
     });
+const trackedUpgrades =
+    upgrades.filter(
+        u => !u.endless
+    ).length;
 
-    completion =
-        completion /
-        upgrades.length *
-        100;
+completion =
+    completion /
+    trackedUpgrades *
+    100;
 
     if(perm < 1){
 
@@ -2051,8 +2073,12 @@ upgrades.forEach((u,i)=>{let s=save[i]||{current:0,target:u.m};let t=Math.max(s.
         t
     );
 
-    currencyTotals[u.cur] =
-        (currencyTotals[u.cur] || 0) + c;
+    if(!u.endless){
+
+        currencyTotals[u.cur] =
+            (currencyTotals[u.cur] || 0) + c;
+
+    }
 
     if(u.afk){
         afk += c;
@@ -2060,7 +2086,9 @@ upgrades.forEach((u,i)=>{let s=save[i]||{current:0,target:u.m};let t=Math.max(s.
 
 }
 
-overall += s.current / u.m;
+if(!u.endless){
+    overall += s.current / u.m;
+}
 
 }); // CLOSE upgrades.forEach HERE
 
@@ -2165,7 +2193,13 @@ completion.innerHTML = `
     Account Completion
 </strong>
     <span>
-        ${(overall/upgrades.length*100).toFixed(1)}%
+        ${(
+    overall /
+    upgrades.filter(
+        u => !u.endless
+    ).length
+    * 100
+).toFixed(1)}%
     </span>
 </div>
 
