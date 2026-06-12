@@ -1173,7 +1173,55 @@ let openShops =
         "Scrap Shop": false
 
     };
-const fmt=n=>Math.round(n).toLocaleString();
+const fmt = n => {
+
+    if (n < 1000)
+        return Math.round(n).toString();
+
+    const suffixes = [
+        "K","M","B","T",
+        "Qa","Qi","Sx","Sp","Oc","No",
+
+        "Dc","Ud","Dd","Td","Qad","Qid","Sxd","Spd","Ocd","Nod",
+
+        "Vg","Uvg","Dvg","Tvg","Qavg","Qivg","Sxvg","Spvg","Ocvg","Novg",
+
+        "Tg","Utg","Dtg","Ttg","Qatg","Qitg","Sxtg","Sptg","Octg","Notg",
+
+        "Qag","UQag","DQag","TQag","QaQag","QiQag","SxQag","SpQag","OcQag","NoQag",
+
+        "Qig","UQig","DQig","TQig","QaQig","QiQig","SxQig","SpQig","OcQig","NoQig",
+
+        "Sxg","USxg","DSxg","TSxg","QaSxg","QiSxg","SxSxg","SpSxg","OcSxg","NoSxg",
+
+        "Spg","USpg","DSpg","TSpg","QaSpg","QiSpg","SxSpg","SpSpg","OcSpg","NoSpg",
+
+        "Ocg","UOcg","DOcg","TOcg","QaOcg","QiOcg","SxOcg","SpOcg","OcOcg","NoOcg",
+
+        "Nog","UNog","DNog","TNog","QaNog","QiNog","SxNog","SpNog","OcNog","NoNog",
+
+        "Ct"
+    ];
+
+    let tier =
+        Math.floor(Math.log10(n) / 3) - 1;
+
+    let scaled =
+        n / Math.pow(1000, tier + 1);
+
+    if (tier >= suffixes.length) {
+        return n.toExponential(2);
+    }
+
+    return (
+        scaled >= 100
+            ? scaled.toFixed(0)
+            : scaled >= 10
+            ? scaled.toFixed(1)
+            : scaled.toFixed(2)
+    ) + suffixes[tier];
+
+};
 const costBetween=(u,a,b)=>{
     let t=0;
 
@@ -1551,15 +1599,22 @@ u.multi
 <div>
     <strong>Cost To Target:</strong>
     <span id="cost-target-${i}">
-        ${fmt(costBetween(u,s.current,t))}
+<span
+    title="${Math.round(costBetween(u,s.current,t)).toLocaleString()}">
+    ${fmt(costBetween(u,s.current,t))}
+</span>
     </span>
 </div>
 
 <div>
     <strong>Cost To Max:</strong>
-    <span id="cost-max-${i}">
-        ${fmt(costBetween(u,s.current,u.m))}
-    </span>
+<span
+    id="cost-max-${i}"
+    title="${Math.round(costBetween(u,s.current,u.m)).toLocaleString()}">
+
+    ${fmt(costBetween(u,s.current,u.m))}
+
+</span>
 </div>
 `
 }
@@ -1853,14 +1908,18 @@ if(!u.multi){
 
     if(costTarget){
 
-        costTarget.textContent =
-            fmt(
-                costBetween(
-                    u,
-                    s.current,
-                    t
-                )
-            );
+const targetCost =
+    costBetween(
+        u,
+        s.current,
+        t
+    );
+
+costTarget.innerHTML = `
+<span title="${Math.round(targetCost).toLocaleString()}">
+    ${fmt(targetCost)}
+</span>
+`;
 
     }
 
