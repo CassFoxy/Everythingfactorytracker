@@ -1230,6 +1230,13 @@ summary{
 .rarity-mythical{
     color:#ef4444;
 }
+    .rarity-divine{
+    color:#06b6d4;
+}
+
+.rarity-secret{
+    color:#facc15;
+}
     
 .variant-btn.active{
     font-weight:700;
@@ -1291,6 +1298,20 @@ summary{
 
 .variant-btn.active.akashic{
     color:#7c3aed;
+}
+.mutation-stat{
+
+    padding:10px;
+
+    border-radius:12px;
+
+    background:
+        rgba(255,255,255,.03);
+
+    border:
+        1px solid
+        rgba(255,255,255,.06);
+
 }
 
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
@@ -1447,6 +1468,12 @@ summary{
 </div>
 
     <div class="item-index-container">
+        <div
+    id="mutationStats"
+    class="stats"
+    style="margin-bottom:15px;"
+>
+</div>
 
 <div style="display:flex;gap:10px;margin-bottom:15px;">
 
@@ -1455,7 +1482,35 @@ summary{
         placeholder="Search items..."
         class="item-search"
     >
+    <select
+    id="mutationFilter"
+    class="item-search"
+    style="max-width:220px;"
+>
+    <option value="">
+        All Mutations
+    </option>
+</select>
 
+    <label
+        style="
+            display:flex;
+            align-items:center;
+            gap:8px;
+            white-space:nowrap;
+        "
+    >
+        <input
+            id="hideCompleted"
+            type="checkbox"
+            style="
+                width:auto;
+                margin:0;
+            "
+        >
+
+        Hide Complete
+    </label>
 
 </div>
 
@@ -2788,17 +2843,62 @@ const itemSave =
 JSON.parse(
     localStorage.getItem("ef_index")
 ) || {};
+    
+    const trackerSettings =
+JSON.parse(
+    localStorage.getItem(
+        "ef_index_settings"
+    )
+) || {};
 
 const ALL_VARIANTS = [
     "Clean",
     ...MUTATIONS.map(m => m.name)
 ];
+    window.addEventListener(
+    "load",
+    ()=>{
+
+        const filter =
+            document.getElementById(
+                "mutationFilter"
+            );
+
+        ALL_VARIANTS.forEach(mut=>{
+
+            filter.innerHTML += `
+<option value="${mut}">
+    Missing ${mut}
+</option>
+`;
+
+        });
+
+    }
+);
 function renderItems(){
 
     const search =
         document.getElementById("itemSearch")
         ?.value
         ?.toLowerCase() || "";
+    const hideCompleted =
+    document.getElementById(
+        "hideCompleted"
+    )?.checked;
+    const mutationFilter =
+    document.getElementById(
+        "mutationFilter"
+    )?.value || "";
+    trackerSettings.hideCompleted =
+    hideCompleted;
+
+localStorage.setItem(
+    "ef_index_settings",
+    JSON.stringify(
+        trackerSettings
+    )
+);
 
 let adderHtml = "";
 let dropperHtml = "";
@@ -2824,6 +2924,57 @@ let furnaceTotal = 0;
 
 let collected = 0;
 let total = 0;
+const mutationStats = {};
+
+ALL_VARIANTS.forEach(mut=>{
+
+    const mutationName =
+        mut.name || mut;
+
+    mutationStats[mutationName] = {
+
+        collected:0,
+        total:0
+
+    };
+
+});
+    BASE_ITEMS.forEach(item=>{
+
+    ALL_VARIANTS.forEach(mut=>{
+
+        const mutationName =
+            mut.name || mut;
+
+        const normalKey =
+            `${item.id}_Normal_${mutationName}`;
+
+        const goldKey =
+            `${item.id}_Gold_${mutationName}`;
+
+        mutationStats[
+            mutationName
+        ].total += 2;
+
+        if(itemSave[normalKey]){
+
+            mutationStats[
+                mutationName
+            ].collected++;
+
+        }
+
+        if(itemSave[goldKey]){
+
+            mutationStats[
+                mutationName
+            ].collected++;
+
+        }
+
+    });
+
+});
 
 [...BASE_ITEMS]
 .sort((a,b)=>{
@@ -2898,6 +3049,31 @@ else if(item.name.includes("Furnace")){
 const itemTotal =
     ALL_VARIANTS.length * 2;
 
+const itemMissing =
+    itemTotal - itemCollected;
+    if(mutationFilter){
+
+    const normalKey =
+        `${item.id}_Normal_${mutationFilter}`;
+
+    const goldKey =
+        `${item.id}_Gold_${mutationFilter}`;
+
+    const hasBoth =
+        itemSave[normalKey] &&
+        itemSave[goldKey];
+
+    if(hasBoth){
+        return;
+    }
+
+}
+    if(
+    hideCompleted &&
+    itemMissing === 0
+){
+    return;
+}
     if(itemType==="Adder"){
     adderCollected += itemCollected;
     adderTotal += itemTotal;
@@ -2914,9 +3090,6 @@ else if(itemType==="Furnace"){
     furnaceCollected += itemCollected;
     furnaceTotal += itemTotal;
 }
-
-const itemMissing =
-    itemTotal - itemCollected;
 
 let cardHtml = `
 <div class="
@@ -3041,7 +3214,6 @@ cardHtml += `
 </div>
         <div class="variant-grid gold-${item.id}">
 `;
-
 ALL_VARIANTS.forEach(mut=>{
 
     const mutationName =
@@ -3056,7 +3228,7 @@ ALL_VARIANTS.forEach(mut=>{
         collected++;
     }
 
-cardHtml += `
+    cardHtml += `
 <label class="
     variant-btn
     ${mutationName.toLowerCase()}
@@ -3173,6 +3345,49 @@ document.getElementById(
 ).textContent =
     collected;
     document.getElementById(
+    "mutationStats"
+).innerHTML =
+
+Object.entries(
+    mutationStats
+)
+
+.map(([name,data])=>`
+
+<div class="mutation-stat">
+
+    <strong>
+        ${name}
+    </strong>
+
+    <div>
+        ${data.collected}
+        /
+        ${data.total}
+    </div>
+
+    <div class="bar">
+
+        <div
+            class="fill"
+            style="
+                width:${
+                    (
+                        data.collected /
+                        data.total
+                    ) * 100
+                }%;
+            "
+        ></div>
+
+    </div>
+
+</div>
+
+`)
+
+.join("");
+    document.getElementById(
     "item-progress-bar"
 ).style.width =
     ((collected/total)*100 || 0)
@@ -3241,6 +3456,33 @@ document
     "input",
     renderItems
 );
+    document
+.getElementById(
+    "mutationFilter"
+)
+?.addEventListener(
+    "change",
+    renderItems
+);
+    document
+.getElementById(
+    "hideCompleted"
+)
+?.addEventListener(
+    "change",
+    renderItems
+);
+    const hideBox =
+    document.getElementById(
+        "hideCompleted"
+    );
+
+if(
+    hideBox &&
+    trackerSettings.hideCompleted
+){
+    hideBox.checked = true;
+}
 
 render();
 renderItems();
