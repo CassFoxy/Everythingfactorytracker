@@ -1029,13 +1029,6 @@ summary{
 }
 
 
-
-.variant-btn.active{
-    background:#22c55e;
-    color:black;
-    font-weight:700;
-}
-
     .variant-section{
 
     margin-top:12px;
@@ -1043,6 +1036,12 @@ summary{
 }
 
 .variant-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
 
     font-weight:700;
 
@@ -1054,11 +1053,11 @@ summary{
 
 }
 .variant-grid{
-    
+
     display:grid;
-    
+
     grid-template-columns:repeat(13, 1fr);
-    
+
     gap:4px;
 
     width:100%;
@@ -1101,13 +1100,32 @@ summary{
 
 }
 
-.variant-btn.active{
+    
+.select-all-btn{
 
-    background:
-        rgba(34,197,94,.2);
+    background:#0f172a;
 
-    border-color:
-        rgba(34,197,94,.5);
+    border:1px solid #334155;
+
+    color:white;
+
+    padding:4px 10px;
+
+    border-radius:8px;
+
+    cursor:pointer;
+
+    font-size:.8rem;
+
+    transition:.15s;
+
+}
+
+.select-all-btn:hover{
+
+    border-color:#60a5fa;
+
+    color:#60a5fa;
 
 }
 
@@ -2677,12 +2695,15 @@ document
 });
 
 }
-
-    const itemSave =
+const itemSave =
 JSON.parse(
     localStorage.getItem("ef_index")
 ) || {};
 
+const ALL_VARIANTS = [
+    "Clean",
+    ...MUTATIONS.map(m => m.name)
+];
 function renderItems(){
 
     const search =
@@ -2706,14 +2727,16 @@ let total = 0;
 [...BASE_ITEMS]
 .sort((a,b)=>{
 
-    const rarityOrder = {
-        "Common":1,
-        "Uncommon":2,
-        "Rare":3,
-        "Epic":4,
-        "Legendary":5,
-        "Mythical":6,
-    };
+const rarityOrder = {
+    "Common":1,
+    "Uncommon":2,
+    "Rare":3,
+    "Epic":4,
+    "Legendary":5,
+    "Mythical":6,
+    "Divine":7,
+    "Secret":8
+};
 
     return (
         (rarityOrder[a.rarity] || 999)
@@ -2776,18 +2799,25 @@ let cardHtml = `
     </div>
 
     <div class="variant-section">
+<div class="variant-header">
 
-        <div class="variant-header">
-            NORMAL
-        </div>
+    <span>NORMAL</span>
+
+    <button
+        class="select-all-btn"
+        onclick="selectAllVariants(
+            '${item.id}',
+            'Normal'
+        )"
+    >
+        Select All
+    </button>
+
+</div>
 
         <div class="variant-grid normal-${item.id}">
 `;
     
-const ALL_VARIANTS = [
-    "Clean",
-    ...MUTATIONS.map(m => m.name)
-];
 
 ALL_VARIANTS.forEach(mut=>{
 
@@ -2828,10 +2858,21 @@ cardHtml += `
 cardHtml += `
         </div>
 
-        <div class="variant-header">
-            GOLD ★
-        </div>
+<div class="variant-header">
 
+    <span>GOLD ★</span>
+
+    <button
+        class="select-all-btn"
+        onclick="selectAllVariants(
+            '${item.id}',
+            'Gold'
+        )"
+    >
+        Select All
+    </button>
+
+</div>
         <div class="variant-grid gold-${item.id}">
 `;
 
@@ -2948,6 +2989,44 @@ function toggleVariant(key){
     );
 
     renderItems();
+}
+
+function selectAllVariants(
+    itemId,
+    type
+){
+
+    const allChecked =
+        ALL_VARIANTS.every(mut=>{
+
+            const mutationName =
+                mut.name || mut;
+
+            const key =
+                `${itemId}_${type}_${mutationName}`;
+
+            return itemSave[key];
+        });
+
+    ALL_VARIANTS.forEach(mut=>{
+
+        const mutationName =
+            mut.name || mut;
+
+        const key =
+            `${itemId}_${type}_${mutationName}`;
+
+        itemSave[key] =
+            !allChecked;
+    });
+
+    localStorage.setItem(
+        "ef_index",
+        JSON.stringify(itemSave)
+    );
+
+    renderItems();
+
 }
 search.oninput = render;
 
