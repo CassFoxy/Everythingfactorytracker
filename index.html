@@ -9,7 +9,7 @@
 *{box-sizing:border-box} body{margin:0;color:var(--text);font-family:Inter,Arial,sans-serif;background:#020817}
 body:before{content:"";position:fixed;inset:-50px;background:url('new_goated_thumbnail.png') center/cover no-repeat;filter:blur(8px);transform:scale(1.05);z-index:-2}
 body:after{content:"";position:fixed;inset:0;background:rgba(2,8,20,.78);z-index:-1}
-.container{max-width:1500px;margin:auto;padding:20px}
+.container{max-width:1800px;margin:auto;padding:20px}
 .logo{display:block;margin:auto;max-width:900px;width:95%}
 .card,details{
     background:rgba(4,12,28,.6);
@@ -1028,23 +1028,7 @@ summary{
     color:#94a3b8;
 }
 
-.variant-grid{
-    display:grid;
-    grid-template-columns:repeat(13,1fr);
-    gap:6px;
-    flex:1;
-}
 
-.variant-btn{
-    border:1px solid #334155;
-    background:#0f172a;
-    border-radius:8px;
-    padding:6px;
-    text-align:center;
-    cursor:pointer;
-    user-select:none;
-    font-size:.8rem;
-}
 
 .variant-btn.active{
     background:#22c55e;
@@ -1071,13 +1055,13 @@ summary{
 }
 .variant-grid{
 
-    display:flex;
+    display:grid;
 
-    flex-wrap:nowrap;
+    grid-template-columns:repeat(13, minmax(100px, 1fr));
 
-    gap:8px;
+    gap:6px;
 
-    overflow-x:auto;
+    width:100%;
 
     margin-bottom:12px;
 
@@ -1091,13 +1075,9 @@ summary{
 
     justify-content:center;
 
-    min-width:110px;
+    gap:6px;
 
-    flex-shrink:0;
-
-    gap:8px;
-
-    padding:8px;
+    padding:5px;
 
     border-radius:8px;
 
@@ -1105,9 +1085,11 @@ summary{
 
     background:#0f172a;
 
-    border:
-        1px solid
-        #334155;
+    border:1px solid #334155;
+
+    font-size:.75rem;
+
+    width:100%;
 
 }
 
