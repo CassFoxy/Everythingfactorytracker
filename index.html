@@ -1054,12 +1054,12 @@ summary{
 
 }
 .variant-grid{
-
+    
     display:grid;
-
-    grid-template-columns:repeat(13, minmax(100px, 1fr));
-
-    gap:6px;
+    
+    grid-template-columns:repeat(13, 1fr);
+    
+    gap:4px;
 
     width:100%;
 
@@ -1077,7 +1077,7 @@ summary{
 
     gap:6px;
 
-    padding:5px;
+    padding:4px;
 
     border-radius:8px;
 
@@ -1087,7 +1087,7 @@ summary{
 
     border:1px solid #334155;
 
-    font-size:.75rem;
+    font-size:.65rem;
 
     width:100%;
 
@@ -1288,13 +1288,36 @@ summary{
 
     <div class="item-index-container">
 
-        <input
-            id="itemSearch"
-            placeholder="Search items..."
-            class="item-search"
-        >
+<div style="display:flex;gap:10px;margin-bottom:15px;">
 
-        <div id="itemTracker"></div>
+    <input
+        id="itemSearch"
+        placeholder="Search items..."
+        class="item-search"
+    >
+
+
+</div>
+
+<details open>
+    <summary>➕ Adders (<span id="adderCount">0</span>)</summary>
+    <div id="adderItems"></div>
+</details>
+
+<details>
+    <summary>⬇️ Droppers (<span id="dropperCount">0</span>)</summary>
+    <div id="dropperItems"></div>
+</details>
+
+<details>
+    <summary>✖️ Multipliers (<span id="multiplierCount">0</span>)</summary>
+    <div id="multiplierItems"></div>
+</details>
+
+<details>
+    <summary>🔥 Furnaces (<span id="furnaceCount">0</span>)</summary>
+    <div id="furnaceItems"></div>
+</details>
 
     </div>
 </details>
@@ -2589,20 +2612,46 @@ JSON.parse(
 
 function renderItems(){
 
-    const container =
-        document.getElementById("itemTracker");
-
     const search =
         document.getElementById("itemSearch")
         ?.value
         ?.toLowerCase() || "";
 
-    let html = "";
+let adderHtml = "";
+let dropperHtml = "";
+let multiplierHtml = "";
+let furnaceHtml = "";
 
-    let collected = 0;
-    let total = 0;
+let adderCount = 0;
+let dropperCount = 0;
+let multiplierCount = 0;
+let furnaceCount = 0;
+
+let collected = 0;
+let total = 0;
 
 BASE_ITEMS.forEach(item=>{
+
+    let itemType = "";
+let targetHtml;
+
+if(item.name.includes("Adder")){
+    itemType = "Adder";
+    adderCount++;
+}
+else if(item.name.includes("Dropper")){
+    itemType = "Dropper";
+    dropperCount++;
+}
+else if(item.name.includes("Multiplier")){
+    itemType = "Multiplier";
+    multiplierCount++;
+}
+else if(item.name.includes("Furnace")){
+    itemType = "Furnace";
+    furnaceCount++;
+}
+
 
         if(
             search &&
@@ -2611,7 +2660,7 @@ BASE_ITEMS.forEach(item=>{
             return;
         }
 
-html += `
+let cardHtml = `
 <div class="item-row">
 
     <div class="item-header">
@@ -2654,7 +2703,7 @@ ALL_VARIANTS.forEach(mut=>{
         collected++;
     }
 
-    html += `
+cardHtml += `
         <label class="
             variant-btn
             ${itemSave[normalKey] ? "active" : ""}
@@ -2672,9 +2721,10 @@ ALL_VARIANTS.forEach(mut=>{
             ${mutationName}
         </label>
     `;
-});
 
-html += `
+});
+    
+cardHtml += `
         </div>
 
         <div class="variant-header">
@@ -2698,7 +2748,7 @@ ALL_VARIANTS.forEach(mut=>{
         collected++;
     }
 
-    html += `
+cardHtml += `
         <label class="
             variant-btn
             ${itemSave[goldKey] ? "active" : ""}
@@ -2717,17 +2767,61 @@ ALL_VARIANTS.forEach(mut=>{
         </label>
     `;
 });
-
-html += `
+cardHtml += `
         </div>
 
     </div>
+
+</div>
 `;
+
+    if(itemType === "Adder"){
+    adderHtml += cardHtml;
+}
+else if(itemType === "Dropper"){
+    dropperHtml += cardHtml;
+}
+else if(itemType === "Multiplier"){
+    multiplierHtml += cardHtml;
+}
+else if(itemType === "Furnace"){
+    furnaceHtml += cardHtml;
+}
 
 
     });
 
-    container.innerHTML = html;
+document.getElementById(
+    "adderItems"
+).innerHTML = adderHtml;
+
+document.getElementById(
+    "dropperItems"
+).innerHTML = dropperHtml;
+
+document.getElementById(
+    "multiplierItems"
+).innerHTML = multiplierHtml;
+
+document.getElementById(
+    "furnaceItems"
+).innerHTML = furnaceHtml;
+
+document.getElementById(
+    "adderCount"
+).textContent = adderCount;
+
+document.getElementById(
+    "dropperCount"
+).textContent = dropperCount;
+
+document.getElementById(
+    "multiplierCount"
+).textContent = multiplierCount;
+
+document.getElementById(
+    "furnaceCount"
+).textContent = furnaceCount;
 
 document.getElementById(
     "item-progress"
