@@ -1014,6 +1014,17 @@ summary{
 
 }
 
+    .item-row.junkyard{
+
+    border-color:
+        rgba(211,154,82,.35);
+
+    box-shadow:
+        0 0 12px
+        rgba(211,154,82,.15);
+
+}
+
 .item-info{
     min-width:220px;
 }
@@ -1040,12 +1051,6 @@ summary{
         );
 
 }
-
-.item-rarity{
-    font-size:.85rem;
-    color:#94a3b8;
-}
-
 
     .variant-section{
 
@@ -1161,14 +1166,44 @@ summary{
     margin-bottom:10px;
 
 }
-
 .item-rarity{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:6px;
+
+    flex-wrap:wrap;
 
     color:#94a3b8;
 
     font-size:.9rem;
 
     text-transform:uppercase;
+
+}
+
+    .complete-badge{
+
+    color:#22c55e;
+
+    font-weight:700;
+
+    margin-left:4px;
+
+    text-shadow:
+        0 0 6px rgba(34,197,94,.35);
+
+}
+
+.missing-count{
+
+    color:#94a3b8;
+
+    font-size:.8rem;
+
+    margin-left:4px;
 
 }
 
@@ -1257,6 +1292,7 @@ summary{
 .variant-btn.active.akashic{
     color:#7c3aed;
 }
+
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
 </style>
 </head>
@@ -1398,6 +1434,18 @@ summary{
     )
 </summary>
 
+<div class="global-progress">
+
+    <div class="bar">
+        <div
+            id="item-progress-bar"
+            class="fill"
+            style="width:0%">
+        </div>
+    </div>
+
+</div>
+
     <div class="item-index-container">
 
 <div style="display:flex;gap:10px;margin-bottom:15px;">
@@ -1412,22 +1460,42 @@ summary{
 </div>
 
 <details open>
-    <summary>➕ Adders (<span id="adderCount">0</span>)</summary>
+<summary>
+➕ Adders
+(<span id="adderCount">0</span>)
+•
+<span id="adderProgress">0%</span>
+</summary>
     <div id="adderItems"></div>
 </details>
 
 <details>
-    <summary>⬇️ Droppers (<span id="dropperCount">0</span>)</summary>
+<summary>
+    ⬇️ Droppers
+    (<span id="dropperCount">0</span>)
+    •
+    <span id="dropperProgress">0%</span>
+</summary>
     <div id="dropperItems"></div>
 </details>
 
 <details>
-    <summary>✖️ Multipliers (<span id="multiplierCount">0</span>)</summary>
+<summary>
+    ✖️ Multipliers
+    (<span id="multiplierCount">0</span>)
+    •
+    <span id="multiplierProgress">0%</span>
+</summary>
     <div id="multiplierItems"></div>
 </details>
 
 <details>
-    <summary>🔥 Furnaces (<span id="furnaceCount">0</span>)</summary>
+<summary>
+    🔥 Furnaces
+    (<span id="furnaceCount">0</span>)
+    •
+    <span id="furnaceProgress">0%</span>
+</summary>
     <div id="furnaceItems"></div>
 </details>
 
@@ -2742,6 +2810,18 @@ let dropperCount = 0;
 let multiplierCount = 0;
 let furnaceCount = 0;
 
+    let adderCollected = 0;
+let dropperCollected = 0;
+
+let multiplierCollected = 0;
+let furnaceCollected = 0;
+
+let adderTotal = 0;
+let dropperTotal = 0;
+
+let multiplierTotal = 0;
+let furnaceTotal = 0;
+
 let collected = 0;
 let total = 0;
 
@@ -2769,8 +2849,15 @@ const rarityOrder = {
 .forEach(item=>{
 
     let itemType = "";
+    
+        if(
+            search &&
+            !item.name.toLowerCase().includes(search)
+        ){
+            return;
+        }
 
-if(item.name.includes("Adder")){
+    if(item.name.includes("Adder")){
     itemType = "Adder";
     adderCount++;
 }
@@ -2790,16 +2877,52 @@ else if(item.name.includes("Furnace")){
     furnaceCount++;
 }
 
+    const itemCollected =
+    ALL_VARIANTS.reduce((count, mut)=>{
 
-        if(
-            search &&
-            !item.name.toLowerCase().includes(search)
-        ){
-            return;
-        }
+        const mutationName =
+            mut.name || mut;
+
+        const normalKey =
+            `${item.id}_Normal_${mutationName}`;
+
+        const goldKey =
+            `${item.id}_Gold_${mutationName}`;
+
+        return count +
+            (itemSave[normalKey] ? 1 : 0) +
+            (itemSave[goldKey] ? 1 : 0);
+
+    },0);
+
+const itemTotal =
+    ALL_VARIANTS.length * 2;
+
+    if(itemType==="Adder"){
+    adderCollected += itemCollected;
+    adderTotal += itemTotal;
+}
+else if(itemType==="Dropper"){
+    dropperCollected += itemCollected;
+    dropperTotal += itemTotal;
+}
+else if(itemType==="Multiplier"){
+    multiplierCollected += itemCollected;
+    multiplierTotal += itemTotal;
+}
+else if(itemType==="Furnace"){
+    furnaceCollected += itemCollected;
+    furnaceTotal += itemTotal;
+}
+
+const itemMissing =
+    itemTotal - itemCollected;
 
 let cardHtml = `
-<div class="item-row">
+<div class="
+    item-row
+    ${item.isJunkyard ? "junkyard" : ""}
+">
 
     <div class="item-header">
 
@@ -2824,6 +2947,17 @@ let cardHtml = `
             class="junkyard-icon"
           >`
         : ""
+    }
+
+    ${
+        itemMissing === 0
+        ? `<span class="complete-badge">
+            🏆 COMPLETE
+          </span>`
+        : `<span class="missing-count">
+            ${itemCollected}/${itemTotal}
+            • Missing ${itemMissing}
+          </span>`
     }
 
 </span>
@@ -2999,6 +3133,36 @@ document.getElementById(
 ).textContent = furnaceCount;
 
 document.getElementById(
+    "adderProgress"
+).textContent =
+    `${adderCollected}/${adderTotal} • ${
+        ((adderCollected/adderTotal)*100 || 0)
+        .toFixed(1)
+    }%`;
+document.getElementById(
+    "dropperProgress"
+).textContent =
+    `${dropperCollected}/${dropperTotal} • ${
+        ((dropperCollected/dropperTotal)*100 || 0)
+        .toFixed(1)
+    }%`;
+document.getElementById(
+    "multiplierProgress"
+).textContent =
+    `${multiplierCollected}/${multiplierTotal} • ${
+        ((multiplierCollected/multiplierTotal)*100 || 0)
+        .toFixed(1)
+    }%`;
+
+document.getElementById(
+    "furnaceProgress"
+).textContent =
+    `${furnaceCollected}/${furnaceTotal} • ${
+        ((furnaceCollected/furnaceTotal)*100 || 0)
+        .toFixed(1)
+    }%`;
+
+document.getElementById(
     "item-progress"
 ).textContent =
     ((collected/total)*100 || 0)
@@ -3008,6 +3172,11 @@ document.getElementById(
     "item-collected"
 ).textContent =
     collected;
+    document.getElementById(
+    "item-progress-bar"
+).style.width =
+    ((collected/total)*100 || 0)
+    + "%";
 }
 
 function toggleVariant(key){
