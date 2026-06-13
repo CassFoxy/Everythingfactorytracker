@@ -2694,39 +2694,7 @@ html += `
     </div>
 `;
 
-const mutationName =
-    mut.name || mut;
 
-const key =
-`${item.id}_${type}_${mutationName}`;
-
-                total++;
-
-                if(itemSave[key]){
-                    collected++;
-                }
-
-                html += `
-                <div
-                    class="variant-btn ${
-                        itemSave[key]
-                        ? "active"
-                        : ""
-                    }"
-                    onclick="toggleVariant('${key}')"
-                >
-                    ${type==="Gold" ? "★" : ""}
-${mutationName}
-                </div>
-                `;
-            });
-
-        });
-
-        html += `
-            </div>
-        </div>
-        `;
     });
 
     container.innerHTML = html;
