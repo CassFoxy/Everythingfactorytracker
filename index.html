@@ -2631,8 +2631,6 @@ BASE_ITEMS.forEach(item=>{
 
 html += `
 <div class="item-row">
-html += `
-<div class="item-row">
 
     <div class="item-header">
 
@@ -2645,8 +2643,15 @@ html += `
         </span>
 
     </div>
-`;
 
+    <div class="variant-section">
+
+        <div class="variant-header">
+            NORMAL
+        </div>
+
+        <div class="variant-grid normal-${item.id}">
+`;
     <div class="variant-section">
 
         <div class="variant-header">
