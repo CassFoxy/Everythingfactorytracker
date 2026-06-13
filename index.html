@@ -1132,6 +1132,31 @@ summary{
     text-transform:uppercase;
 
 }
+
+    .rarity-common{
+    color:#d1d5db;
+}
+
+.rarity-uncommon{
+    color:#22c55e;
+}
+
+.rarity-rare{
+    color:#3b82f6;
+}
+
+.rarity-epic{
+    color:#a855f7;
+}
+
+.rarity-legendary{
+    color:#f59e0b;
+}
+
+.rarity-mythical{
+    color:#ef4444;
+}
+    
     .variant-btn.active{
 
     background:
@@ -2686,13 +2711,19 @@ let cardHtml = `
 
     <div class="item-header">
 
-        <span class="item-name">
-            ${item.name}
-        </span>
+<span class="
+    item-name
+    rarity-${item.rarity.toLowerCase()}
+">
+    ${item.name}
+</span>
 
-        <span class="item-rarity">
-            ${item.rarity}
-        </span>
+<span class="
+    item-rarity
+    rarity-${item.rarity.toLowerCase()}
+">
+    ${item.rarity}
+</span>
 
     </div>
 
