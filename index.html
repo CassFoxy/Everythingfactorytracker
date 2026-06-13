@@ -1157,18 +1157,66 @@ summary{
     color:#ef4444;
 }
     
-    .variant-btn.active{
-
-    background:
-        rgba(34,197,94,.25);
-
-    border-color:
-        #22c55e;
+.variant-btn.active{
+    font-weight:700;
 
     box-shadow:
-        0 0 12px
-        rgba(34,197,94,.35);
+        inset 0 0 10px rgba(255,255,255,.05);
 
+    border-color:
+        currentColor;
+}
+
+    .variant-btn.active.clean{
+    color:#ffffff;
+}
+
+.variant-btn.active.polished{
+    color:#d1d5db;
+}
+
+.variant-btn.active.bubbly{
+    color:#60a5fa;
+}
+
+.variant-btn.active.pearly{
+    color:#f472b6;
+}
+
+.variant-btn.active.frosted{
+    color:#7dd3fc;
+}
+
+.variant-btn.active.glowing{
+    color:#fbbf24;
+}
+
+.variant-btn.active.sparkly{
+    color:#e2e8f0;
+}
+
+.variant-btn.active.surged{
+    color:#8b5cf6;
+}
+
+.variant-btn.active.fiery{
+    color:#f97316;
+}
+
+.variant-btn.active.eclipsed{
+    color:#475569;
+}
+
+.variant-btn.active.glitched{
+    color:#ec4899;
+}
+
+.variant-btn.active.corrupted{
+    color:#34d399;
+}
+
+.variant-btn.active.akashic{
+    color:#7c3aed;
 }
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
 </style>
@@ -2756,10 +2804,11 @@ ALL_VARIANTS.forEach(mut=>{
     }
 
 cardHtml += `
-        <label class="
-            variant-btn
-            ${itemSave[normalKey] ? "active" : ""}
-        ">
+<label class="
+    variant-btn
+    ${mutationName.toLowerCase()}
+    ${itemSave[normalKey] ? "active" : ""}
+">
             <input
                 type="checkbox"
                 ${itemSave[normalKey] ? "checked" : ""}
@@ -2801,10 +2850,11 @@ ALL_VARIANTS.forEach(mut=>{
     }
 
 cardHtml += `
-        <label class="
-            variant-btn
-            ${itemSave[goldKey] ? "active" : ""}
-        ">
+<label class="
+    variant-btn
+    ${mutationName.toLowerCase()}
+    ${itemSave[goldKey] ? "active" : ""}
+">
             <input
                 type="checkbox"
                 ${itemSave[goldKey] ? "checked" : ""}
