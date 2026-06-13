@@ -1006,7 +1006,7 @@ summary{
     background:
         rgba(255,255,255,.03);
 
-    margin-bottom:12px;
+    margin-bottom:16px;
 
     border:
         1px solid
@@ -1069,15 +1069,17 @@ summary{
     margin-top:10px;
 
 }
-
 .variant-grid{
 
-    display:grid;
+    display:flex;
 
-    grid-template-columns:
-        repeat(auto-fill,minmax(110px,1fr));
+    flex-wrap:nowrap;
 
     gap:8px;
+
+    overflow-x:auto;
+
+    margin-bottom:12px;
 
 }
 
@@ -1086,6 +1088,12 @@ summary{
     display:flex;
 
     align-items:center;
+
+    justify-content:center;
+
+    min-width:110px;
+
+    flex-shrink:0;
 
     gap:8px;
 
@@ -1118,6 +1126,41 @@ summary{
 
     border-color:
         rgba(34,197,94,.5);
+
+}
+
+    .item-header{
+
+    display:flex;
+
+    gap:12px;
+
+    align-items:center;
+
+    margin-bottom:10px;
+
+}
+
+.item-rarity{
+
+    color:#94a3b8;
+
+    font-size:.9rem;
+
+    text-transform:uppercase;
+
+}
+    .variant-btn.active{
+
+    background:
+        rgba(34,197,94,.25);
+
+    border-color:
+        #22c55e;
+
+    box-shadow:
+        0 0 12px
+        rgba(34,197,94,.35);
 
 }
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
@@ -2588,14 +2631,21 @@ BASE_ITEMS.forEach(item=>{
 
 html += `
 <div class="item-row">
+html += `
+<div class="item-row">
 
-    <div class="item-name">
-        ${item.name}
-    </div>
+    <div class="item-header">
 
-    <div class="item-rarity">
-        ${item.rarity}
+        <span class="item-name">
+            ${item.name}
+        </span>
+
+        <span class="item-rarity">
+            ${item.rarity}
+        </span>
+
     </div>
+`;
 
     <div class="variant-section">
 
