@@ -481,6 +481,30 @@ details[data-shop="Scrap Shop"]:hover{
 
 }
 
+    details[data-shop="Item Index"]{
+
+    border-color:
+        rgba(96,165,250,.25);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(96,165,250,.03),
+            rgba(4,12,28,.65)
+        );
+
+}
+
+details[data-shop="Item Index"] summary{
+
+    color:#60a5fa;
+
+    text-shadow:
+        0 0 10px
+        rgba(96,165,250,.35);
+
+}
+
     /* Currency Themed Upgrade Cards */
 
 .upgrade-card.gems{
@@ -964,6 +988,138 @@ summary{
     color:#94a3b8;
 
 }
+
+    .item-index-container{
+    margin-top:15px;
+}
+
+.item-search{
+    margin-bottom:15px;
+}
+
+.item-row{
+
+    padding:16px;
+
+    border-radius:14px;
+
+    background:
+        rgba(255,255,255,.03);
+
+    margin-bottom:12px;
+
+    border:
+        1px solid
+        rgba(255,255,255,.06);
+
+}
+
+.item-info{
+    min-width:220px;
+}
+
+.item-name{
+    font-weight:700;
+    font-size:1.1rem;
+}
+
+.item-rarity{
+    font-size:.85rem;
+    color:#94a3b8;
+}
+
+.variant-grid{
+    display:grid;
+    grid-template-columns:repeat(13,1fr);
+    gap:6px;
+    flex:1;
+}
+
+.variant-btn{
+    border:1px solid #334155;
+    background:#0f172a;
+    border-radius:8px;
+    padding:6px;
+    text-align:center;
+    cursor:pointer;
+    user-select:none;
+    font-size:.8rem;
+}
+
+.variant-btn.active{
+    background:#22c55e;
+    color:black;
+    font-weight:700;
+}
+
+    .variant-section{
+
+    margin-top:12px;
+
+}
+
+.variant-header{
+
+    font-weight:700;
+
+    color:#60a5fa;
+
+    margin-bottom:8px;
+
+    margin-top:10px;
+
+}
+
+.variant-grid{
+
+    display:grid;
+
+    grid-template-columns:
+        repeat(auto-fill,minmax(110px,1fr));
+
+    gap:8px;
+
+}
+
+.variant-btn{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:8px;
+
+    padding:8px;
+
+    border-radius:8px;
+
+    cursor:pointer;
+
+    background:#0f172a;
+
+    border:
+        1px solid
+        #334155;
+
+}
+
+.variant-btn input{
+
+    width:16px;
+
+    height:16px;
+
+}
+
+.variant-btn.active{
+
+    background:
+        rgba(34,197,94,.2);
+
+    border-color:
+        rgba(34,197,94,.5);
+
+}
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
 </style>
 </head>
@@ -1093,6 +1249,31 @@ summary{
 </div>
 <div id="shops"></div>
 
+    <details data-shop="Item Index">
+<summary>
+    📚 Item Index Tracker
+    •
+    <span id="item-collected">0</span>
+    /
+    2834
+    (
+    <span id="item-progress">0</span>%
+    )
+</summary>
+
+    <div class="item-index-container">
+
+        <input
+            id="itemSearch"
+            placeholder="Search items..."
+            class="item-search"
+        >
+
+        <div id="itemTracker"></div>
+
+    </div>
+</details>
+
 <footer class="watermark">
 
     Created by CassFoxy
@@ -1101,6 +1282,8 @@ summary{
 
 </footer>
 </div>
+
+<script src="items-data.js"></script>
 
 <script>
 const upgrades=[
@@ -2373,10 +2556,186 @@ document
 });
 
 }
+
+    const itemSave =
+JSON.parse(
+    localStorage.getItem("ef_index")
+) || {};
+
+function renderItems(){
+
+    const container =
+        document.getElementById("itemTracker");
+
+    const search =
+        document.getElementById("itemSearch")
+        ?.value
+        ?.toLowerCase() || "";
+
+    let html = "";
+
+    let collected = 0;
+    let total = 0;
+
+BASE_ITEMS.forEach(item=>{
+
+        if(
+            search &&
+            !item.name.toLowerCase().includes(search)
+        ){
+            return;
+        }
+
+html += `
+<div class="item-row">
+
+    <div class="item-name">
+        ${item.name}
+    </div>
+
+    <div class="item-rarity">
+        ${item.rarity}
+    </div>
+
+    <div class="variant-section">
+
+        <div class="variant-header">
+            NORMAL
+        </div>
+
+        <div class="variant-grid normal-${item.id}">
+`;
+const ALL_VARIANTS = [
+    "Clean",
+    ...MUTATIONS.map(m => m.name)
+];
+
+ALL_VARIANTS.forEach(mut=>{
+
+    const mutationName =
+        mut.name || mut;
+
+    const normalKey =
+        `${item.id}_Normal_${mutationName}`;
+
+    total++;
+
+    if(itemSave[normalKey]){
+        collected++;
+    }
+
+    html += `
+        <label class="
+            variant-btn
+            ${itemSave[normalKey] ? "active" : ""}
+        ">
+            <input
+                type="checkbox"
+                ${itemSave[normalKey] ? "checked" : ""}
+                onchange="
+                    toggleVariant(
+                        '${normalKey}'
+                    )
+                "
+            >
+
+            ${mutationName}
+        </label>
+    `;
+});
+
+html += `
+        </div>
+
+        <div class="variant-header">
+            GOLD ★
+        </div>
+
+        <div class="variant-grid gold-${item.id}">
+`;
+
+ALL_VARIANTS.forEach(mut=>{
+
+    const mutationName =
+        mut.name || mut;
+
+    const goldKey =
+        `${item.id}_Gold_${mutationName}`;
+
+    total++;
+
+    if(itemSave[goldKey]){
+        collected++;
+    }
+
+    html += `
+        <label class="
+            variant-btn
+            ${itemSave[goldKey] ? "active" : ""}
+        ">
+            <input
+                type="checkbox"
+                ${itemSave[goldKey] ? "checked" : ""}
+                onchange="
+                    toggleVariant(
+                        '${goldKey}'
+                    )
+                "
+            >
+
+            ${mutationName}
+        </label>
+    `;
+});
+
+html += `
+        </div>
+
+    </div>
+`;
+
+
+    });
+
+    container.innerHTML = html;
+
+document.getElementById(
+    "item-progress"
+).textContent =
+    ((collected/total)*100 || 0)
+    .toFixed(1);
+
+document.getElementById(
+    "item-collected"
+).textContent =
+    collected;
+}
+
+function toggleVariant(key){
+
+    itemSave[key] =
+        !itemSave[key];
+
+    localStorage.setItem(
+        "ef_index",
+        JSON.stringify(itemSave)
+    );
+
+    renderItems();
+}
 search.oninput = render;
 
 spr.oninput = recalculate;
 
 sec.oninput = recalculate;
+
+document
+.getElementById("itemSearch")
+?.addEventListener(
+    "input",
+    renderItems
+);
+
 render();
+renderItems();
 </script></body></html>
