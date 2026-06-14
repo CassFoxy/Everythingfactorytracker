@@ -393,6 +393,28 @@ details[data-shop="Scrap Shop"]{
 
 }
 
+    details[data-shop="Junkyard Calculator"]{
+
+    border-color:rgba(34,197,94,.25);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(34,197,94,.03),
+            rgba(4,12,28,.65)
+        );
+
+}
+
+details[data-shop="Junkyard Calculator"] summary{
+
+    color:#22c55e;
+
+    text-shadow:
+        0 0 10px rgba(34,197,94,.35);
+
+}
+
 
     details{
 
@@ -1443,7 +1465,14 @@ summary{
 </div>
 <div id="shops"></div>
 
-    <details data-shop="Item Index">
+<details data-shop="Junkyard Calculator">
+<summary>🧮 Junkyard Scrap Calculator</summary>
+
+<div id="junkyardCalculator"></div>
+
+</details>
+
+<details data-shop="Item Index">
 <summary>
     📚 Item Index Tracker
     •
@@ -1620,6 +1649,37 @@ const upgrades=[
 {c:"Scrap Shop",cur:"Flawless Scrap",n:"Flawless Luck",m:15,f:l=>5*Math.pow(1.4,l-1)},
 {c:"Scrap Shop",cur:"Flawless Scrap",n:"Golden Touch",m:10,f:l=>25*Math.pow(1.475,l-1)},
 {c:"Scrap Shop",cur:"Flawless Scrap",n:"Flawless Banks",m:20,f:l=>8*Math.pow(1.25,l-1)}
+];
+    const JUNKYARD_ITEMS = [
+
+{rarity:"Common",name:"Ice Cream Multiplier",scrap:"Sturdy",cost:30},
+{rarity:"Common",name:"Cassette Multiplier",scrap:"Rusty",cost:25},
+{rarity:"Common",name:"Electric Fan Multiplier",scrap:"Flawless",cost:8},
+{rarity:"Common",name:"larp sahur",scrap:"Rusty",cost:1},
+{rarity:"Common",name:"Domino Adder",scrap:"Sturdy",cost:30},
+
+{rarity:"Uncommon",name:"Toilet Paper Multiplier",scrap:"Sturdy",cost:60},
+{rarity:"Uncommon",name:"Toilet Dropper",scrap:"Rusty",cost:60},
+{rarity:"Uncommon",name:"Fidget Spinner Multiplier",scrap:"Flawless",cost:40},
+{rarity:"Uncommon",name:"Teddy Bear Adder",scrap:"Rusty",cost:100},
+
+{rarity:"Rare",name:"Toast Adder",scrap:"Sturdy",cost:60},
+{rarity:"Rare",name:"Hot Tub Furnace",scrap:"Sturdy",cost:80},
+{rarity:"Rare",name:"Snail Multiplier",scrap:"Flawless",cost:400},
+{rarity:"Rare",name:"Burger Adder",scrap:"Rusty",cost:500},
+
+{rarity:"Epic",name:"Horseshoe Multiplier",scrap:"Flawless",cost:250},
+{rarity:"Epic",name:"Paintbrush Multiplier",scrap:"Flawless",cost:545},
+{rarity:"Epic",name:"Guillotine Multiplier",scrap:"Sturdy",cost:710},
+
+{rarity:"Legendary",name:"Birdhouse Dropper",scrap:"Sturdy",cost:110},
+{rarity:"Legendary",name:"Moai Multiplier",scrap:"Flawless",cost:500},
+{rarity:"Legendary",name:"Beetle Multiplier",scrap:"Sturdy",cost:1050},
+
+{rarity:"Mythical",name:"Windmill Multiplier",scrap:"Flawless",cost:750},
+{rarity:"Mythical",name:"Car Wash Adder",scrap:"Sturdy",cost:3000},
+{rarity:"Mythical",name:"Junk Multiplier",scrap:"Rusty",cost:4500}
+
 ];
 let save=JSON.parse(localStorage.getItem("efv2release")||"{}");
     let progressionChecks =
@@ -2876,6 +2936,186 @@ const ALL_VARIANTS = [
 
     }
 );
+
+    function renderJunkyardCalculator(){
+
+let rarityOrder = [
+    "Common",
+    "Uncommon",
+    "Rare",
+    "Epic",
+    "Legendary",
+    "Mythical"
+];
+
+let html = `
+
+<div class="grid">
+
+<div class="card rusty">
+<h3>Rusty Scrap Owned</h3>
+<input id="ownedRusty" type="number" value="0">
+</div>
+
+<div class="card sturdy">
+<h3>Sturdy Scrap Owned</h3>
+<input id="ownedSturdy" type="number" value="0">
+</div>
+
+<div class="card flawless">
+<h3>Flawless Scrap Owned</h3>
+<input id="ownedFlawless" type="number" value="0">
+</div>
+
+</div>
+`;
+
+rarityOrder.forEach(rarity=>{
+
+html += `<h3 style="margin-top:20px">${rarity}</h3>`;
+
+JUNKYARD_ITEMS
+.filter(i=>i.rarity===rarity)
+.forEach(item=>{
+
+html += `
+<div class="card">
+
+<b>${item.name}</b>
+<br>
+${item.cost} ${item.scrap} Scrap
+
+<div class="stats">
+
+<div>
+<label>Normal</label>
+<input
+type="number"
+min="0"
+value="0"
+class="normalQty"
+data-cost="${item.cost}"
+data-scrap="${item.scrap}">
+</div>
+
+<div>
+<label>Gold</label>
+<input
+type="number"
+min="0"
+value="0"
+class="goldQty"
+data-cost="${item.cost}"
+data-scrap="${item.scrap}">
+</div>
+
+</div>
+
+</div>
+`;
+});
+
+});
+
+html += `
+
+<div class="card">
+
+<h2>Required Scrap</h2>
+
+<div id="junkyardTotals">
+
+Rusty Scrap: 0<br>
+Sturdy Scrap: 0<br>
+Flawless Scrap: 0
+
+</div>
+
+</div>
+`;
+
+document.getElementById(
+"junkyardCalculator"
+).innerHTML = html;
+
+bindJunkyardCalculator();
+
+}
+
+    function bindJunkyardCalculator(){
+
+function calculate(){
+
+let rusty=0;
+let sturdy=0;
+let flawless=0;
+
+document
+.querySelectorAll(".normalQty")
+.forEach(input=>{
+
+const qty = +input.value || 0;
+const cost = +input.dataset.cost;
+
+const total = qty * cost;
+
+if(input.dataset.scrap==="Rusty")
+rusty += total;
+
+if(input.dataset.scrap==="Sturdy")
+sturdy += total;
+
+if(input.dataset.scrap==="Flawless")
+flawless += total;
+
+});
+
+document
+.querySelectorAll(".goldQty")
+.forEach(input=>{
+
+const qty = +input.value || 0;
+const cost = +input.dataset.cost * 2.5;
+
+const total = qty * cost;
+
+if(input.dataset.scrap==="Rusty")
+rusty += total;
+
+if(input.dataset.scrap==="Sturdy")
+sturdy += total;
+
+if(input.dataset.scrap==="Flawless")
+flawless += total;
+
+});
+
+document.getElementById(
+"junkyardTotals"
+).innerHTML = `
+
+Rusty Scrap: ${fmt(rusty)}<br>
+Sturdy Scrap: ${fmt(sturdy)}<br>
+Flawless Scrap: ${fmt(flawless)}
+
+`;
+
+}
+
+document
+.querySelectorAll(
+".normalQty,.goldQty"
+)
+.forEach(
+e=>e.addEventListener(
+"input",
+calculate
+)
+);
+
+calculate();
+
+}
 function renderItems(){
 
     const search =
@@ -3486,4 +3726,5 @@ if(
 
 render();
 renderItems();
+renderJunkyardCalculator();
 </script></body></html>
