@@ -1410,18 +1410,30 @@ summary{
     }
 }
 
-    .junkyard-normal{
-    color:#cbd5e1;
+.junkyard-inputs label.junkyard-normal{
+    color:#cfd8e3 !important;
     font-weight:700;
+    text-shadow:
+        0 0 8px rgba(207,216,227,.35);
 }
 
-.junkyard-gold{
-    color:#fbbf24;
+.junkyard-inputs label.junkyard-gold{
+    color:#ffd84d !important;
     font-weight:700;
-
     text-shadow:
-        0 0 6px
-        rgba(251,191,36,.35);
+        0 0 8px rgba(255,216,77,.8),
+        0 0 16px rgba(255,216,77,.4);
+}
+    .goldQty{
+    border-color:rgba(255,216,77,.45);
+    box-shadow:
+        0 0 8px rgba(255,216,77,.12);
+}
+
+.goldQty:focus{
+    border-color:#ffd84d;
+    box-shadow:
+        0 0 12px rgba(255,216,77,.3);
 }
 
     .junkyard-cost.rusty{
