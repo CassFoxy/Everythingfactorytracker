@@ -1380,8 +1380,11 @@ summary{
 }
 
 .junkyard-inputs label{
+    display:block;
+    text-align:center;
     font-size:.7rem;
     color:#94a3b8;
+    margin-bottom:2px;
 }
 
 .junkyard-inputs input{
@@ -1405,6 +1408,32 @@ summary{
     .junkyard-grid{
         grid-template-columns:1fr;
     }
+}
+
+    .junkyard-normal{
+    color:#cbd5e1;
+    font-weight:700;
+}
+
+.junkyard-gold{
+    color:#fbbf24;
+    font-weight:700;
+
+    text-shadow:
+        0 0 6px
+        rgba(251,191,36,.35);
+}
+
+    .junkyard-cost.rusty{
+    color:#d39a52;
+}
+
+.junkyard-cost.sturdy{
+    color:#cfd8e3;
+}
+
+.junkyard-cost.flawless{
+    color:#ffd84d;
 }
 
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
@@ -1746,10 +1775,10 @@ const upgrades=[
 {rarity:"Legendary",name:"Birdhouse Dropper",scrap:"Sturdy",cost:110},
 {rarity:"Legendary",name:"Moai Multiplier",scrap:"Flawless",cost:500},
 {rarity:"Legendary",name:"Beetle Multiplier",scrap:"Sturdy",cost:1050},
+{rarity:"Legendary",name:"Junk Multiplier",scrap:"Rusty",cost:4500},
 
 {rarity:"Mythical",name:"Windmill Multiplier",scrap:"Flawless",cost:750},
 {rarity:"Mythical",name:"Car Wash Adder",scrap:"Sturdy",cost:3000},
-{rarity:"Mythical",name:"Junk Multiplier",scrap:"Rusty",cost:4500}
 
 ];
 let save=JSON.parse(localStorage.getItem("efv2release")||"{}");
@@ -3044,7 +3073,10 @@ let html = `
 rarityOrder.forEach(rarity=>{
 
 html += `
-<h3 style="margin-top:20px">
+<h3
+    class="junkyard-rarity rarity-${rarity.toLowerCase()}"
+    style="margin-top:20px"
+>
     ${rarity}
 </h3>
 
@@ -3077,11 +3109,16 @@ JUNKYARD_ITEMS
 html += `
 <div class="junkyard-item">
 
-<div class="junkyard-name">
+<div class="
+    junkyard-name
+    rarity-${item.rarity.toLowerCase()}
+">
     ${item.name}
 </div>
-
-<div class="junkyard-cost">
+<div class="
+    junkyard-cost
+    ${item.scrap.toLowerCase()}
+">
 
     <img src="${
         item.scrap==="Rusty"
@@ -3098,7 +3135,9 @@ html += `
 <div class="junkyard-inputs">
 
 <div>
-<label>N</label>
+<label class="junkyard-normal">
+    Normal
+</label>
 <input
     type="number"
     min="0"
@@ -3109,7 +3148,9 @@ html += `
 </div>
 
 <div>
-<label>G</label>
+<label class="junkyard-gold">
+    Gold
+</label>
 <input
     type="number"
     min="0"
