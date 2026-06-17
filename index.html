@@ -4092,17 +4092,6 @@ document
         "hideCompleted"
     );
 
-if(
-    hideBox &&
-    trackerSettings.hideCompleted
-){
-    hideBox.checked = true;
-}
-
-render();
-renderItems();
-renderJunkyardCalculator();
-renderChangelog();
 
 const CHANGELOG = [
 
@@ -4141,7 +4130,7 @@ CHANGELOG[0].version;
 
 function renderChangelog(){
 
-```
+
 const versionDisplay =
     document.getElementById(
         "versionDisplay"
@@ -4157,39 +4146,36 @@ if(versionDisplay){
 
 const html =
     CHANGELOG.map(log => `
-```
 
 <div class="update-entry">
 
-```
-<h3>v${log.version}</h3>
+    <h3>v${log.version}</h3>
 
-<div style="
-    color:#94a3b8;
-    margin-bottom:8px;
-">
-    ${log.date}
-</div>
+    <div style="
+        color:#94a3b8;
+        margin-bottom:8px;
+    ">
+        ${log.date}
+    </div>
 
-<ul>
-    ${log.changes
-        .map(change =>
-            `<li>${change}</li>`
-        )
-        .join("")
-    }
-</ul>
-```
+    <ul>
+        ${log.changes
+            .map(change =>
+                `<li>${change}</li>`
+            )
+            .join("")
+        }
+    </ul>
 
 </div>
 
 `).join("");
 
-```
+
 document.getElementById(
     "changelogContainer"
 ).innerHTML = html;
-```
+
 
 }
 
@@ -4222,7 +4208,7 @@ document.getElementById(
 
 updateButton.onclick = ()=>{
 
-```
+
 updateModal.classList.add(
     "open"
 );
@@ -4240,23 +4226,23 @@ const badge =
 if(badge){
     badge.remove();
 }
-```
+
 
 };
 
 closeUpdates.onclick = ()=>{
 
-```
+
 updateModal.classList.remove(
     "open"
 );
-```
+
 
 };
 
 updateModal.onclick = e=>{
 
-```
+
 if(e.target === updateModal){
 
     updateModal.classList.remove(
@@ -4264,7 +4250,7 @@ if(e.target === updateModal){
     );
 
 }
-```
+
 
 };
 
@@ -4274,7 +4260,7 @@ localStorage.getItem(
 ) === APP_VERSION
 ){
 
-```
+
 const badge =
     document.getElementById(
         "updateBadge"
@@ -4286,7 +4272,7 @@ if(badge){
         "none";
 
 }
-```
+
 
 }
 
