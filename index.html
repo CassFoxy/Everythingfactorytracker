@@ -134,6 +134,17 @@ input,button{
 
 }
 
+    .currency-card.cash{
+    border-color:rgba(34,197,94,.35);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(34,197,94,.06),
+            rgba(4,12,28,.65)
+        );
+}
+
     .currency-card.gems{
     border-color:rgba(103,217,255,.35);
 
@@ -193,6 +204,10 @@ input,button{
     transform:translateY(-2px);
 }
 
+    .currency-card.cash:hover{
+    box-shadow:0 0 20px rgba(34,197,94,.18);
+}
+
 .currency-card.gems:hover{
     box-shadow:0 0 20px rgba(103,217,255,.18);
 }
@@ -221,6 +236,11 @@ input,button{
 .currency-name{
     font-size:.9rem;
     font-weight:600;
+}
+
+    .cash{
+    color:#22c55e;
+    text-shadow:0 0 8px rgba(34,197,94,.4);
 }
 
 .gems{
@@ -337,6 +357,15 @@ details[data-shop="Scrap Shop"] summary{
         rgba(255,216,77,.35);
 
 }
+
+    details[data-shop="Hourglass Shop"] summary{
+
+    color:#22c55e;
+
+    text-shadow:
+        0 0 10px rgba(34,197,94,.35);
+
+}
     
 details[data-shop="Gem Shop"]{
 
@@ -392,6 +421,20 @@ details[data-shop="Scrap Shop"]{
         linear-gradient(
             135deg,
             rgba(255,216,77,.03),
+            rgba(4,12,28,.65)
+        );
+
+}
+
+    details[data-shop="Hourglass Shop"]{
+
+    border-color:
+        rgba(34,197,94,.25);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(34,197,94,.03),
             rgba(4,12,28,.65)
         );
 
@@ -533,6 +576,17 @@ details[data-shop="Item Index"] summary{
 
     /* Currency Themed Upgrade Cards */
 
+    .upgrade-card.cash{
+    border-color:rgba(34,197,94,.35);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(34,197,94,.06),
+            rgba(4,12,28,.65)
+        );
+}
+
 .upgrade-card.gems{
     border-color:rgba(103,217,255,.35);
 
@@ -662,6 +716,10 @@ details[data-shop="Item Index"] summary{
 
 .upgrade-card:hover{
     transform:translateY(-3px);
+}
+
+    .upgrade-card.cash:hover{
+    box-shadow:0 0 20px rgba(34,197,94,.18);
 }
 
 .upgrade-card.gems:hover{
@@ -1899,8 +1957,13 @@ const upgrades=[
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Dropper Mutation Boost",m:5000,f:l=>l},
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Multiplier Mutation Boost",m:5000,f:l=>l},
 {c:"Stardust Shop",cur:"Stardust",afk:true,n:"Adder Mutation Boost",m:5000,f:l=>l},
-{c:"Stardust Shop",cur:"Stardust",afk:true,n:"Furnace Mutation Boost",m:5000,f:l=>l}
- ,
+{c:"Stardust Shop",cur:"Stardust",afk:true,n:"Furnace Mutation Boost",m:5000,f:l=>l},
+{c:"Hourglass Shop",cur:"Cash",n:"Shard Value",m:1000,endless:true,f:l=>1e7*Math.pow(10,l-1)},
+{c:"Hourglass Shop",cur:"Cash",n:"Shard Cap",m:20,f:l=>1e7*Math.pow(10,l-1)},
+{c:"Hourglass Shop",cur:"Cash",n:"Shard Spawn Rate",m:45,f:l=>1e7*Math.pow(10,l-1)},
+{c:"Hourglass Shop",cur:"Cash",n:"Shard Mutation Rate",m:25,f:l=>1e7*Math.pow(10,l-1)},
+{c:"Hourglass Shop",cur:"Cash",n:"Shard Mutation Luck",m:1000,endless:true,f:l=>1e7*Math.pow(10,l-1)},
+{c:"Hourglass Shop",cur:"Cash",n:"Shard Auto Collect",m:16,f:l=>1e9*Math.pow(100,l-1)},
 {c:"Junkyard Shop",cur:"Gems",n:"Junkyard Luck",m:58,f:l=>1000*Math.pow(1.1,l-1)},
 {c:"Junkyard Shop",cur:"Gems",n:"Faster Restock",m:20,f:l=>100*Math.pow(1.5107,l-1)},
 {c:"Junkyard Shop",cur:"Stardust",n:"More Stock",m:12,f:l=>1000*Math.pow(1.7,l-1)},
@@ -2213,6 +2276,9 @@ ${
     : u.cur==="Stardust"
     ? "stardust"
 
+    : u.cur==="Cash"
+    ? "cash"
+
     : u.cur==="Rusty Scrap"
     ? "rusty"
 
@@ -2247,30 +2313,34 @@ u.multi
 <div class="
     currency-label
     ${
-        u.cur==="Gems"
-        ? "gems"
-        : u.cur==="Stardust"
-        ? "stardust"
-        : u.cur==="Rusty Scrap"
-        ? "rusty"
-        : u.cur==="Sturdy Scrap"
-        ? "sturdy"
-        : "flawless"
-    }
+    u.cur==="Gems"
+    ? "gems"
+    : u.cur==="Stardust"
+    ? "stardust"
+    : u.cur==="Cash"
+    ? "cash"
+    : u.cur==="Rusty Scrap"
+    ? "rusty"
+    : u.cur==="Sturdy Scrap"
+    ? "sturdy"
+    : "flawless"
+}
 ">
 
     <img
-        src="${
-            u.cur==="Gems"
-            ? "Gem.png"
-            : u.cur==="Stardust"
-            ? "Dust.png"
-            : u.cur==="Rusty Scrap"
-            ? "LowScrap.png"
-            : u.cur==="Sturdy Scrap"
-            ? "MidScrap.png"
-            : "HighScrap.png"
-        }"
+src="${
+    u.cur==="Gems"
+    ? "Gem.png"
+    : u.cur==="Stardust"
+    ? "Dust.png"
+    : u.cur==="Cash"
+    ? "Cash.png"
+    : u.cur==="Rusty Scrap"
+    ? "LowScrap.png"
+    : u.cur==="Sturdy Scrap"
+    ? "MidScrap.png"
+    : "HighScrap.png"
+}"
         class="mini-currency-icon">
 
     ${u.cur}
@@ -2900,6 +2970,7 @@ checklist:[
 function update(shopProg){
 
 let currencyTotals = {
+    Cash:0,
     Gems:0,
     Stardust:0,
     "Rusty Scrap":0,
@@ -2960,7 +3031,8 @@ if(!u.endless){
 }); // CLOSE upgrades.forEach HERE
 
 const currencyIcons = {
-
+    
+    "Cash":"Cash.png",
     "Gems":"Gem.png",
     "Stardust":"Dust.png",
 
@@ -2979,20 +3051,23 @@ Object.entries(currencyTotals)
     currency-card
 
     ${
-        k==="Gems"
-        ? "gems"
+    k==="Gems"
+    ? "gems"
 
-        : k==="Stardust"
-        ? "stardust"
+    : k==="Stardust"
+    ? "stardust"
 
-        : k==="Rusty Scrap"
-        ? "rusty"
+    : k==="Cash"
+    ? "cash"
 
-        : k==="Sturdy Scrap"
-        ? "sturdy"
+    : k==="Rusty Scrap"
+    ? "rusty"
 
-        : "flawless"
-    }
+    : k==="Sturdy Scrap"
+    ? "sturdy"
+
+    : "flawless"
+}
 ">
 
     <img
@@ -3003,21 +3078,24 @@ Object.entries(currencyTotals)
 
 <div class="
     currency-name
-    ${
-        k==="Gems"
-        ? "gems"
+${
+    k==="Gems"
+    ? "gems"
 
-        : k==="Stardust"
-        ? "stardust"
+    : k==="Stardust"
+    ? "stardust"
 
-        : k==="Rusty Scrap"
-        ? "rusty"
+    : k==="Cash"
+    ? "cash"
 
-        : k==="Sturdy Scrap"
-        ? "sturdy"
+    : k==="Rusty Scrap"
+    ? "rusty"
 
-        : "flawless"
-    }
+    : k==="Sturdy Scrap"
+    ? "sturdy"
+
+    : "flawless"
+}
 ">
     ${k}
 </div>
