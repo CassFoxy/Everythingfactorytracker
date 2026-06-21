@@ -2592,7 +2592,6 @@ save[u.id].target =
 targetInput.value =
     save[u.id].target;
     }
-}
 
 x.target.value = value;
 
@@ -2852,10 +2851,10 @@ const rustPowered =
 
     let completion = 0;
 
-    upgrades.forEach((u,i)=>{
+upgrades.forEach((u)=>{
 
-        let s =
-            save[i]?.current || 0;
+    let s =
+        getSaveData(u).current;
 
 if(!u.endless){
     completion += s / u.m;
