@@ -1831,6 +1831,22 @@ summary{
         Full Reset
     </button>
 
+    <button onclick="exportSave()">
+    Export Save
+</button>
+
+<button onclick="document.getElementById('importFile').click()">
+    Import Save
+</button>
+
+<input
+    type="file"
+    id="importFile"
+    accept=".json"
+    style="display:none"
+    onchange="importSave(event)"
+>
+
 </div>
 <div id="shops"></div>
 
@@ -2195,6 +2211,150 @@ upgrades.forEach((u)=>{
     persist();
 
     render();
+
+}
+
+    function exportSave(){
+
+    const data = {
+
+        version: CURRENT_VERSION,
+
+        exported:
+            new Date().toISOString(),
+
+        localStorage:{
+
+            efv2release:
+                localStorage.getItem(
+                    "efv2release"
+                ),
+
+            ef_index:
+                localStorage.getItem(
+                    "ef_index"
+                ),
+
+            ef_index_settings:
+                localStorage.getItem(
+                    "ef_index_settings"
+                ),
+
+            ef_seen_version:
+                localStorage.getItem(
+                    "ef_seen_version"
+                )
+
+        }
+
+    };
+
+    const blob = new Blob(
+
+        [
+            JSON.stringify(
+                data,
+                null,
+                2
+            )
+        ],
+
+        {
+            type:
+            "application/json"
+        }
+
+    );
+
+    const url =
+        URL.createObjectURL(blob);
+
+    const a =
+        document.createElement("a");
+
+    a.href = url;
+
+    a.download =
+        `everything_factory_tracker_${Date.now()}.json`;
+
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+}
+
+    function importSave(event){
+
+    const file =
+        event.target.files[0];
+
+    if(!file)
+        return;
+
+    const reader =
+        new FileReader();
+
+    reader.onload = e=>{
+
+        try{
+
+            const data =
+                JSON.parse(
+                    e.target.result
+                );
+
+            if(
+                !confirm(
+                    "Importing will overwrite your current tracker progress.\n\nContinue?"
+                )
+            ){
+                return;
+            }
+
+            if(
+                data.localStorage
+            ){
+
+                Object.entries(
+                    data.localStorage
+                ).forEach(
+                    ([key,value])=>{
+
+                        if(
+                            value !== null
+                        ){
+                            localStorage.setItem(
+                                key,
+                                value
+                            );
+                        }
+
+                    }
+                );
+
+            }
+
+            alert(
+                "Save imported successfully."
+            );
+
+            location.reload();
+
+        }
+
+        catch(err){
+
+            console.error(err);
+
+            alert(
+                "Invalid save file."
+            );
+
+        }
+
+    };
+
+    reader.readAsText(file);
 
 }
 function persist(){localStorage.setItem("efv2release",JSON.stringify(save))}
