@@ -2117,18 +2117,15 @@ function multiCostBetween(fn,a,b){
 }
 function setAllTargetsToMax(){
 
-    upgrades.forEach((u,i)=>{
+upgrades.forEach((u)=>{
 
-        save[i] ??= {
-            current:0,
-            target:u.m
-        };
+    const s = getSaveData(u);
 
-if(!u.endless){
-    save[i].target = u.m;
-}
+    if(!u.endless){
+        s.target = u.m;
+    }
 
-    });
+});
 
     persist();
     render();
@@ -2137,31 +2134,27 @@ if(!u.endless){
 
 function resetProgressOnly(){
 
-    upgrades.forEach((u,i)=>{
+upgrades.forEach((u)=>{
 
-        save[i] ??= {
-            current:0,
-            target:u.m
-        };
+    const s = getSaveData(u);
 
-        save[i].current = 0;
+    s.current = 0;
 
-    });
-
+});
     persist();
     render();
 
 }
 function fullReset(){
 
-    upgrades.forEach((u,i)=>{
+upgrades.forEach((u)=>{
 
-        save[i]={
-            current:0,
-            target:u.m
-        };
+    save[u.id] = {
+        current:0,
+        target:u.m
+    };
 
-    });
+});
 
     persist();
 
@@ -2516,18 +2509,18 @@ u.multi
 ${u.endless ? "" : `
 <button
     class="target-btn"
-    onclick="
-        save[${i}] ??= {
-            current:0,
-            target:${u.m}
-        };
+onclick="
+    save['${u.id}'] ??= {
+        current:0,
+        target:${u.m}
+    };
 
-        save[${i}].target = ${u.m};
+    save['${u.id}'].target = ${u.m};
 
-        persist();
+    persist();
 
-        render();
-    ">
+    render();
+">
 
     Target = Max
 
@@ -2565,10 +2558,12 @@ document.querySelectorAll('[data-i]').forEach(e=>e.oninput=x=>{
     let i=x.target.dataset.i;
     let k=x.target.dataset.k;
 
-    save[i]??={
-        current:0,
-        target:upgrades[i].m
-    };
+const u = upgrades[i];
+
+save[u.id] ??= {
+    current:0,
+    target:u.m
+};
 
 let value = +x.target.value;
 
@@ -2580,13 +2575,13 @@ value = Math.max(
     )
 );
 
-save[i][k] = value;
+save[u.id][k] = value;
 if(
-    save[i].target <
-    save[i].current
-){
-    save[i].target =
-        save[i].current;
+    save[u.id].target <
+    save[u.id].current
+)
+save[u.id].target =
+    save[u.id].current;
 
     const targetInput =
         document.querySelector(
@@ -2594,8 +2589,8 @@ if(
         );
 
     if(targetInput){
-        targetInput.value =
-            save[i].target;
+targetInput.value =
+    save[u.id].target;
     }
 }
 
