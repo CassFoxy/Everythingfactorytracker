@@ -2109,6 +2109,7 @@ const upgrades=[
 {id:"furnace_bank_size",c:"Gem Shop",cur:"Gems",n:"Furnace Bank Size",m:45,f:l=>5*Math.pow(1.15,l-1)},
 {id:"offline_earnings",c:"Gem Shop",cur:"Gems",n:"Offline Earnings",m:20,f:l=>15*Math.pow(1.3,l-1)},
 {id:"conveyor_speed",c:"Gem Shop",cur:"Gems",n:"Conveyor Speed",m:52,f:l=>25000*Math.pow(1.1092,l-1)},
+    
 {id:"gem_chance",c:"Stardust Shop",cur:"Stardust",n:"Gem Chance",m:40,f:l=>2*l},
 {id:"more_mutation_luck",c:"Stardust Shop",cur:"Stardust",n:"More Mutation Luck",m:75,f:l=>{let c=5;for(let i=2;i<=l;i++)c+=Math.ceil(i/10);return c}},
 {id:"plot_size",c:"Stardust Shop",cur:"Stardust",n:"Plot Size",m:10,f:l=>6*l},
@@ -2121,17 +2122,25 @@ const upgrades=[
 {id:"multiplier_mutation_boost",c:"Stardust Shop",cur:"Stardust",afk:true,n:"Multiplier Mutation Boost",m:5000,f:l=>l},
 {id:"adder_mutation_boost",c:"Stardust Shop",cur:"Stardust",afk:true,n:"Adder Mutation Boost",m:5000,f:l=>l},
 {id:"furnace_mutation_boost",c:"Stardust Shop",cur:"Stardust",afk:true,n:"Furnace Mutation Boost",m:5000,f:l=>l},
+    
 {id:"shard_value",c:"Hourglass Shop",cur:"Cash",n:"Shard Value",m:250,endless:true,f:l=>1e7*Math.pow(10,l-1)},
 {id:"shard_cap",c:"Hourglass Shop",cur:"Cash",n:"Shard Cap",m:20,f:l=>1e7*Math.pow(10,l-1)},
 {id:"shard_spawn_rate",c:"Hourglass Shop",cur:"Cash",n:"Shard Spawn Rate",m:45,f:l=>1e7*Math.pow(10,l-1)},
 {id:"shard_mutation_rate",c:"Hourglass Shop",cur:"Cash",n:"Shard Mutation Rate",m:25,f:l=>1e7*Math.pow(10,l-1)},
 {id:"shard_mutation_luck",c:"Hourglass Shop",cur:"Cash",n:"Shard Mutation Luck",m:250,endless:true,f:l=>1e7*Math.pow(10,l-1)},
 {id:"shard_auto_collect",c:"Hourglass Shop",cur:"Cash",n:"Shard Auto Collect",m:16,f:l=>1e9*Math.pow(100,l-1)},
-{id:"ancient_walk_speed", c:"Ancient Room", cur:"Stardust", n:"Extra Walk Speed", m:10, f:l=>10000*Math.pow(2,l-1)},
+    
+{id:"ancient_walk_speed", c:"Ancient Room", cur:"Stardust", n:"Extra Walk Speed", m:20, f:l=>10000*Math.pow(2,l-1)},
 {id:"ancient_dropper_mutation_boost", c:"Ancient Room", cur:"Stardust", afk:true, n:"Ancient Dropper Mutation Boost", m:5000, f:l=>5000+(l-1)*10},
 {id:"ancient_multiplier_mutation_boost", c:"Ancient Room", cur:"Stardust", afk:true, n:"Ancient Multiplier Mutation Boost", m:5000, f:l=>5000+(l-1)*10},
 {id:"ancient_adder_mutation_boost", c:"Ancient Room", cur:"Stardust", afk:true, n:"Ancient Adder Mutation Boost", m:5000, f:l=>5000+(l-1)*10},
 {id:"ancient_furnace_mutation_boost", c:"Ancient Room", cur:"Stardust", afk:true, n:"Ancient Furnace Mutation Boost", m:5000, f:l=>5000+(l-1)*10},
+{id:"ancient_furnace_bank_size",c:"Ancient Room",cur:"Stardust",n:"Ancient Furnace Bank Size",m:25,f:l=>Math.floor(1e6*Math.pow(1.348,l-1))},
+{id:"really_ancient_dropper_mutation_boost (Tier 2)",c:"Ancient Room",cur:"Stardust",afk:true,n:"Really Ancient Dropper Mutation Boost",m:5000,f:l=>50500+(l-1)*100},
+{id:"really_ancient_multiplier_mutation_boost (Tier 2)",c:"Ancient Room",cur:"Stardust",afk:true,n:"Really Ancient Multiplier Mutation Boost",m:5000,f:l=>50500+(l-1)*100},
+{id:"really_ancient_adder_mutation_boost (Tier 2)",c:"Ancient Room",cur:"Stardust",afk:true,n:"Really Ancient Adder Mutation Boost",m:5000,f:l=>50500+(l-1)*100},
+{id:"really_ancient_furnace_mutation_boost (Tier 2)",c:"Ancient Room",cur:"Stardust",afk:true,n:"Really Ancient Furnace Mutation Boost",m:5000,f:l=>50500+(l-1)*100},
+    
 {id:"junkyard_luck", c:"Junkyard Shop", cur:"Gems", n:"Junkyard Luck", m:100, f:l=>{ if(l<=50){ return 1000*Math.pow(1.1,l-1); } return 1000*Math.pow(1.1,49)*Math.pow(1.075,l-50); }},
 {id:"faster_restock",c:"Junkyard Shop",cur:"Gems",n:"Faster Restock",m:20,f:l=>100*Math.pow(1.5107,l-1)},
 {id:"more_stock",c:"Junkyard Shop",cur:"Stardust",n:"More Stock",m:12,f:l=>1000*Math.pow(1.7,l-1)},
@@ -4491,6 +4500,25 @@ document
     );
 
 const CHANGELOG = [
+{
+        version:"2.1.3",
+    date:"21st June 2026",
+
+    changes:[
+        "Added Really Ancient upgrades.",
+        "Added Ancient Furnace Bank Size.",
+        "Updated AFK calculator support.",
+    ],
+
+    upcoming:[
+        "Index Puzzle Solution.",
+        "Progress Tracker overhaul.",
+        "Updated Junkyard item costs.",
+        "Index updates.",
+        "More community tools and features."
+    ]
+},
+    
 {
     version:"2.1.2",
     date:"20th June 2026",
