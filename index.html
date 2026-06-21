@@ -4493,6 +4493,7 @@ document
 const CHANGELOG = [
 {
     version:"2.1.2",
+    date:"20th June 2026",
 
     changes:[
         "Added Macro Downloads hub.",
@@ -4511,8 +4512,7 @@ const CHANGELOG = [
         "Index updates.",
         "More community tools and features."
     ]
-}
-],
+},
 
 {
 version:"2.1.0",
@@ -4577,14 +4577,32 @@ const html =
         ${log.date}
     </div>
 
+<ul>
+    ${log.changes
+        .map(change =>
+            `<li>${change}</li>`
+        )
+        .join("")
+    }
+</ul>
+
+${log.upcoming?.length ? `
+    <h4 style="
+        margin-top:12px;
+        color:#fbbf24;
+    ">
+        🚧 Coming Soon
+    </h4>
+
     <ul>
-        ${log.changes
-            .map(change =>
-                `<li>${change}</li>`
+        ${log.upcoming
+            .map(item =>
+                `<li>${item}</li>`
             )
             .join("")
         }
     </ul>
+` : ""}
 
 </div>
 
