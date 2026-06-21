@@ -2218,7 +2218,10 @@ upgrades.forEach((u)=>{
 
     const data = {
 
-        version: CURRENT_VERSION,
+version:
+    typeof VERSION !== "undefined"
+        ? VERSION
+        : "2.1.1",
 
         exported:
             new Date().toISOString(),
