@@ -34,6 +34,15 @@
 
 <h1>🏭 Everything Factory Incremental</h1>
 
+    <div class="card">
+
+    <h2>
+        Factory Level:
+        <span id="factoryLevel">1</span>
+    </h2>
+
+</div>
+
 <div class="card">
 
     <h2>Cash</h2>
@@ -55,7 +64,7 @@
 
 </div>
 
-<div class="card">
+<div class="card" id="dropperCard">
 
     <h2>Dropper</h2>
 
@@ -75,7 +84,7 @@
 
 </div>
 
-    <div class="card">
+<div class="card" id="adderCard">
 
     <h2>Adder</h2>
 
@@ -99,7 +108,7 @@
 
 </div>
 
-<div class="card">
+<div class="card" id="multiplierCard">
 
     <h2>Multiplier</h2>
 
@@ -118,12 +127,12 @@
     </button>
 
     <div>
-        x2 Production
+        +25% Production
     </div>
 
 </div>
 
-<div class="card">
+<div class="card" id="furnaceCard">
 
     <h2>Furnace</h2>
 
@@ -142,7 +151,7 @@
     </button>
 
     <div>
-        x5 Production
+        +50% Production
     </div>
 
 </div>
@@ -153,6 +162,8 @@ let save = JSON.parse(
     localStorage.getItem("ef_incremental")
 ) || {
     cash: 0,
+
+    factoryLevel: 1,
 
     droppers: 0,
     adders: 0,
@@ -250,7 +261,35 @@ function getCPS(){
 
 }
 
+          function checkFactoryLevel(){
+
+    if(
+        save.factoryLevel < 2 &&
+        save.cash >= 100
+    ){
+        save.factoryLevel = 2;
+    }
+
+    if(
+        save.factoryLevel < 3 &&
+        save.cash >= 5000
+    ){
+        save.factoryLevel = 3;
+    }
+
+    if(
+        save.factoryLevel < 4 &&
+        save.cash >= 50000
+    ){
+        save.factoryLevel = 4;
+    }
+
+}
+
 function updateUI(){
+
+    document.getElementById("factoryLevel").textContent =
+    save.factoryLevel;
 
     document.getElementById("cash").textContent =
         formatNumber(save.cash);
@@ -281,6 +320,24 @@ function updateUI(){
 
     document.getElementById("furnaceCost").textContent =
         formatNumber(getFurnaceCost());
+
+    document.getElementById("adderCard")
+.style.display =
+    save.factoryLevel >= 2
+    ? "block"
+    : "none";
+
+document.getElementById("multiplierCard")
+.style.display =
+    save.factoryLevel >= 3
+    ? "block"
+    : "none";
+
+document.getElementById("furnaceCard")
+.style.display =
+    save.factoryLevel >= 4
+    ? "block"
+    : "none";
 
 }
 
@@ -367,6 +424,7 @@ setInterval(function(){
         save.cash +
         getCPS() / 10
     );
+    checkFactoryLevel();
 
     updateUI();
 
