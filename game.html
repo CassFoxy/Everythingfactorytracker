@@ -167,16 +167,23 @@ let save = JSON.parse(
         );
     }
 
-    function getDropperCost(){
-        return Math.floor(
-            10 * Math.pow(1.15, save.droppers)
-        );
-    }
-          function getAdderCost(){
+function getDropperCost(){
 
     return Math.floor(
-        100 * Math.pow(
-            1.15,
+        10 *
+        Math.pow(
+            1.25,
+            save.droppers
+        )
+    );
+
+}
+function getAdderCost(){
+
+    return Math.floor(
+        100 *
+        Math.pow(
+            1.30,
             save.adders
         )
     );
@@ -186,8 +193,9 @@ let save = JSON.parse(
 function getMultiplierCost(){
 
     return Math.floor(
-        1000 * Math.pow(
-            1.20,
+        5000 *
+        Math.pow(
+            1.45,
             save.multipliers
         )
     );
@@ -197,8 +205,9 @@ function getMultiplierCost(){
 function getFurnaceCost(){
 
     return Math.floor(
-        10000 * Math.pow(
-            1.25,
+        50000 *
+        Math.pow(
+            1.60,
             save.furnaces
         )
     );
@@ -215,16 +224,18 @@ function getCPS(){
 
     let multiplierBonus =
 
-        Math.pow(
-            2,
-            save.multipliers
+        1 +
+        (
+            save.multipliers *
+            0.25
         );
 
     let furnaceBonus =
 
-        Math.pow(
-            5,
-            save.furnaces
+        1 +
+        (
+            save.furnaces *
+            0.50
         );
 
     return (
@@ -349,14 +360,17 @@ document.getElementById("buyFurnace")
     updateUI();
 
 };
+setInterval(function(){
 
-    setInterval(function(){
+    save.cash = Math.min(
+        1e308,
+        save.cash +
+        getCPS() / 10
+    );
 
-        save.cash += getCPS() / 10;
+    updateUI();
 
-        updateUI();
-
-    }, 100);
+}, 100);
 
     setInterval(saveGame, 5000);
           
