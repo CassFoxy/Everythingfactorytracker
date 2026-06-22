@@ -125,6 +125,10 @@
         Total Ores:
         <span id="totalOres">0</span>
     </div>
+        <div>
+    Stone:
+    <span id="stoneOres">0</span>
+</div>
 <div>
     Tier 1 Ores:
     <span id="tier1Ores">0</span>
@@ -316,6 +320,31 @@
 
 </div>
 
+    <div id="discoveryPopup" class="modal">
+
+    <div class="modal-content">
+
+        <h2>🎉 NEW DISCOVERY!</h2>
+
+        <h1 id="popupOreName">
+            Ore Name
+        </h1>
+
+        <div>
+            Value:
+            <span id="popupOreValue">0</span>
+        </div>
+
+        <br>
+
+        <button onclick="closeDiscoveryPopup()">
+            Awesome!
+        </button>
+
+    </div>
+
+</div>
+
       <script>
 
 let save = JSON.parse(
@@ -331,6 +360,7 @@ let save = JSON.parse(
     furnaces: 0,
 
     totalOres: 0,
+    stoneOres: 0,
 
     tier1Ores: 0,
     tier2Ores: 0,
@@ -370,6 +400,7 @@ oreCollection: {
 save.factoryLevel ??= 1;
 
 save.totalOres ??= 0;
+          save.stoneOres ??= 0;
 
 save.tier1Ores ??= 0;
 save.tier2Ores ??= 0;
@@ -524,16 +555,16 @@ function mineOre(){
 
     let value = 1;
 
-    // Tier 4 (0.01% total)
+// Tier 4 (1 in 250,000)
 
-    if(roll < 0.0001){
+if(roll < 0.000004){
 
 const ores = [
-    {name:"🌈 Alexandrite", value:2500, key:"alexandrite"},
-    {name:"🖤 Black Opal", value:5000, key:"blackOpal"},
-    {name:"💎 Diamond", value:10000, key:"diamond"},
-    {name:"⚫ Onyx", value:500, key:"onyx"},
-    {name:"💜 Tanzanite", value:1000, key:"tanzanite"}
+    {name:"🌈 Alexandrite", value:100000, key:"alexandrite"},
+    {name:"🖤 Black Opal", value:150000, key:"blackOpal"},
+    {name:"💎 Diamond", value:250000, key:"diamond"},
+    {name:"⚫ Onyx", value:50000, key:"onyx"},
+    {name:"💜 Tanzanite", value:75000, key:"tanzanite"}
 ];
 
 const ore =
@@ -547,21 +578,34 @@ save.lastOreValue = ore.value;
 save.oreCollection[
     ore.key
 ]++;
+
+if(
+    save.oreCollection[
+        ore.key
+    ] === 1
+){
+
+    showDiscoveryPopup(
+        ore.name,
+        ore.value
+    );
+
+}
 
 save.tier4Ores++;
 
     }
 
-    // Tier 3 (5% total)
+// Tier 3 (1 in 50,000)
 
-    else if(roll < 0.05001){
+else if(roll < 0.000024){
 
 const ores = [
-    {name:"💚 Emerald", value:200, key:"emerald"},
-    {name:"❤️ Ruby", value:150, key:"ruby"},
-    {name:"💙 Sapphire", value:100, key:"sapphire"},
-    {name:"💗 Spinel", value:50, key:"spinel"},
-    {name:"🌈 Tourmaline", value:75, key:"tourmaline"}
+    {name:"💚 Emerald", value:25000, key:"emerald"},
+    {name:"❤️ Ruby", value:20000, key:"ruby"},
+    {name:"💙 Sapphire", value:15000, key:"sapphire"},
+    {name:"💗 Spinel", value:5000, key:"spinel"},
+    {name:"🌈 Tourmaline", value:10000, key:"tourmaline"}
 ];
 
 const ore =
@@ -575,21 +619,34 @@ save.lastOreValue = ore.value;
 save.oreCollection[
     ore.key
 ]++;
+
+if(
+    save.oreCollection[
+        ore.key
+    ] === 1
+){
+
+    showDiscoveryPopup(
+        ore.name,
+        ore.value
+    );
+
+}
 
 save.tier3Ores++;
 
     }
 
-    // Tier 2 (25% total)
+// Tier 2 (1 in 1,000)
 
-    else if(roll < 0.30001){
+else if(roll < 0.001024){
 
 const ores = [
-    {name:"💎 Aquamarine", value:30, key:"aquamarine"},
-    {name:"🟡 Citrine", value:10, key:"citrine"},
-    {name:"🔴 Garnet", value:15, key:"garnet"},
-    {name:"🟢 Jade", value:25, key:"jade"},
-    {name:"💚 Peridot", value:20, key:"peridot"}
+    {name:"💎 Aquamarine", value:1000, key:"aquamarine"},
+    {name:"🟡 Citrine", value:250, key:"citrine"},
+    {name:"🔴 Garnet", value:500, key:"garnet"},
+    {name:"🟢 Jade", value:900, key:"jade"},
+    {name:"💚 Peridot", value:750, key:"peridot"}
 ];
 
 const ore =
@@ -603,21 +660,34 @@ save.lastOreValue = ore.value;
 save.oreCollection[
     ore.key
 ]++;
+
+if(
+    save.oreCollection[
+        ore.key
+    ] === 1
+){
+
+    showDiscoveryPopup(
+        ore.name,
+        ore.value
+    );
+
+}
 
 save.tier2Ores++;
 
     }
 
-    // Tier 1 (remainder)
+// Tier 1 (1 in 25)
 
-    else{
+else if(roll < 0.041024){
 
 const ores = [
-    {name:"🟠 Amber", value:1, key:"amber"},
-    {name:"💜 Amethyst", value:4, key:"amethyst"},
-    {name:"🟢 Malachite", value:5, key:"malachite"},
-    {name:"⚪ Quartz", value:2, key:"quartz"},
-    {name:"🟡 Topaz", value:3, key:"topaz"}
+    {name:"🟠 Amber", value:10, key:"amber"},
+    {name:"💜 Amethyst", value:40, key:"amethyst"},
+    {name:"🟢 Malachite", value:50, key:"malachite"},
+    {name:"⚪ Quartz", value:20, key:"quartz"},
+    {name:"🟡 Topaz", value:30, key:"topaz"}
 ];
 
 const ore =
@@ -632,9 +702,34 @@ save.oreCollection[
     ore.key
 ]++;
 
+if(
+    save.oreCollection[
+        ore.key
+    ] === 1
+){
+
+    showDiscoveryPopup(
+        ore.name,
+        ore.value
+    );
+
+}
+
 save.tier1Ores++;
 
     }
+
+// Stone (~95.9%)
+
+    else{
+
+    save.lastOre = "🪨 Stone";
+
+    save.lastOreValue = 1;
+
+    save.stoneOres++;
+
+}
 
     save.totalOres++;
 save.cash += save.lastOreValue;
@@ -707,6 +802,9 @@ function updateUI(){
 
 document.getElementById("totalOres").textContent =
     formatNumber(save.totalOres);
+
+    document.getElementById("stoneOres").textContent =
+    formatNumber(save.stoneOres);
 
 document.getElementById("tier1Ores").textContent =
     formatNumber(save.tier1Ores);
@@ -899,6 +997,39 @@ function closeCollection(){
     document.getElementById(
         "collectionModal"
     ).style.display = "none";
+
+}
+
+          function showDiscoveryPopup(
+    oreName,
+    oreValue
+){
+
+    document.getElementById(
+        "popupOreName"
+    ).textContent =
+        oreName;
+
+    document.getElementById(
+        "popupOreValue"
+    ).textContent =
+        formatNumber(
+            oreValue
+        );
+
+    document.getElementById(
+        "discoveryPopup"
+    ).style.display =
+        "block";
+
+}
+
+function closeDiscoveryPopup(){
+
+    document.getElementById(
+        "discoveryPopup"
+    ).style.display =
+        "none";
 
 }
 
