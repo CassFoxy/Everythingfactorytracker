@@ -75,14 +75,90 @@
 
 </div>
 
+    <div class="card">
+
+    <h2>Adder</h2>
+
+    <div>
+        Owned:
+        <span id="adders">0</span>
+    </div>
+
+    <div>
+        Cost:
+        <span id="adderCost">100</span>
+    </div>
+
+    <button id="buyAdder">
+        Buy Adder
+    </button>
+
+    <div>
+        +5 CPS
+    </div>
+
+</div>
+
+<div class="card">
+
+    <h2>Multiplier</h2>
+
+    <div>
+        Owned:
+        <span id="multipliers">0</span>
+    </div>
+
+    <div>
+        Cost:
+        <span id="multiplierCost">1000</span>
+    </div>
+
+    <button id="buyMultiplier">
+        Buy Multiplier
+    </button>
+
+    <div>
+        x2 Production
+    </div>
+
+</div>
+
+<div class="card">
+
+    <h2>Furnace</h2>
+
+    <div>
+        Owned:
+        <span id="furnaces">0</span>
+    </div>
+
+    <div>
+        Cost:
+        <span id="furnaceCost">10000</span>
+    </div>
+
+    <button id="buyFurnace">
+        Buy Furnace
+    </button>
+
+    <div>
+        x5 Production
+    </div>
+
+</div>
+
       <script>
 
-    let save = JSON.parse(
-        localStorage.getItem("ef_incremental")
-    ) || {
-        cash: 0,
-        droppers: 0
-    };
+let save = JSON.parse(
+    localStorage.getItem("ef_incremental")
+) || {
+    cash: 0,
+
+    droppers: 0,
+    adders: 0,
+    multipliers: 0,
+    furnaces: 0
+};
 
     function saveGame(){
         localStorage.setItem(
@@ -96,26 +172,106 @@
             10 * Math.pow(1.15, save.droppers)
         );
     }
+          function getAdderCost(){
 
-    function getCPS(){
-        return save.droppers;
-    }
+    return Math.floor(
+        100 * Math.pow(
+            1.15,
+            save.adders
+        )
+    );
 
-    function updateUI(){
+}
 
-        document.getElementById("cash").textContent =
-            Math.floor(save.cash);
+function getMultiplierCost(){
 
-        document.getElementById("cps").textContent =
-            getCPS();
+    return Math.floor(
+        1000 * Math.pow(
+            1.20,
+            save.multipliers
+        )
+    );
 
-        document.getElementById("droppers").textContent =
-            save.droppers;
+}
 
-        document.getElementById("dropperCost").textContent =
-            getDropperCost();
+function getFurnaceCost(){
 
-    }
+    return Math.floor(
+        10000 * Math.pow(
+            1.25,
+            save.furnaces
+        )
+    );
+
+}
+
+function getCPS(){
+
+    let baseProduction =
+
+        save.droppers +
+
+        (save.adders * 5);
+
+    let multiplierBonus =
+
+        Math.pow(
+            2,
+            save.multipliers
+        );
+
+    let furnaceBonus =
+
+        Math.pow(
+            5,
+            save.furnaces
+        );
+
+    return (
+
+        baseProduction *
+
+        multiplierBonus *
+
+        furnaceBonus
+
+    );
+
+}
+
+function updateUI(){
+
+    document.getElementById("cash").textContent =
+        formatNumber(save.cash);
+
+    document.getElementById("cps").textContent =
+        formatNumber(getCPS());
+
+    document.getElementById("droppers").textContent =
+        save.droppers;
+
+    document.getElementById("dropperCost").textContent =
+        formatNumber(getDropperCost());
+
+    document.getElementById("adders").textContent =
+        save.adders;
+
+    document.getElementById("multipliers").textContent =
+        save.multipliers;
+
+    document.getElementById("furnaces").textContent =
+        save.furnaces;
+
+    document.getElementById("adderCost").textContent =
+        formatNumber(getAdderCost());
+
+    document.getElementById("multiplierCost").textContent =
+        formatNumber(getMultiplierCost());
+
+    document.getElementById("furnaceCost").textContent =
+        formatNumber(getFurnaceCost());
+
+}
 
     document.getElementById("mineButton")
         .onclick = function(){
@@ -143,6 +299,57 @@
 
     };
 
+          document.getElementById("buyAdder")
+.onclick = function(){
+
+    const cost =
+        getAdderCost();
+
+    if(save.cash < cost)
+        return;
+
+    save.cash -= cost;
+
+    save.adders++;
+
+    updateUI();
+
+};
+
+document.getElementById("buyMultiplier")
+.onclick = function(){
+
+    const cost =
+        getMultiplierCost();
+
+    if(save.cash < cost)
+        return;
+
+    save.cash -= cost;
+
+    save.multipliers++;
+
+    updateUI();
+
+};
+
+document.getElementById("buyFurnace")
+.onclick = function(){
+
+    const cost =
+        getFurnaceCost();
+
+    if(save.cash < cost)
+        return;
+
+    save.cash -= cost;
+
+    save.furnaces++;
+
+    updateUI();
+
+};
+
     setInterval(function(){
 
         save.cash += getCPS() / 10;
@@ -152,6 +359,27 @@
     }, 100);
 
     setInterval(saveGame, 5000);
+          
+          function formatNumber(num){
+
+    if(num < 1000)
+        return Math.floor(num);
+
+    if(num < 1000000)
+        return (
+            num / 1000
+        ).toFixed(1) + "K";
+
+    if(num < 1000000000)
+        return (
+            num / 1000000
+        ).toFixed(1) + "M";
+
+    return (
+        num / 1000000000
+    ).toFixed(1) + "B";
+
+}
 
     updateUI();
 
