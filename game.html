@@ -27,6 +27,55 @@
             cursor:pointer;
             border-radius:8px;
         }
+
+        .book-button{
+    font-size:40px;
+    cursor:pointer;
+    background:none;
+    border:none;
+}
+
+.modal{
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+
+    background:rgba(0,0,0,0.8);
+
+    z-index:1000;
+}
+
+.modal-content{
+    background:#0f172a;
+
+    border:2px solid #334155;
+
+    border-radius:12px;
+
+    width:90%;
+    max-width:700px;
+
+    max-height:80vh;
+
+    overflow-y:auto;
+
+    margin:40px auto;
+
+    padding:20px;
+
+    color:white;
+}
+
+.close-button{
+    float:right;
+
+    font-size:28px;
+
+    cursor:pointer;
+}
     </style>
 </head>
 
@@ -60,10 +109,15 @@
 
     <h2>Ore Statistics</h2>
 
-    <div>
-        Last Ore:
-        <span id="lastOre">None</span>
-    </div>
+<div>
+    Last Ore:
+    <span id="lastOre">None</span>
+</div>
+
+<div>
+    Value:
+    <span id="lastOreValue">0</span>
+</div>
 
     <br>
 
@@ -94,52 +148,71 @@
 </div>
 <div class="card">
 
-    <h2>Collection Log</h2>
+    <h2>Collection Book</h2>
+
+    <button
+        class="book-button"
+        onclick="openCollection()">
+
+        📖
+
+    </button>
 
     <div>
         Discovered:
         <span id="discoveredCount">0</span>/20
     </div>
 
-    <br>
+</div>
+    <div
+    id="collectionModal"
+    class="modal">
 
-    <h3>Tier 1</h3>
+    <div class="modal-content">
 
-    <div>Amber: <span id="amberCount">0</span></div>
-    <div>Amethyst: <span id="amethystCount">0</span></div>
-    <div>Malachite: <span id="malachiteCount">0</span></div>
-    <div>Quartz: <span id="quartzCount">0</span></div>
-    <div>Topaz: <span id="topazCount">0</span></div>
+        <span
+            class="close-button"
+            onclick="closeCollection()">
 
-    <br>
+            ×
 
-    <h3>Tier 2</h3>
+        </span>
 
-    <div>Aquamarine: <span id="aquamarineCount">0</span></div>
-    <div>Citrine: <span id="citrineCount">0</span></div>
-    <div>Garnet: <span id="garnetCount">0</span></div>
-    <div>Jade: <span id="jadeCount">0</span></div>
-    <div>Peridot: <span id="peridotCount">0</span></div>
+        <h2>Ore Collection</h2>
 
-    <br>
+<h3>Tier 1</h3>
 
-    <h3>Tier 3</h3>
+<div><span id="amberLabel">?????</span>: <span id="amberCount">???</span></div>
+<div><span id="amethystLabel">?????</span>: <span id="amethystCount">???</span></div>
+<div><span id="malachiteLabel">?????</span>: <span id="malachiteCount">???</span></div>
+<div><span id="quartzLabel">?????</span>: <span id="quartzCount">???</span></div>
+<div><span id="topazLabel">?????</span>: <span id="topazCount">???</span></div>
 
-    <div>Emerald: <span id="emeraldCount">0</span></div>
-    <div>Ruby: <span id="rubyCount">0</span></div>
-    <div>Sapphire: <span id="sapphireCount">0</span></div>
-    <div>Spinel: <span id="spinelCount">0</span></div>
-    <div>Tourmaline: <span id="tourmalineCount">0</span></div>
+<h3>Tier 2</h3>
 
-    <br>
+<div><span id="aquamarineLabel">?????</span>: <span id="aquamarineCount">???</span></div>
+<div><span id="citrineLabel">?????</span>: <span id="citrineCount">???</span></div>
+<div><span id="garnetLabel">?????</span>: <span id="garnetCount">???</span></div>
+<div><span id="jadeLabel">?????</span>: <span id="jadeCount">???</span></div>
+<div><span id="peridotLabel">?????</span>: <span id="peridotCount">???</span></div>
 
-    <h3>Tier 4</h3>
+<h3>Tier 3</h3>
 
-    <div>Alexandrite: <span id="alexandriteCount">0</span></div>
-    <div>Black Opal: <span id="blackOpalCount">0</span></div>
-    <div>Diamond: <span id="diamondCount">0</span></div>
-    <div>Onyx: <span id="onyxCount">0</span></div>
-    <div>Tanzanite: <span id="tanzaniteCount">0</span></div>
+<div><span id="emeraldLabel">?????</span>: <span id="emeraldCount">???</span></div>
+<div><span id="rubyLabel">?????</span>: <span id="rubyCount">???</span></div>
+<div><span id="sapphireLabel">?????</span>: <span id="sapphireCount">???</span></div>
+<div><span id="spinelLabel">?????</span>: <span id="spinelCount">???</span></div>
+<div><span id="tourmalineLabel">?????</span>: <span id="tourmalineCount">???</span></div>
+
+<h3>Tier 4</h3>
+
+<div><span id="alexandriteLabel">?????</span>: <span id="alexandriteCount">???</span></div>
+<div><span id="blackOpalLabel">?????</span>: <span id="blackOpalCount">???</span></div>
+<div><span id="diamondLabel">?????</span>: <span id="diamondCount">???</span></div>
+<div><span id="onyxLabel">?????</span>: <span id="onyxCount">???</span></div>
+<div><span id="tanzaniteLabel">?????</span>: <span id="tanzaniteCount">???</span></div>
+
+    </div>
 
 </div>
 
@@ -265,6 +338,7 @@ let save = JSON.parse(
     tier4Ores: 0,
 
 lastOre: "None",
+lastOreValue: 0,
 
 oreCollection: {
     amber: 0,
@@ -303,7 +377,8 @@ save.tier3Ores ??= 0;
 save.tier4Ores ??= 0;
 
 save.lastOre ??= "None";
-          save.oreCollection ??= {};
+save.lastOreValue ??= 0;
+save.oreCollection ??= {};
 
 save.oreCollection.amber ??= 0;
 save.oreCollection.amethyst ??= 0;
@@ -449,26 +524,31 @@ function mineOre(){
 
     let value = 1;
 
-    // Tier 4 (0.001% total)
+    // Tier 4 (0.01% total)
 
-    if(roll < 0.00001){
+    if(roll < 0.0001){
 
-        const ores = [
-            "💎 Diamond",
-            "🖤 Black Opal",
-            "💜 Tanzanite",
-            "⚫ Onyx",
-            "🌈 Alexandrite"
-        ];
+const ores = [
+    {name:"🌈 Alexandrite", value:2500, key:"alexandrite"},
+    {name:"🖤 Black Opal", value:5000, key:"blackOpal"},
+    {name:"💎 Diamond", value:10000, key:"diamond"},
+    {name:"⚫ Onyx", value:500, key:"onyx"},
+    {name:"💜 Tanzanite", value:1000, key:"tanzanite"}
+];
 
-        save.lastOre =
-            ores[Math.floor(
-                Math.random() * ores.length
-            )];
+const ore =
+    ores[Math.floor(
+        Math.random() * ores.length
+    )];
 
-        save.tier4Ores++;
+save.lastOre = ore.name;
+save.lastOreValue = ore.value;
 
-        value = 1000;
+save.oreCollection[
+    ore.key
+]++;
+
+save.tier4Ores++;
 
     }
 
@@ -476,22 +556,27 @@ function mineOre(){
 
     else if(roll < 0.05001){
 
-        const ores = [
-            "💚 Emerald",
-            "❤️ Ruby",
-            "💙 Sapphire",
-            "💗 Spinel",
-            "🌈 Tourmaline"
-        ];
+const ores = [
+    {name:"💚 Emerald", value:200, key:"emerald"},
+    {name:"❤️ Ruby", value:150, key:"ruby"},
+    {name:"💙 Sapphire", value:100, key:"sapphire"},
+    {name:"💗 Spinel", value:50, key:"spinel"},
+    {name:"🌈 Tourmaline", value:75, key:"tourmaline"}
+];
 
-        save.lastOre =
-            ores[Math.floor(
-                Math.random() * ores.length
-            )];
+const ore =
+    ores[Math.floor(
+        Math.random() * ores.length
+    )];
 
-        save.tier3Ores++;
+save.lastOre = ore.name;
+save.lastOreValue = ore.value;
 
-        value = 100;
+save.oreCollection[
+    ore.key
+]++;
+
+save.tier3Ores++;
 
     }
 
@@ -499,22 +584,27 @@ function mineOre(){
 
     else if(roll < 0.30001){
 
-        const ores = [
-            "💎 Aquamarine",
-            "🟡 Citrine",
-            "🔴 Garnet",
-            "🟢 Jade",
-            "💚 Peridot"
-        ];
+const ores = [
+    {name:"💎 Aquamarine", value:30, key:"aquamarine"},
+    {name:"🟡 Citrine", value:10, key:"citrine"},
+    {name:"🔴 Garnet", value:15, key:"garnet"},
+    {name:"🟢 Jade", value:25, key:"jade"},
+    {name:"💚 Peridot", value:20, key:"peridot"}
+];
 
-        save.lastOre =
-            ores[Math.floor(
-                Math.random() * ores.length
-            )];
+const ore =
+    ores[Math.floor(
+        Math.random() * ores.length
+    )];
 
-        save.tier2Ores++;
+save.lastOre = ore.name;
+save.lastOreValue = ore.value;
 
-        value = 10;
+save.oreCollection[
+    ore.key
+]++;
+
+save.tier2Ores++;
 
     }
 
@@ -522,28 +612,55 @@ function mineOre(){
 
     else{
 
-        const ores = [
-            "🟠 Amber",
-            "💜 Amethyst",
-            "🟢 Malachite",
-            "⚪ Quartz",
-            "🟡 Topaz"
-        ];
+const ores = [
+    {name:"🟠 Amber", value:1, key:"amber"},
+    {name:"💜 Amethyst", value:4, key:"amethyst"},
+    {name:"🟢 Malachite", value:5, key:"malachite"},
+    {name:"⚪ Quartz", value:2, key:"quartz"},
+    {name:"🟡 Topaz", value:3, key:"topaz"}
+];
 
-        save.lastOre =
-            ores[Math.floor(
-                Math.random() * ores.length
-            )];
+const ore =
+    ores[Math.floor(
+        Math.random() * ores.length
+    )];
 
-        save.tier1Ores++;
+save.lastOre = ore.name;
+save.lastOreValue = ore.value;
 
-        value = 1;
+save.oreCollection[
+    ore.key
+]++;
+
+save.tier1Ores++;
 
     }
 
     save.totalOres++;
+save.cash += save.lastOreValue;
 
-    save.cash += value;
+}
+
+function updateOreDisplay(
+    labelId,
+    countId,
+    oreName,
+    amount
+){
+
+    document.getElementById(
+        labelId
+    ).textContent =
+        amount > 0
+        ? oreName
+        : "?????";
+
+document.getElementById(
+    countId
+).textContent =
+    amount > 0
+    ? formatNumber(amount)
+    : "???";
 
 }
 
@@ -585,6 +702,9 @@ function updateUI(){
     document.getElementById("lastOre").textContent =
     save.lastOre;
 
+    document.getElementById("lastOreValue").textContent =
+    formatNumber(save.lastOreValue);
+
 document.getElementById("totalOres").textContent =
     formatNumber(save.totalOres);
 
@@ -618,65 +738,30 @@ document.getElementById("furnaceCard")
     ? "block"
     : "none";
 
-    document.getElementById("amberCount").textContent =
-    save.oreCollection.amber;
+updateOreDisplay("amberLabel","amberCount","Amber",save.oreCollection.amber);
+updateOreDisplay("amethystLabel","amethystCount","Amethyst",save.oreCollection.amethyst);
+updateOreDisplay("malachiteLabel","malachiteCount","Malachite",save.oreCollection.malachite);
+updateOreDisplay("quartzLabel","quartzCount","Quartz",save.oreCollection.quartz);
+updateOreDisplay("topazLabel","topazCount","Topaz",save.oreCollection.topaz);
 
-document.getElementById("amethystCount").textContent =
-    save.oreCollection.amethyst;
+updateOreDisplay("aquamarineLabel","aquamarineCount","Aquamarine",save.oreCollection.aquamarine);
+updateOreDisplay("citrineLabel","citrineCount","Citrine",save.oreCollection.citrine);
+updateOreDisplay("garnetLabel","garnetCount","Garnet",save.oreCollection.garnet);
+updateOreDisplay("jadeLabel","jadeCount","Jade",save.oreCollection.jade);
+updateOreDisplay("peridotLabel","peridotCount","Peridot",save.oreCollection.peridot);
 
-document.getElementById("malachiteCount").textContent =
-    save.oreCollection.malachite;
+updateOreDisplay("emeraldLabel","emeraldCount","Emerald",save.oreCollection.emerald);
+updateOreDisplay("rubyLabel","rubyCount","Ruby",save.oreCollection.ruby);
+updateOreDisplay("sapphireLabel","sapphireCount","Sapphire",save.oreCollection.sapphire);
+updateOreDisplay("spinelLabel","spinelCount","Spinel",save.oreCollection.spinel);
+updateOreDisplay("tourmalineLabel","tourmalineCount","Tourmaline",save.oreCollection.tourmaline);
 
-document.getElementById("quartzCount").textContent =
-    save.oreCollection.quartz;
-
-document.getElementById("topazCount").textContent =
-    save.oreCollection.topaz;
-
-document.getElementById("aquamarineCount").textContent =
-    save.oreCollection.aquamarine;
-
-document.getElementById("citrineCount").textContent =
-    save.oreCollection.citrine;
-
-document.getElementById("garnetCount").textContent =
-    save.oreCollection.garnet;
-
-document.getElementById("jadeCount").textContent =
-    save.oreCollection.jade;
-
-document.getElementById("peridotCount").textContent =
-    save.oreCollection.peridot;
-
-document.getElementById("emeraldCount").textContent =
-    save.oreCollection.emerald;
-
-document.getElementById("rubyCount").textContent =
-    save.oreCollection.ruby;
-
-document.getElementById("sapphireCount").textContent =
-    save.oreCollection.sapphire;
-
-document.getElementById("spinelCount").textContent =
-    save.oreCollection.spinel;
-
-document.getElementById("tourmalineCount").textContent =
-    save.oreCollection.tourmaline;
-
-document.getElementById("alexandriteCount").textContent =
-    save.oreCollection.alexandrite;
-
-document.getElementById("blackOpalCount").textContent =
-    save.oreCollection.blackOpal;
-
-document.getElementById("diamondCount").textContent =
-    save.oreCollection.diamond;
-
-document.getElementById("onyxCount").textContent =
-    save.oreCollection.onyx;
-
-document.getElementById("tanzaniteCount").textContent =
-    save.oreCollection.tanzanite;
+updateOreDisplay("alexandriteLabel","alexandriteCount","Alexandrite",save.oreCollection.alexandrite);
+updateOreDisplay("blackOpalLabel","blackOpalCount","Black Opal",save.oreCollection.blackOpal);
+updateOreDisplay("diamondLabel","diamondCount","Diamond",save.oreCollection.diamond);
+updateOreDisplay("onyxLabel","onyxCount","Onyx",save.oreCollection.onyx);
+updateOreDisplay("tanzaniteLabel","tanzaniteCount","Tanzanite",save.oreCollection.tanzanite);
+    
     const discovered = Object.values(
     save.oreCollection
 ).filter(
@@ -798,6 +883,22 @@ setInterval(function(){
     return (
         num / 1000000000
     ).toFixed(1) + "B";
+
+}
+
+          function openCollection(){
+
+    document.getElementById(
+        "collectionModal"
+    ).style.display = "block";
+
+}
+
+function closeCollection(){
+
+    document.getElementById(
+        "collectionModal"
+    ).style.display = "none";
 
 }
 
