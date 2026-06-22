@@ -56,6 +56,93 @@
 
 </div>
 
+    <div class="card">
+
+    <h2>Ore Statistics</h2>
+
+    <div>
+        Last Ore:
+        <span id="lastOre">None</span>
+    </div>
+
+    <br>
+
+    <div>
+        Total Ores:
+        <span id="totalOres">0</span>
+    </div>
+<div>
+    Tier 1 Ores:
+    <span id="tier1Ores">0</span>
+</div>
+
+<div>
+    Tier 2 Ores:
+    <span id="tier2Ores">0</span>
+</div>
+
+<div>
+    Tier 3 Ores:
+    <span id="tier3Ores">0</span>
+</div>
+
+<div>
+    Tier 4 Ores:
+    <span id="tier4Ores">0</span>
+</div>
+
+</div>
+<div class="card">
+
+    <h2>Collection Log</h2>
+
+    <div>
+        Discovered:
+        <span id="discoveredCount">0</span>/20
+    </div>
+
+    <br>
+
+    <h3>Tier 1</h3>
+
+    <div>Amber: <span id="amberCount">0</span></div>
+    <div>Amethyst: <span id="amethystCount">0</span></div>
+    <div>Malachite: <span id="malachiteCount">0</span></div>
+    <div>Quartz: <span id="quartzCount">0</span></div>
+    <div>Topaz: <span id="topazCount">0</span></div>
+
+    <br>
+
+    <h3>Tier 2</h3>
+
+    <div>Aquamarine: <span id="aquamarineCount">0</span></div>
+    <div>Citrine: <span id="citrineCount">0</span></div>
+    <div>Garnet: <span id="garnetCount">0</span></div>
+    <div>Jade: <span id="jadeCount">0</span></div>
+    <div>Peridot: <span id="peridotCount">0</span></div>
+
+    <br>
+
+    <h3>Tier 3</h3>
+
+    <div>Emerald: <span id="emeraldCount">0</span></div>
+    <div>Ruby: <span id="rubyCount">0</span></div>
+    <div>Sapphire: <span id="sapphireCount">0</span></div>
+    <div>Spinel: <span id="spinelCount">0</span></div>
+    <div>Tourmaline: <span id="tourmalineCount">0</span></div>
+
+    <br>
+
+    <h3>Tier 4</h3>
+
+    <div>Alexandrite: <span id="alexandriteCount">0</span></div>
+    <div>Black Opal: <span id="blackOpalCount">0</span></div>
+    <div>Diamond: <span id="diamondCount">0</span></div>
+    <div>Onyx: <span id="onyxCount">0</span></div>
+    <div>Tanzanite: <span id="tanzaniteCount">0</span></div>
+
+</div>
+
 <div class="card">
 
     <button id="mineButton">
@@ -168,10 +255,81 @@ let save = JSON.parse(
     droppers: 0,
     adders: 0,
     multipliers: 0,
-    furnaces: 0
+    furnaces: 0,
+
+    totalOres: 0,
+
+    tier1Ores: 0,
+    tier2Ores: 0,
+    tier3Ores: 0,
+    tier4Ores: 0,
+
+lastOre: "None",
+
+oreCollection: {
+    amber: 0,
+    amethyst: 0,
+    malachite: 0,
+    quartz: 0,
+    topaz: 0,
+
+    aquamarine: 0,
+    citrine: 0,
+    garnet: 0,
+    jade: 0,
+    peridot: 0,
+
+    emerald: 0,
+    ruby: 0,
+    sapphire: 0,
+    spinel: 0,
+    tourmaline: 0,
+
+    alexandrite: 0,
+    blackOpal: 0,
+    diamond: 0,
+    onyx: 0,
+    tanzanite: 0
+}
 };
 
-    function saveGame(){
+save.factoryLevel ??= 1;
+
+save.totalOres ??= 0;
+
+save.tier1Ores ??= 0;
+save.tier2Ores ??= 0;
+save.tier3Ores ??= 0;
+save.tier4Ores ??= 0;
+
+save.lastOre ??= "None";
+          save.oreCollection ??= {};
+
+save.oreCollection.amber ??= 0;
+save.oreCollection.amethyst ??= 0;
+save.oreCollection.malachite ??= 0;
+save.oreCollection.quartz ??= 0;
+save.oreCollection.topaz ??= 0;
+
+save.oreCollection.aquamarine ??= 0;
+save.oreCollection.citrine ??= 0;
+save.oreCollection.garnet ??= 0;
+save.oreCollection.jade ??= 0;
+save.oreCollection.peridot ??= 0;
+
+save.oreCollection.emerald ??= 0;
+save.oreCollection.ruby ??= 0;
+save.oreCollection.sapphire ??= 0;
+save.oreCollection.spinel ??= 0;
+save.oreCollection.tourmaline ??= 0;
+
+save.oreCollection.alexandrite ??= 0;
+save.oreCollection.blackOpal ??= 0;
+save.oreCollection.diamond ??= 0;
+save.oreCollection.onyx ??= 0;
+save.oreCollection.tanzanite ??= 0;
+
+function saveGame(){
         localStorage.setItem(
             "ef_incremental",
             JSON.stringify(save)
@@ -285,6 +443,109 @@ function getCPS(){
     }
 
 }
+function mineOre(){
+
+    const roll = Math.random();
+
+    let value = 1;
+
+    // Tier 4 (0.001% total)
+
+    if(roll < 0.00001){
+
+        const ores = [
+            "💎 Diamond",
+            "🖤 Black Opal",
+            "💜 Tanzanite",
+            "⚫ Onyx",
+            "🌈 Alexandrite"
+        ];
+
+        save.lastOre =
+            ores[Math.floor(
+                Math.random() * ores.length
+            )];
+
+        save.tier4Ores++;
+
+        value = 1000;
+
+    }
+
+    // Tier 3 (5% total)
+
+    else if(roll < 0.05001){
+
+        const ores = [
+            "💚 Emerald",
+            "❤️ Ruby",
+            "💙 Sapphire",
+            "💗 Spinel",
+            "🌈 Tourmaline"
+        ];
+
+        save.lastOre =
+            ores[Math.floor(
+                Math.random() * ores.length
+            )];
+
+        save.tier3Ores++;
+
+        value = 100;
+
+    }
+
+    // Tier 2 (25% total)
+
+    else if(roll < 0.30001){
+
+        const ores = [
+            "💎 Aquamarine",
+            "🟡 Citrine",
+            "🔴 Garnet",
+            "🟢 Jade",
+            "💚 Peridot"
+        ];
+
+        save.lastOre =
+            ores[Math.floor(
+                Math.random() * ores.length
+            )];
+
+        save.tier2Ores++;
+
+        value = 10;
+
+    }
+
+    // Tier 1 (remainder)
+
+    else{
+
+        const ores = [
+            "🟠 Amber",
+            "💜 Amethyst",
+            "🟢 Malachite",
+            "⚪ Quartz",
+            "🟡 Topaz"
+        ];
+
+        save.lastOre =
+            ores[Math.floor(
+                Math.random() * ores.length
+            )];
+
+        save.tier1Ores++;
+
+        value = 1;
+
+    }
+
+    save.totalOres++;
+
+    save.cash += value;
+
+}
 
 function updateUI(){
 
@@ -321,6 +582,24 @@ function updateUI(){
     document.getElementById("furnaceCost").textContent =
         formatNumber(getFurnaceCost());
 
+    document.getElementById("lastOre").textContent =
+    save.lastOre;
+
+document.getElementById("totalOres").textContent =
+    formatNumber(save.totalOres);
+
+document.getElementById("tier1Ores").textContent =
+    formatNumber(save.tier1Ores);
+
+document.getElementById("tier2Ores").textContent =
+    formatNumber(save.tier2Ores);
+
+document.getElementById("tier3Ores").textContent =
+    formatNumber(save.tier3Ores);
+
+document.getElementById("tier4Ores").textContent =
+    formatNumber(save.tier4Ores);
+
     document.getElementById("adderCard")
 .style.display =
     save.factoryLevel >= 2
@@ -339,16 +618,85 @@ document.getElementById("furnaceCard")
     ? "block"
     : "none";
 
+    document.getElementById("amberCount").textContent =
+    save.oreCollection.amber;
+
+document.getElementById("amethystCount").textContent =
+    save.oreCollection.amethyst;
+
+document.getElementById("malachiteCount").textContent =
+    save.oreCollection.malachite;
+
+document.getElementById("quartzCount").textContent =
+    save.oreCollection.quartz;
+
+document.getElementById("topazCount").textContent =
+    save.oreCollection.topaz;
+
+document.getElementById("aquamarineCount").textContent =
+    save.oreCollection.aquamarine;
+
+document.getElementById("citrineCount").textContent =
+    save.oreCollection.citrine;
+
+document.getElementById("garnetCount").textContent =
+    save.oreCollection.garnet;
+
+document.getElementById("jadeCount").textContent =
+    save.oreCollection.jade;
+
+document.getElementById("peridotCount").textContent =
+    save.oreCollection.peridot;
+
+document.getElementById("emeraldCount").textContent =
+    save.oreCollection.emerald;
+
+document.getElementById("rubyCount").textContent =
+    save.oreCollection.ruby;
+
+document.getElementById("sapphireCount").textContent =
+    save.oreCollection.sapphire;
+
+document.getElementById("spinelCount").textContent =
+    save.oreCollection.spinel;
+
+document.getElementById("tourmalineCount").textContent =
+    save.oreCollection.tourmaline;
+
+document.getElementById("alexandriteCount").textContent =
+    save.oreCollection.alexandrite;
+
+document.getElementById("blackOpalCount").textContent =
+    save.oreCollection.blackOpal;
+
+document.getElementById("diamondCount").textContent =
+    save.oreCollection.diamond;
+
+document.getElementById("onyxCount").textContent =
+    save.oreCollection.onyx;
+
+document.getElementById("tanzaniteCount").textContent =
+    save.oreCollection.tanzanite;
+    const discovered = Object.values(
+    save.oreCollection
+).filter(
+    count => count > 0
+).length;
+
+document.getElementById(
+    "discoveredCount"
+).textContent = discovered;
+
 }
 
-    document.getElementById("mineButton")
-        .onclick = function(){
+document.getElementById("mineButton")
+.onclick = function(){
 
-        save.cash += 1;
+    mineOre();
 
-        updateUI();
+    updateUI();
 
-    };
+};
 
     document.getElementById("buyDropper")
         .onclick = function(){
