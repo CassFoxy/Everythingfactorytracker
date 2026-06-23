@@ -85,10 +85,20 @@
 
     <div class="card">
 
-    <h2>
-        Factory Level:
-        <span id="factoryLevel">1</span>
-    </h2>
+<h2>
+    Factory Level:
+    <span id="factoryLevel">1</span>
+</h2>
+
+<div>
+    XP:
+    <span id="factoryXP">100</span>
+</div>
+
+<div>
+    Next Level:
+    <span id="nextLevelXP">400</span>
+</div>
 
 </div>
 
@@ -511,9 +521,10 @@
 let save = JSON.parse(
     localStorage.getItem("ef_incremental")
 ) || {
-    cash: 0,
+cash: 0,
 
-    factoryLevel: 1,
+factoryLevel: 1,
+factoryXP: 100,
 
     droppers: 0,
     adders: 0,
@@ -588,6 +599,7 @@ oreCollection: {
 };
 
 save.factoryLevel ??= 1;
+          save.factoryXP ??= 100;
 
 save.totalOres ??= 0;
           save.stoneOres ??= 0;
@@ -678,6 +690,27 @@ save.oreCollection.tanzanite ??= 0;
 }
 
 ];
+
+          function getXPForLevel(level){
+
+    return level * level * 100;
+
+}
+
+function updateFactoryLevel(){
+
+    save.factoryLevel = Math.floor(
+
+        Math.sqrt(
+            save.factoryXP / 100
+        )
+
+    );
+
+    if(save.factoryLevel < 1)
+        save.factoryLevel = 1;
+
+}
 
 function saveGame(){
         localStorage.setItem(
@@ -793,30 +826,6 @@ function getCPS(){
 
 }
 
-          function checkFactoryLevel(){
-
-    if(
-        save.factoryLevel < 2 &&
-        save.cash >= 100
-    ){
-        save.factoryLevel = 2;
-    }
-
-    if(
-        save.factoryLevel < 3 &&
-        save.cash >= 5000
-    ){
-        save.factoryLevel = 3;
-    }
-
-    if(
-        save.factoryLevel < 4 &&
-        save.cash >= 50000
-    ){
-        save.factoryLevel = 4;
-    }
-
-}
 function mineOre(){
 
     const roll = Math.random();
@@ -863,6 +872,8 @@ if(
 
 save.tier4Ores++;
 
+save.factoryXP += 1000;
+
     }
 
 // Tier 3 (1 in 50,000)
@@ -906,6 +917,8 @@ if(
 }
 
 save.tier3Ores++;
+
+save.factoryXP += 100;
 
     }
 
@@ -951,6 +964,8 @@ if(
 
 save.tier2Ores++;
 
+save.factoryXP += 25;
+
     }
 
 // Tier 1 (1 in 25)
@@ -995,6 +1010,8 @@ if(
 
 save.tier1Ores++;
 
+save.factoryXP += 5;
+
     }
 
 // Stone (~95.9%)
@@ -1012,6 +1029,10 @@ save.inventory.stone++;
 }
 
 save.totalOres++;
+
+save.factoryXP += 1;
+
+updateFactoryLevel();
 
 }
 
@@ -1080,6 +1101,24 @@ function updateUI(){
 
     document.getElementById("factoryLevel").textContent =
     save.factoryLevel;
+
+    document.getElementById(
+    "factoryXP"
+).textContent =
+    formatNumber(
+        save.factoryXP
+    );
+
+document.getElementById(
+    "nextLevelXP"
+).textContent =
+    formatNumber(
+
+        getXPForLevel(
+            save.factoryLevel + 1
+        )
+
+    );
 
     document.getElementById("cash").textContent =
         formatNumber(save.cash);
@@ -1186,13 +1225,13 @@ document.getElementById("tier4Ores").textContent =
 
 document.getElementById("multiplierCard")
 .style.display =
-    save.factoryLevel >= 3
+    save.factoryLevel >= 5
     ? "block"
     : "none";
 
 document.getElementById("furnaceCard")
 .style.display =
-    save.factoryLevel >= 4
+    save.factoryLevel >= 10
     ? "block"
     : "none";
 
@@ -1707,6 +1746,11 @@ function confirmSmelt(){
         pendingSmelt.amount *
 
         pendingSmelt.value;
+
+    save.factoryXP +=
+    pendingSmelt.amount;
+
+updateFactoryLevel();
 
     closeSmeltConfirm();
 
