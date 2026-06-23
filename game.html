@@ -92,12 +92,16 @@
 
 <div>
     XP:
-    <span id="factoryXP">100</span>
+    <span id="factoryXP">
+        100 / 400
+    </span>
 </div>
 
 <div>
-    Next Level:
-    <span id="nextLevelXP">400</span>
+    Remaining:
+    <span id="nextLevelXP">
+        300
+    </span>
 </div>
 
 </div>
@@ -108,10 +112,6 @@
 
     <div id="cash">0</div>
 
-    <div>
-        CPS:
-        <span id="cps">0</span>
-    </div>
 
 </div>
 
@@ -370,9 +370,9 @@
         Buy Adder
     </button>
 
-    <div>
-        +5 CPS
-    </div>
+<div>
+    +1 Stone Value
+</div>
 
 </div>
 
@@ -394,9 +394,9 @@
         Buy Multiplier
     </button>
 
-    <div>
-        +25% Production
-    </div>
+<div>
+    +0.1% Duplicate Chance
+</div>
 
 </div>
 
@@ -778,53 +778,51 @@ function getMultiplierCost(){
 
 }
 
-function getFurnaceCost(){
 
-    return Math.floor(
-        50000 *
-        Math.pow(
-            1.60,
-            save.furnaces
-        )
-    );
+function produceStone(){
 
-}
+    let amount =
+        save.droppers;
 
-function getCPS(){
+    if(amount <= 0)
+        return;
 
-    let baseProduction =
+    let duplicateChance =
 
-        save.droppers +
+        save.multipliers *
 
-        (save.adders * 5);
+        0.001;
 
-    let multiplierBonus =
+    for(let i = 0; i < amount; i++){
 
-        1 +
-        (
-            save.multipliers *
-            0.25
-        );
+save.inventory.stone++;
 
-    let furnaceBonus =
+save.stoneOres++;
 
-        1 +
-        (
-            save.furnaces *
-            0.50
-        );
+save.totalOres++;
 
-    return (
+save.factoryXP += 0.1;
+        
+        if(
+            Math.random() <
+            duplicateChance
+        ){
+save.inventory.stone++;
 
-        baseProduction *
+save.stoneOres++;
 
-        multiplierBonus *
+save.totalOres++;
 
-        furnaceBonus
+save.factoryXP += 0.1;
 
-    );
+        }
+
+    }
+
+    updateFactoryLevel();
 
 }
+
 
 function mineOre(){
 
@@ -1026,11 +1024,11 @@ save.stoneOres++;
 
 save.inventory.stone++;
 
+        save.factoryXP += 1;
+
 }
 
 save.totalOres++;
-
-save.factoryXP += 1;
 
 updateFactoryLevel();
 
@@ -1102,29 +1100,43 @@ function updateUI(){
     document.getElementById("factoryLevel").textContent =
     save.factoryLevel;
 
-    document.getElementById(
+const nextLevelXP =
+
+    getXPForLevel(
+        save.factoryLevel + 1
+    );
+
+document.getElementById(
     "factoryXP"
 ).textContent =
-    formatNumber(
+
+    Math.floor(
         save.factoryXP
-    );
+    ).toLocaleString()
+
+    +
+
+    " / "
+
+    +
+
+    Math.floor(
+        nextLevelXP
+    ).toLocaleString();
 
 document.getElementById(
     "nextLevelXP"
 ).textContent =
-    formatNumber(
 
-        getXPForLevel(
-            save.factoryLevel + 1
-        )
+    Math.floor(
 
-    );
+        nextLevelXP -
+        save.factoryXP
+
+    ).toLocaleString();
 
     document.getElementById("cash").textContent =
         formatNumber(save.cash);
-
-    document.getElementById("cps").textContent =
-        formatNumber(getCPS());
 
     document.getElementById("droppers").textContent =
         save.droppers;
@@ -1134,6 +1146,11 @@ document.getElementById(
 
     document.getElementById("adders").textContent =
         save.adders;
+    save.stoneValue =
+
+    1 +
+
+    save.adders;
 
     document.getElementById("multipliers").textContent =
         save.multipliers;
@@ -1231,9 +1248,7 @@ document.getElementById("multiplierCard")
 
 document.getElementById("furnaceCard")
 .style.display =
-    save.factoryLevel >= 10
-    ? "block"
-    : "none";
+    "block";
 
 updateOreDisplay("amberLabel","amberCount","Amber",save.oreCollection.amber);
 updateOreDisplay("amethystLabel","amethystCount","Amethyst",save.oreCollection.amethyst);
@@ -1262,7 +1277,7 @@ updateOreDisplay("tanzaniteLabel","tanzaniteCount","Tanzanite",save.oreCollectio
 updateInventoryTooltip(
     "invStone",
     save.inventory.stone,
-    1
+    save.stoneValue
 );
 
 updateInventoryTooltip(
@@ -1467,14 +1482,13 @@ document.getElementById("buyMultiplier")
 
 };
 
-
 setInterval(function(){
 
-    checkFactoryLevel();
+    produceStone();
 
     updateUI();
 
-}, 100);
+}, 1000);
 
     setInterval(saveGame, 5000);
           
