@@ -168,6 +168,20 @@
     </div>
 
 </div>
+    
+<div class="card">
+
+    <h2>Inventory</h2>
+
+    <button
+        class="book-button"
+        onclick="openInventory()">
+
+        📦
+
+    </button>
+
+</div>
     <div
     id="collectionModal"
     class="modal">
@@ -215,6 +229,86 @@
 <div><span id="diamondLabel">?????</span>: <span id="diamondCount">???</span></div>
 <div><span id="onyxLabel">?????</span>: <span id="onyxCount">???</span></div>
 <div><span id="tanzaniteLabel">?????</span>: <span id="tanzaniteCount">???</span></div>
+
+    </div>
+
+</div>
+
+    <div
+    id="inventoryModal"
+    class="modal">
+
+    <div class="modal-content">
+
+        <span
+            class="close-button"
+            onclick="closeInventory()">
+
+            ×
+
+        </span>
+
+        <h2>Inventory</h2>
+
+        <h3>Stone</h3>
+
+        <div>Stone: <span id="invStone">0</span></div>
+
+        <h3>Tier 1</h3>
+
+        <div>Amber: <span id="invAmber">0</span></div>
+        <div>Amethyst: <span id="invAmethyst">0</span></div>
+        <div>Malachite: <span id="invMalachite">0</span></div>
+        <div>Quartz: <span id="invQuartz">0</span></div>
+        <div>Topaz: <span id="invTopaz">0</span></div>
+
+        <h3>Tier 2</h3>
+
+        <div>Aquamarine: <span id="invAquamarine">0</span></div>
+        <div>Citrine: <span id="invCitrine">0</span></div>
+        <div>Garnet: <span id="invGarnet">0</span></div>
+        <div>Jade: <span id="invJade">0</span></div>
+        <div>Peridot: <span id="invPeridot">0</span></div>
+
+        <h3>Tier 3</h3>
+
+        <div>Emerald: <span id="invEmerald">0</span></div>
+        <div>Ruby: <span id="invRuby">0</span></div>
+        <div>Sapphire: <span id="invSapphire">0</span></div>
+        <div>Spinel: <span id="invSpinel">0</span></div>
+        <div>Tourmaline: <span id="invTourmaline">0</span></div>
+
+        <h3>Tier 4</h3>
+
+        <div>Alexandrite: <span id="invAlexandrite">0</span></div>
+        <div>Black Opal: <span id="invBlackOpal">0</span></div>
+        <div>Diamond: <span id="invDiamond">0</span></div>
+        <div>Onyx: <span id="invOnyx">0</span></div>
+        <div>Tanzanite: <span id="invTanzanite">0</span></div>
+
+    </div>
+
+</div>
+
+    <div
+    id="furnaceModal"
+    class="modal">
+
+    <div class="modal-content">
+
+        <span
+            class="close-button"
+            onclick="closeFurnace()">
+
+            ×
+
+        </span>
+
+        <h2>🔥 Furnace</h2>
+
+        <div id="furnaceItems">
+
+        </div>
 
     </div>
 
@@ -301,21 +395,88 @@
     <h2>Furnace</h2>
 
     <div>
-        Owned:
-        <span id="furnaces">0</span>
+        Current:
+        <span id="furnaceName">
+            Starter Furnace
+        </span>
     </div>
 
     <div>
-        Cost:
-        <span id="furnaceCost">10000</span>
+        Smelt Capacity:
+        <span id="furnaceCapacity">
+            10
+        </span>
     </div>
 
-    <button id="buyFurnace">
-        Buy Furnace
+    <br>
+
+    <button id="upgradeFurnace">
+        Upgrade Furnace
     </button>
 
-    <div>
-        +50% Production
+    <br><br>
+
+    <button onclick="openFurnace()">
+        🔥 Open Furnace
+    </button>
+
+</div>
+
+    <div
+    id="smeltConfirmModal"
+    class="modal">
+
+    <div class="modal-content">
+
+        <h2>
+            🔥 Confirm Smelt
+        </h2>
+
+        <div id="confirmOre">
+
+        </div>
+
+        <br>
+
+        <div>
+            Amount:
+            <span id="confirmAmount">
+                0
+            </span>
+        </div>
+
+        <div>
+            Value Each:
+            $
+            <span id="confirmValue">
+                0
+            </span>
+        </div>
+
+        <div>
+            Total Value:
+            $
+            <span id="confirmTotal">
+                0
+            </span>
+        </div>
+
+        <br>
+
+        <button
+            onclick="confirmSmelt()">
+
+            Confirm
+
+        </button>
+
+        <button
+            onclick="closeSmeltConfirm()">
+
+            Cancel
+
+        </button>
+
     </div>
 
 </div>
@@ -357,7 +518,7 @@ let save = JSON.parse(
     droppers: 0,
     adders: 0,
     multipliers: 0,
-    furnaces: 0,
+furnaceTier: 0,
 
     totalOres: 0,
     stoneOres: 0,
@@ -369,6 +530,35 @@ let save = JSON.parse(
 
 lastOre: "None",
 lastOreValue: 0,
+    stoneValue: 1,
+
+inventory: {
+    stone: 0,
+
+    amber: 0,
+    amethyst: 0,
+    malachite: 0,
+    quartz: 0,
+    topaz: 0,
+
+    aquamarine: 0,
+    citrine: 0,
+    garnet: 0,
+    jade: 0,
+    peridot: 0,
+
+    emerald: 0,
+    ruby: 0,
+    sapphire: 0,
+    spinel: 0,
+    tourmaline: 0,
+
+    alexandrite: 0,
+    blackOpal: 0,
+    diamond: 0,
+    onyx: 0,
+    tanzanite: 0
+},
 
 oreCollection: {
     amber: 0,
@@ -409,6 +599,35 @@ save.tier4Ores ??= 0;
 
 save.lastOre ??= "None";
 save.lastOreValue ??= 0;
+          save.stoneValue ??= 1;
+          save.inventory ??= {};
+          save.furnaceTier ??= 0;
+
+save.inventory.stone ??= 0;
+
+save.inventory.amber ??= 0;
+save.inventory.amethyst ??= 0;
+save.inventory.malachite ??= 0;
+save.inventory.quartz ??= 0;
+save.inventory.topaz ??= 0;
+
+save.inventory.aquamarine ??= 0;
+save.inventory.citrine ??= 0;
+save.inventory.garnet ??= 0;
+save.inventory.jade ??= 0;
+save.inventory.peridot ??= 0;
+
+save.inventory.emerald ??= 0;
+save.inventory.ruby ??= 0;
+save.inventory.sapphire ??= 0;
+save.inventory.spinel ??= 0;
+save.inventory.tourmaline ??= 0;
+
+save.inventory.alexandrite ??= 0;
+save.inventory.blackOpal ??= 0;
+save.inventory.diamond ??= 0;
+save.inventory.onyx ??= 0;
+save.inventory.tanzanite ??= 0;
 save.oreCollection ??= {};
 
 save.oreCollection.amber ??= 0;
@@ -435,6 +654,31 @@ save.oreCollection.diamond ??= 0;
 save.oreCollection.onyx ??= 0;
 save.oreCollection.tanzanite ??= 0;
 
+          let pendingSmelt = {
+
+    key: "",
+    value: 0,
+    amount: 0,
+    oreName: ""
+
+};
+
+          const FURNACES = [
+
+{
+    name: "Starter Furnace",
+    capacity: 10,
+    cost: 0
+},
+
+{
+    name: "Basic Furnace",
+    capacity: 50,
+    cost: 10000
+}
+
+];
+
 function saveGame(){
         localStorage.setItem(
             "ef_incremental",
@@ -442,6 +686,30 @@ function saveGame(){
         );
     }
 
+          function upgradeFurnace(){
+
+    if(save.furnaceTier >= 1)
+        return;
+
+    const nextTier =
+        FURNACES[
+            save.furnaceTier + 1
+        ];
+
+    if(
+        save.cash <
+        nextTier.cost
+    ){
+        return;
+    }
+
+    save.cash -=
+        nextTier.cost;
+
+    save.furnaceTier++;
+
+}
+          
 function getDropperCost(){
 
     return Math.floor(
@@ -553,8 +821,6 @@ function mineOre(){
 
     const roll = Math.random();
 
-    let value = 1;
-
 // Tier 4 (1 in 250,000)
 
 if(roll < 0.000004){
@@ -576,6 +842,9 @@ save.lastOre = ore.name;
 save.lastOreValue = ore.value;
 
 save.oreCollection[
+    ore.key
+]++;
+    save.inventory[
     ore.key
 ]++;
 
@@ -619,6 +888,9 @@ save.lastOreValue = ore.value;
 save.oreCollection[
     ore.key
 ]++;
+    save.inventory[
+    ore.key
+]++;
 
 if(
     save.oreCollection[
@@ -658,6 +930,9 @@ save.lastOre = ore.name;
 save.lastOreValue = ore.value;
 
 save.oreCollection[
+    ore.key
+]++;
+    save.inventory[
     ore.key
 ]++;
 
@@ -701,6 +976,9 @@ save.lastOreValue = ore.value;
 save.oreCollection[
     ore.key
 ]++;
+    save.inventory[
+    ore.key
+]++;
 
 if(
     save.oreCollection[
@@ -727,14 +1005,16 @@ save.tier1Ores++;
 
     save.lastOreValue = 1;
 
-    save.stoneOres++;
+save.stoneOres++;
+
+save.inventory.stone++;
 
 }
 
-    save.totalOres++;
-save.cash += save.lastOreValue;
+save.totalOres++;
 
 }
+
 
 function updateOreDisplay(
     labelId,
@@ -756,6 +1036,43 @@ document.getElementById(
     amount > 0
     ? formatNumber(amount)
     : "???";
+
+}
+
+          function updateInventoryTooltip(
+    id,
+    amount,
+    value
+){
+
+    const element =
+        document.getElementById(id);
+
+    if(!element)
+        return;
+
+    element.textContent =
+        formatNumber(amount);
+
+    element.parentElement.title =
+
+        "Amount: " +
+
+        amount.toLocaleString()
+
+        +
+
+        "\nValue: $" +
+
+        value.toLocaleString()
+
+        +
+
+        "\nTotal Value: $" +
+
+        (
+            amount * value
+        ).toLocaleString();
 
 }
 
@@ -782,8 +1099,67 @@ function updateUI(){
     document.getElementById("multipliers").textContent =
         save.multipliers;
 
-    document.getElementById("furnaces").textContent =
-        save.furnaces;
+    const furnace =
+
+    FURNACES[
+        save.furnaceTier
+    ];
+
+document.getElementById(
+    "furnaceName"
+).textContent =
+    furnace.name;
+
+document.getElementById(
+    "furnaceCapacity"
+).textContent =
+    furnace.capacity;
+
+    const upgradeButton =
+
+    document.getElementById(
+        "upgradeFurnace"
+    );
+
+if(save.furnaceTier >=
+   FURNACES.length - 1){
+
+    upgradeButton.textContent =
+        "MAX FURNACE";
+
+}
+else{
+
+    upgradeButton.textContent =
+
+        "Upgrade Furnace ($" +
+
+        formatNumber(
+
+            FURNACES[
+                save.furnaceTier + 1
+            ].cost
+
+        ) +
+
+        ")";
+
+}
+    
+    
+    document.getElementById(
+    "stoneValueDisplay"
+).textContent =
+    formatNumber(
+        save.stoneValue
+    );
+
+document.getElementById(
+    "stoneStored"
+).textContent =
+    formatNumber(
+        save.inventory.stone
+    );
 
     document.getElementById("adderCost").textContent =
         formatNumber(getAdderCost());
@@ -791,8 +1167,6 @@ function updateUI(){
     document.getElementById("multiplierCost").textContent =
         formatNumber(getMultiplierCost());
 
-    document.getElementById("furnaceCost").textContent =
-        formatNumber(getFurnaceCost());
 
     document.getElementById("lastOre").textContent =
     save.lastOre;
@@ -859,6 +1233,132 @@ updateOreDisplay("blackOpalLabel","blackOpalCount","Black Opal",save.oreCollecti
 updateOreDisplay("diamondLabel","diamondCount","Diamond",save.oreCollection.diamond);
 updateOreDisplay("onyxLabel","onyxCount","Onyx",save.oreCollection.onyx);
 updateOreDisplay("tanzaniteLabel","tanzaniteCount","Tanzanite",save.oreCollection.tanzanite);
+
+updateInventoryTooltip(
+    "invStone",
+    save.inventory.stone,
+    1
+);
+
+updateInventoryTooltip(
+    "invAmber",
+    save.inventory.amber,
+    10
+);
+
+updateInventoryTooltip(
+    "invAmethyst",
+    save.inventory.amethyst,
+    40
+);
+
+updateInventoryTooltip(
+    "invMalachite",
+    save.inventory.malachite,
+    50
+);
+
+updateInventoryTooltip(
+    "invQuartz",
+    save.inventory.quartz,
+    20
+);
+
+updateInventoryTooltip(
+    "invTopaz",
+    save.inventory.topaz,
+    30
+);
+
+updateInventoryTooltip(
+    "invAquamarine",
+    save.inventory.aquamarine,
+    1000
+);
+
+updateInventoryTooltip(
+    "invCitrine",
+    save.inventory.citrine,
+    250
+);
+
+updateInventoryTooltip(
+    "invGarnet",
+    save.inventory.garnet,
+    500
+);
+
+updateInventoryTooltip(
+    "invJade",
+    save.inventory.jade,
+    900
+);
+
+updateInventoryTooltip(
+    "invPeridot",
+    save.inventory.peridot,
+    750
+);
+
+updateInventoryTooltip(
+    "invEmerald",
+    save.inventory.emerald,
+    25000
+);
+
+updateInventoryTooltip(
+    "invRuby",
+    save.inventory.ruby,
+    20000
+);
+
+updateInventoryTooltip(
+    "invSapphire",
+    save.inventory.sapphire,
+    15000
+);
+
+updateInventoryTooltip(
+    "invSpinel",
+    save.inventory.spinel,
+    5000
+);
+
+updateInventoryTooltip(
+    "invTourmaline",
+    save.inventory.tourmaline,
+    10000
+);
+
+updateInventoryTooltip(
+    "invAlexandrite",
+    save.inventory.alexandrite,
+    100000
+);
+
+updateInventoryTooltip(
+    "invBlackOpal",
+    save.inventory.blackOpal,
+    150000
+);
+
+updateInventoryTooltip(
+    "invDiamond",
+    save.inventory.diamond,
+    250000
+);
+
+updateInventoryTooltip(
+    "invOnyx",
+    save.inventory.onyx,
+    50000
+);
+
+updateInventoryTooltip(
+    "invTanzanite",
+    save.inventory.tanzanite,
+    75000
+);
     
     const discovered = Object.values(
     save.oreCollection
@@ -932,29 +1432,19 @@ document.getElementById("buyMultiplier")
 
 };
 
-document.getElementById("buyFurnace")
-.onclick = function(){
+          document.getElementById(
+    "upgradeFurnace"
+).onclick = function(){
 
-    const cost =
-        getFurnaceCost();
-
-    if(save.cash < cost)
-        return;
-
-    save.cash -= cost;
-
-    save.furnaces++;
+    upgradeFurnace();
 
     updateUI();
 
 };
+
+
 setInterval(function(){
 
-    save.cash = Math.min(
-        1e308,
-        save.cash +
-        getCPS() / 10
-    );
     checkFactoryLevel();
 
     updateUI();
@@ -997,6 +1487,399 @@ function closeCollection(){
     document.getElementById(
         "collectionModal"
     ).style.display = "none";
+
+}
+
+          function openInventory(){
+
+    document.getElementById(
+        "inventoryModal"
+    ).style.display = "block";
+
+}
+
+function closeInventory(){
+
+    document.getElementById(
+        "inventoryModal"
+    ).style.display = "none";
+
+}
+
+function openFurnace(){
+
+    buildFurnaceMenu();
+
+    document.getElementById(
+        "furnaceModal"
+    ).style.display =
+        "block";
+
+}
+
+function closeFurnace(){
+
+    document.getElementById(
+        "furnaceModal"
+    ).style.display = "none";
+
+}
+
+          function addFurnaceItem(
+    name,
+    key,
+    value
+){
+
+    const amount =
+        save.inventory[key];
+              if(amount <= 0)
+    return;
+
+    const div =
+        document.createElement("div");
+
+    div.style.marginBottom =
+        "15px";
+
+    div.innerHTML = `
+
+        <strong>${name}</strong>
+
+        (${formatNumber(amount)})
+
+        <br>
+
+        <button
+            onclick="
+                showSmeltOptions(
+                    this,
+                    '${key}',
+                    ${value}
+                )
+            ">
+
+            Select
+
+        </button>
+
+    `;
+
+    div.title =
+
+        "Amount: " +
+
+        amount.toLocaleString()
+
+        +
+
+        "\nValue: $" +
+
+        value.toLocaleString()
+
+        +
+
+        "\nTotal: $" +
+
+        (
+            amount * value
+        ).toLocaleString();
+
+const container =
+    document.getElementById(
+        "furnaceItems"
+    );
+
+    container.appendChild(div);
+
+}
+
+function showSmeltOptions(
+    button,
+    key,
+    value
+){
+
+    button.outerHTML = `
+
+        <button
+            onclick="
+                prepareSmelt(
+                    '${key}',
+                    ${value},
+                    0.25
+                )
+            ">
+            25%
+        </button>
+
+        <button
+            onclick="
+                prepareSmelt(
+                    '${key}',
+                    ${value},
+                    0.50
+                )
+            ">
+            50%
+        </button>
+
+        <button
+            onclick="
+                prepareSmelt(
+                    '${key}',
+                    ${value},
+                    1
+                )
+            ">
+            100%
+        </button>
+
+    `;
+}
+
+          function prepareSmelt(
+    key,
+    value,
+    percent
+){
+
+const requestedAmount =
+    Math.floor(
+
+        save.inventory[key] *
+
+        percent
+
+    );
+
+const amount = Math.min(
+
+    requestedAmount,
+
+    FURNACES[
+        save.furnaceTier
+    ].capacity
+
+);
+
+    if(amount <= 0)
+        return;
+
+    pendingSmelt.key =
+        key;
+
+    pendingSmelt.value =
+        value;
+
+    pendingSmelt.amount =
+        amount;
+
+pendingSmelt.oreName = key;
+
+document.getElementById(
+    "confirmOre"
+).textContent =
+    key
+        .replace(/([A-Z])/g, " $1")
+        .replace(/^./, c => c.toUpperCase());
+
+    document.getElementById(
+        "confirmAmount"
+    ).textContent =
+        amount.toLocaleString();
+
+    document.getElementById(
+        "confirmValue"
+    ).textContent =
+        value.toLocaleString();
+
+    document.getElementById(
+        "confirmTotal"
+    ).textContent =
+        (
+            amount *
+            value
+        ).toLocaleString();
+
+    document.getElementById(
+        "smeltConfirmModal"
+    ).style.display =
+        "block";
+
+}
+
+function confirmSmelt(){
+
+    save.inventory[
+        pendingSmelt.key
+    ] -=
+        pendingSmelt.amount;
+
+    save.cash +=
+
+        pendingSmelt.amount *
+
+        pendingSmelt.value;
+
+    closeSmeltConfirm();
+
+    buildFurnaceMenu();
+
+    updateUI();
+
+}
+
+          function closeSmeltConfirm(){
+
+    document.getElementById(
+        "smeltConfirmModal"
+    ).style.display =
+        "none";
+
+}
+
+          function buildFurnaceMenu(){
+
+    const container =
+        document.getElementById(
+            "furnaceItems"
+        );
+
+    container.innerHTML = "";
+              
+addFurnaceItem(
+    "🪨 Stone",
+    "stone",
+    save.stoneValue
+);
+
+    addFurnaceItem(
+        "🟠 Amber",
+        "amber",
+        10
+    );
+
+    addFurnaceItem(
+        "💜 Amethyst",
+        "amethyst",
+        40
+    );
+
+    addFurnaceItem(
+        "🟢 Malachite",
+        "malachite",
+        50
+    );
+
+    addFurnaceItem(
+        "⚪ Quartz",
+        "quartz",
+        20
+    );
+
+    addFurnaceItem(
+        "🟡 Topaz",
+        "topaz",
+        30
+    );
+
+    addFurnaceItem(
+        "💎 Aquamarine",
+        "aquamarine",
+        1000
+    );
+
+    addFurnaceItem(
+        "🟡 Citrine",
+        "citrine",
+        250
+    );
+
+    addFurnaceItem(
+        "🔴 Garnet",
+        "garnet",
+        500
+    );
+
+    addFurnaceItem(
+        "🟢 Jade",
+        "jade",
+        900
+    );
+
+    addFurnaceItem(
+        "💚 Peridot",
+        "peridot",
+        750
+    );
+
+    addFurnaceItem(
+        "💚 Emerald",
+        "emerald",
+        25000
+    );
+
+    addFurnaceItem(
+        "❤️ Ruby",
+        "ruby",
+        20000
+    );
+
+    addFurnaceItem(
+        "💙 Sapphire",
+        "sapphire",
+        15000
+    );
+
+    addFurnaceItem(
+        "💗 Spinel",
+        "spinel",
+        5000
+    );
+
+    addFurnaceItem(
+        "🌈 Tourmaline",
+        "tourmaline",
+        10000
+    );
+
+    addFurnaceItem(
+        "🌈 Alexandrite",
+        "alexandrite",
+        100000
+    );
+
+    addFurnaceItem(
+        "🖤 Black Opal",
+        "blackOpal",
+        150000
+    );
+
+    addFurnaceItem(
+        "💎 Diamond",
+        "diamond",
+        250000
+    );
+
+    addFurnaceItem(
+        "⚫ Onyx",
+        "onyx",
+        50000
+    );
+
+    addFurnaceItem(
+        "💜 Tanzanite",
+        "tanzanite",
+        75000
+    );
+
+if(container.innerHTML === ""){
+
+    container.innerHTML =
+        "<p>No items available to smelt.</p>";
+
+}
 
 }
 
