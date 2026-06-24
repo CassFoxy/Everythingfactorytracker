@@ -773,6 +773,18 @@ document.getElementById(
     "discoveredCount"
 ).textContent = discovered;
 
+    const completedMilestones =
+    Object.values(
+        save.factoryMilestones
+    ).filter(
+        unlocked => unlocked
+    ).length;
+
+document.getElementById(
+    "milestoneCount"
+).textContent =
+    completedMilestones;
+
 }
 
 document.getElementById("mineButton")
@@ -921,6 +933,26 @@ function closeStats(){
 
     document.getElementById(
         "statsModal"
+    ).style.display =
+        "none";
+
+}
+
+function openMilestones(){
+
+    buildMilestonesMenu();
+
+    document.getElementById(
+        "milestonesModal"
+    ).style.display =
+        "block";
+
+}
+
+function closeMilestones(){
+
+    document.getElementById(
+        "milestonesModal"
     ).style.display =
         "none";
 
@@ -1195,6 +1227,53 @@ if(container.innerHTML === ""){
         "<p>No items available to smelt.</p>";
 
 }
+
+}
+
+function buildMilestonesMenu(){
+
+    const container =
+        document.getElementById(
+            "milestoneItems"
+        );
+
+    container.innerHTML = "";
+
+    FACTORY_MILESTONES.forEach(level => {
+
+        const unlocked =
+            save.factoryMilestones[
+                level
+            ];
+
+        const div =
+            document.createElement(
+                "div"
+            );
+
+        div.className =
+            "milestone-item " +
+            (
+                unlocked
+                ? "milestone-unlocked"
+                : "milestone-locked"
+            );
+
+        div.innerHTML =
+            "<strong>Level " +
+            level.toLocaleString() +
+            "</strong><br>" +
+            (
+                unlocked
+                ? "Unlocked"
+                : "Locked"
+            );
+
+        container.appendChild(
+            div
+        );
+
+    });
 
 }
 
