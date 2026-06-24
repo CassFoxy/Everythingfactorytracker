@@ -450,20 +450,13 @@ save.factoryXP += 25;
 
 else if(roll < 0.041024){
 
-const ores = [
-    {name:"🟠 Amber", value:10, key:"amber"},
-    {name:"💜 Amethyst", value:40, key:"amethyst"},
-    {name:"🟢 Malachite", value:50, key:"malachite"},
-    {name:"⚪ Quartz", value:20, key:"quartz"},
-    {name:"🟡 Topaz", value:30, key:"topaz"}
-];
-
 const ore =
-    ores[Math.floor(
-        Math.random() * ores.length
-    )];
+    getRandomOre(
+        TIER_1_ORES
+    );
 
-save.lastOre = ore.name;
+save.lastOre =
+    `${ore.emoji} ${ore.name}`;
 save.lastOreValue = ore.value;
 
 save.oreCollection[
@@ -488,7 +481,8 @@ if(
 
 save.tier1Ores++;
 
-save.factoryXP += 5;
+save.factoryXP +=
+    ore.xp;
 
     }
 
