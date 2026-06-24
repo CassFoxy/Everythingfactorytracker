@@ -43,6 +43,57 @@ function generateMilestones(){
 const FACTORY_MILESTONES =
     generateMilestones();
 
+const ACHIEVEMENTS = {
+
+    firstSwing: {
+        name: "First Swing",
+        description: "Mine your first stone.",
+        type: "stat",
+        stat: "stoneMined",
+        target: 1
+    },
+
+    stoneMiner: {
+        name: "Stone Miner",
+        description: "Mine 100 stone.",
+        type: "stat",
+        stat: "stoneMined",
+        target: 100
+    },
+
+    dedicatedMiner: {
+        name: "Dedicated Miner",
+        description: "Mine 1,000 stone.",
+        type: "stat",
+        stat: "stoneMined",
+        target: 1000
+    },
+
+    firstDiscovery: {
+        name: "Shiny!",
+        description: "Discover your first ore.",
+        type: "stat",
+        stat: "oresDiscovered",
+        target: 1
+    },
+
+    firstSmelt: {
+        name: "First Smelt",
+        description: "Smelt an ore.",
+        type: "stat",
+        stat: "oresSmelted",
+        target: 1
+    },
+
+    factoryOwner: {
+        name: "Factory Owner",
+        description: "Reach Factory Level 10.",
+        type: "level",
+        target: 10
+    }
+
+};
+
 function createDefaultMilestones(){
 
     const milestones = {};
@@ -85,7 +136,19 @@ inventory: createDefaultInventory(),
 oreCollection: createDefaultCollection(),
 
 factoryMilestones:
-    createDefaultMilestones()
+    createDefaultMilestones(),
+
+achievementStats: {
+
+    stoneMined: 0,
+
+    oresDiscovered: 0,
+
+    oresSmelted: 0
+
+},
+
+achievements: {}
 };
 
 save.factoryLevel ??= 1;
@@ -120,6 +183,18 @@ ORE_KEYS.forEach(key => {
 save.factoryMilestones ??=
     createDefaultMilestones();
 
+save.achievementStats ??= {
+
+    stoneMined: 0,
+
+    oresDiscovered: 0,
+
+    oresSmelted: 0
+
+};
+
+save.achievements ??= {};
+
 FACTORY_MILESTONES.forEach(level => {
 
     save.factoryMilestones[level]
@@ -137,6 +212,7 @@ FACTORY_MILESTONES.forEach(level => {
 };
 
 let pendingMilestone = null;
+let pendingAchievement = null;
 
           const FURNACES = [
 
@@ -196,6 +272,68 @@ if(save.factoryLevel < 1)
     save.factoryLevel = 1;
 
 checkFactoryMilestones();
+    checkAchievements();
+}
+
+function unlockAchievement(id){
+
+    if(save.achievements[id])
+        return;
+
+    save.achievements[id] = true;
+
+    pendingAchievement =
+        ACHIEVEMENTS[id];
+
+}
+
+function checkAchievements(){
+
+    Object.entries(
+        ACHIEVEMENTS
+    ).forEach(([id, achievement]) => {
+
+        if(save.achievements[id])
+            return;
+
+        if(
+            achievement.type === "stat"
+        ){
+
+            const value =
+
+                save.achievementStats[
+                    achievement.stat
+                ] || 0;
+
+            if(
+                value >=
+                achievement.target
+            ){
+
+                unlockAchievement(id);
+
+            }
+
+        }
+
+        if(
+            achievement.type === "level"
+        ){
+
+            if(
+                save.factoryLevel >=
+                achievement.target
+            ){
+
+                unlockAchievement(id);
+
+            }
+
+        }
+
+    });
+
 }
 
 function saveGame(){
@@ -333,7 +471,6 @@ save.oreCollection[
     save.inventory[
     ore.key
 ]++;
-
 if(
     save.oreCollection[
         ore.key
@@ -344,6 +481,11 @@ showDiscoveryPopup(
     `${ore.emoji} ${ore.name}`,
     ore.value
 );
+
+save.achievementStats
+    .oresDiscovered++;
+
+checkAchievements();
 
 }
 
@@ -385,6 +527,11 @@ showDiscoveryPopup(
     ore.value
 );
 
+save.achievementStats
+    .oresDiscovered++;
+
+checkAchievements();
+
 }
 
 save.tier3Ores++;
@@ -425,6 +572,11 @@ showDiscoveryPopup(
     ore.value
 );
 
+save.achievementStats
+    .oresDiscovered++;
+
+checkAchievements();
+
 }
 
 save.tier2Ores++;
@@ -464,6 +616,11 @@ showDiscoveryPopup(
     ore.value
 );
 
+save.achievementStats
+    .oresDiscovered++;
+
+checkAchievements();
+
 }
 
 save.tier1Ores++;
@@ -490,6 +647,10 @@ save.inventory.stone++;
 }
 
 save.totalOres++;
+
+save.achievementStats.stoneMined++;
+
+checkAchievements();
 
 updateFactoryLevel();
 
@@ -1192,6 +1353,12 @@ function confirmSmelt(){
         pendingSmelt.amount *
 
         pendingSmelt.value;
+
+    save.achievementStats
+    .oresSmelted +=
+        pendingSmelt.amount;
+
+checkAchievements();
 
     save.factoryXP +=
     pendingSmelt.amount;
