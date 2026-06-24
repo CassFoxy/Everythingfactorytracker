@@ -132,6 +132,32 @@ background:linear-gradient(
 
 }
 
+.achievement-item{
+
+    border:1px solid #334155;
+
+    border-radius:8px;
+
+    padding:10px;
+
+    margin-bottom:10px;
+
+}
+
+.achievement-unlocked{
+
+    background:#14532d;
+
+}
+
+.achievement-locked{
+
+    background:#1e293b;
+
+    color:#94a3b8;
+
+}
+
 #achievementToast {
 
     position: fixed;
