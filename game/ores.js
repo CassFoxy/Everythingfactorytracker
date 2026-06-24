@@ -320,6 +320,8 @@ const ORES = {
         rarity: 250000
     }
 
+};
+
 const TIER_1_ORES = [
     "amber",
     "quartz",
