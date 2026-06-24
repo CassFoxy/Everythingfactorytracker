@@ -1299,125 +1299,133 @@ addFurnaceItem(
     save.stoneValue
 );
 
-    addFurnaceItem(
-        "🟠 Amber",
-        "amber",
-        10
-    );
+// Tier 1
 
-    addFurnaceItem(
-        "💜 Amethyst",
-        "amethyst",
-        40
-    );
+addFurnaceItem(
+    `${ORES.amber.emoji} ${ORES.amber.name}`,
+    "amber",
+    ORES.amber.value
+);
 
-    addFurnaceItem(
-        "🟢 Malachite",
-        "malachite",
-        50
-    );
+addFurnaceItem(
+    `${ORES.quartz.emoji} ${ORES.quartz.name}`,
+    "quartz",
+    ORES.quartz.value
+);
 
-    addFurnaceItem(
-        "⚪ Quartz",
-        "quartz",
-        20
-    );
+addFurnaceItem(
+    `${ORES.topaz.emoji} ${ORES.topaz.name}`,
+    "topaz",
+    ORES.topaz.value
+);
 
-    addFurnaceItem(
-        "🟡 Topaz",
-        "topaz",
-        30
-    );
+addFurnaceItem(
+    `${ORES.amethyst.emoji} ${ORES.amethyst.name}`,
+    "amethyst",
+    ORES.amethyst.value
+);
 
-    addFurnaceItem(
-        "💎 Aquamarine",
-        "aquamarine",
-        1000
-    );
+addFurnaceItem(
+    `${ORES.malachite.emoji} ${ORES.malachite.name}`,
+    "malachite",
+    ORES.malachite.value
+);
 
-    addFurnaceItem(
-        "🟡 Citrine",
-        "citrine",
-        250
-    );
+// Tier 2
 
-    addFurnaceItem(
-        "🔴 Garnet",
-        "garnet",
-        500
-    );
+addFurnaceItem(
+    `${ORES.citrine.emoji} ${ORES.citrine.name}`,
+    "citrine",
+    ORES.citrine.value
+);
 
-    addFurnaceItem(
-        "🟢 Jade",
-        "jade",
-        900
-    );
+addFurnaceItem(
+    `${ORES.garnet.emoji} ${ORES.garnet.name}`,
+    "garnet",
+    ORES.garnet.value
+);
 
-    addFurnaceItem(
-        "💚 Peridot",
-        "peridot",
-        750
-    );
+addFurnaceItem(
+    `${ORES.peridot.emoji} ${ORES.peridot.name}`,
+    "peridot",
+    ORES.peridot.value
+);
 
-    addFurnaceItem(
-        "💚 Emerald",
-        "emerald",
-        25000
-    );
+addFurnaceItem(
+    `${ORES.jade.emoji} ${ORES.jade.name}`,
+    "jade",
+    ORES.jade.value
+);
 
-    addFurnaceItem(
-        "❤️ Ruby",
-        "ruby",
-        20000
-    );
+addFurnaceItem(
+    `${ORES.aquamarine.emoji} ${ORES.aquamarine.name}`,
+    "aquamarine",
+    ORES.aquamarine.value
+);
 
-    addFurnaceItem(
-        "💙 Sapphire",
-        "sapphire",
-        15000
-    );
+// Tier 3
 
-    addFurnaceItem(
-        "💗 Spinel",
-        "spinel",
-        5000
-    );
+addFurnaceItem(
+    `${ORES.spinel.emoji} ${ORES.spinel.name}`,
+    "spinel",
+    ORES.spinel.value
+);
 
-    addFurnaceItem(
-        "🌈 Tourmaline",
-        "tourmaline",
-        10000
-    );
+addFurnaceItem(
+    `${ORES.tourmaline.emoji} ${ORES.tourmaline.name}`,
+    "tourmaline",
+    ORES.tourmaline.value
+);
 
-    addFurnaceItem(
-        "🌈 Alexandrite",
-        "alexandrite",
-        100000
-    );
+addFurnaceItem(
+    `${ORES.sapphire.emoji} ${ORES.sapphire.name}`,
+    "sapphire",
+    ORES.sapphire.value
+);
 
-    addFurnaceItem(
-        "🖤 Black Opal",
-        "blackOpal",
-        150000
-    );
+addFurnaceItem(
+    `${ORES.ruby.emoji} ${ORES.ruby.name}`,
+    "ruby",
+    ORES.ruby.value
+);
 
-    addFurnaceItem(
-        "💎 Diamond",
-        "diamond",
-        250000
-    );
+addFurnaceItem(
+    `${ORES.emerald.emoji} ${ORES.emerald.name}`,
+    "emerald",
+    ORES.emerald.value
+);
 
-    addFurnaceItem(
-        "⚫ Onyx",
-        "onyx",
-        50000
-    );
+// Tier 4
 
-    addFurnaceItem(
-        "💜 Tanzanite",
-        "tanzanite",
-        75000
-    );
+addFurnaceItem(
+    `${ORES.onyx.emoji} ${ORES.onyx.name}`,
+    "onyx",
+    ORES.onyx.value
+);
+
+addFurnaceItem(
+    `${ORES.tanzanite.emoji} ${ORES.tanzanite.name}`,
+    "tanzanite",
+    ORES.tanzanite.value
+);
+
+addFurnaceItem(
+    `${ORES.alexandrite.emoji} ${ORES.alexandrite.name}`,
+    "alexandrite",
+    ORES.alexandrite.value
+);
+
+addFurnaceItem(
+    `${ORES.blackOpal.emoji} ${ORES.blackOpal.name}`,
+    "blackOpal",
+    ORES.blackOpal.value
+);
+
+addFurnaceItem(
+    `${ORES.diamond.emoji} ${ORES.diamond.name}`,
+    "diamond",
+    ORES.diamond.value
+);
 
 if(container.innerHTML === ""){
 
