@@ -1538,6 +1538,11 @@ function showAchievementPopup(
     achievement
 ){
 
+    const toast =
+        document.getElementById(
+            "achievementToast"
+        );
+
     document.getElementById(
         "achievementPopupName"
     ).textContent =
@@ -1548,19 +1553,17 @@ function showAchievementPopup(
     ).textContent =
         achievement.description;
 
-    document.getElementById(
-        "achievementPopup"
-    ).style.display =
-        "block";
+    toast.classList.add(
+        "show"
+    );
 
-}
+    setTimeout(() => {
 
-function closeAchievementPopup(){
+        toast.classList.remove(
+            "show"
+        );
 
-    document.getElementById(
-        "achievementPopup"
-    ).style.display =
-        "none";
+    }, 7000);
 
 }
 
