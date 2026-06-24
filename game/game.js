@@ -136,6 +136,8 @@ FACTORY_MILESTONES.forEach(level => {
 
 };
 
+let pendingMilestone = null;
+
           const FURNACES = [
 
 {
@@ -162,15 +164,19 @@ function checkFactoryMilestones(){
 
     FACTORY_MILESTONES.forEach(level => {
 
-        if(
-            save.factoryLevel >= level
-        ){
+if(
+    save.factoryLevel >= level &&
+    !save.factoryMilestones[level]
+){
 
-            save.factoryMilestones[
-                level
-            ] = true;
+    save.factoryMilestones[
+        level
+    ] = true;
 
-        }
+    pendingMilestone =
+        level;
+
+}
 
     });
 
@@ -785,6 +791,19 @@ document.getElementById(
 ).textContent =
     completedMilestones;
 
+if(
+    pendingMilestone !== null
+){
+
+    showMilestonePopup(
+        pendingMilestone
+    );
+
+    pendingMilestone =
+        null;
+
+}
+
 }
 
 document.getElementById("mineButton")
@@ -1305,6 +1324,31 @@ function closeDiscoveryPopup(){
 
     document.getElementById(
         "discoveryPopup"
+    ).style.display =
+        "none";
+
+}
+
+function showMilestonePopup(
+    level
+){
+
+    document.getElementById(
+        "milestonePopupLevel"
+    ).textContent =
+        level.toLocaleString();
+
+    document.getElementById(
+        "milestonePopup"
+    ).style.display =
+        "block";
+
+}
+
+function closeMilestonePopup(){
+
+    document.getElementById(
+        "milestonePopup"
     ).style.display =
         "none";
 
