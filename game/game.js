@@ -23,59 +23,8 @@ lastOre: "None",
 lastOreValue: 0,
     stoneValue: 1,
 
-inventory: {
-    stone: 0,
-
-    amber: 0,
-    amethyst: 0,
-    malachite: 0,
-    quartz: 0,
-    topaz: 0,
-
-    aquamarine: 0,
-    citrine: 0,
-    garnet: 0,
-    jade: 0,
-    peridot: 0,
-
-    emerald: 0,
-    ruby: 0,
-    sapphire: 0,
-    spinel: 0,
-    tourmaline: 0,
-
-    alexandrite: 0,
-    blackOpal: 0,
-    diamond: 0,
-    onyx: 0,
-    tanzanite: 0
-},
-
-oreCollection: {
-    amber: 0,
-    amethyst: 0,
-    malachite: 0,
-    quartz: 0,
-    topaz: 0,
-
-    aquamarine: 0,
-    citrine: 0,
-    garnet: 0,
-    jade: 0,
-    peridot: 0,
-
-    emerald: 0,
-    ruby: 0,
-    sapphire: 0,
-    spinel: 0,
-    tourmaline: 0,
-
-    alexandrite: 0,
-    blackOpal: 0,
-    diamond: 0,
-    onyx: 0,
-    tanzanite: 0
-}
+inventory: createDefaultInventory(),
+oreCollection: createDefaultCollection()
 };
 
 save.factoryLevel ??= 1;
@@ -97,54 +46,15 @@ save.lastOreValue ??= 0;
 
 save.inventory.stone ??= 0;
 
-save.inventory.amber ??= 0;
-save.inventory.amethyst ??= 0;
-save.inventory.malachite ??= 0;
-save.inventory.quartz ??= 0;
-save.inventory.topaz ??= 0;
+ORE_KEYS.forEach(key => {
+    save.inventory[key] ??= 0;
+});
 
-save.inventory.aquamarine ??= 0;
-save.inventory.citrine ??= 0;
-save.inventory.garnet ??= 0;
-save.inventory.jade ??= 0;
-save.inventory.peridot ??= 0;
-
-save.inventory.emerald ??= 0;
-save.inventory.ruby ??= 0;
-save.inventory.sapphire ??= 0;
-save.inventory.spinel ??= 0;
-save.inventory.tourmaline ??= 0;
-
-save.inventory.alexandrite ??= 0;
-save.inventory.blackOpal ??= 0;
-save.inventory.diamond ??= 0;
-save.inventory.onyx ??= 0;
-save.inventory.tanzanite ??= 0;
 save.oreCollection ??= {};
 
-save.oreCollection.amber ??= 0;
-save.oreCollection.amethyst ??= 0;
-save.oreCollection.malachite ??= 0;
-save.oreCollection.quartz ??= 0;
-save.oreCollection.topaz ??= 0;
-
-save.oreCollection.aquamarine ??= 0;
-save.oreCollection.citrine ??= 0;
-save.oreCollection.garnet ??= 0;
-save.oreCollection.jade ??= 0;
-save.oreCollection.peridot ??= 0;
-
-save.oreCollection.emerald ??= 0;
-save.oreCollection.ruby ??= 0;
-save.oreCollection.sapphire ??= 0;
-save.oreCollection.spinel ??= 0;
-save.oreCollection.tourmaline ??= 0;
-
-save.oreCollection.alexandrite ??= 0;
-save.oreCollection.blackOpal ??= 0;
-save.oreCollection.diamond ??= 0;
-save.oreCollection.onyx ??= 0;
-save.oreCollection.tanzanite ??= 0;
+ORE_KEYS.forEach(key => {
+    save.oreCollection[key] ??= 0;
+});
 
           let pendingSmelt = {
 
@@ -1155,133 +1065,15 @@ addFurnaceItem(
     save.stoneValue
 );
 
-// Tier 1
+ORE_KEYS.forEach(key => {
 
-addFurnaceItem(
-    `${ORES.amber.emoji} ${ORES.amber.name}`,
-    "amber",
-    ORES.amber.value
-);
+    addFurnaceItem(
+        `${ORES[key].emoji} ${ORES[key].name}`,
+        key,
+        ORES[key].value
+    );
 
-addFurnaceItem(
-    `${ORES.quartz.emoji} ${ORES.quartz.name}`,
-    "quartz",
-    ORES.quartz.value
-);
-
-addFurnaceItem(
-    `${ORES.topaz.emoji} ${ORES.topaz.name}`,
-    "topaz",
-    ORES.topaz.value
-);
-
-addFurnaceItem(
-    `${ORES.amethyst.emoji} ${ORES.amethyst.name}`,
-    "amethyst",
-    ORES.amethyst.value
-);
-
-addFurnaceItem(
-    `${ORES.malachite.emoji} ${ORES.malachite.name}`,
-    "malachite",
-    ORES.malachite.value
-);
-
-// Tier 2
-
-addFurnaceItem(
-    `${ORES.citrine.emoji} ${ORES.citrine.name}`,
-    "citrine",
-    ORES.citrine.value
-);
-
-addFurnaceItem(
-    `${ORES.garnet.emoji} ${ORES.garnet.name}`,
-    "garnet",
-    ORES.garnet.value
-);
-
-addFurnaceItem(
-    `${ORES.peridot.emoji} ${ORES.peridot.name}`,
-    "peridot",
-    ORES.peridot.value
-);
-
-addFurnaceItem(
-    `${ORES.jade.emoji} ${ORES.jade.name}`,
-    "jade",
-    ORES.jade.value
-);
-
-addFurnaceItem(
-    `${ORES.aquamarine.emoji} ${ORES.aquamarine.name}`,
-    "aquamarine",
-    ORES.aquamarine.value
-);
-
-// Tier 3
-
-addFurnaceItem(
-    `${ORES.spinel.emoji} ${ORES.spinel.name}`,
-    "spinel",
-    ORES.spinel.value
-);
-
-addFurnaceItem(
-    `${ORES.tourmaline.emoji} ${ORES.tourmaline.name}`,
-    "tourmaline",
-    ORES.tourmaline.value
-);
-
-addFurnaceItem(
-    `${ORES.sapphire.emoji} ${ORES.sapphire.name}`,
-    "sapphire",
-    ORES.sapphire.value
-);
-
-addFurnaceItem(
-    `${ORES.ruby.emoji} ${ORES.ruby.name}`,
-    "ruby",
-    ORES.ruby.value
-);
-
-addFurnaceItem(
-    `${ORES.emerald.emoji} ${ORES.emerald.name}`,
-    "emerald",
-    ORES.emerald.value
-);
-
-// Tier 4
-
-addFurnaceItem(
-    `${ORES.onyx.emoji} ${ORES.onyx.name}`,
-    "onyx",
-    ORES.onyx.value
-);
-
-addFurnaceItem(
-    `${ORES.tanzanite.emoji} ${ORES.tanzanite.name}`,
-    "tanzanite",
-    ORES.tanzanite.value
-);
-
-addFurnaceItem(
-    `${ORES.alexandrite.emoji} ${ORES.alexandrite.name}`,
-    "alexandrite",
-    ORES.alexandrite.value
-);
-
-addFurnaceItem(
-    `${ORES.blackOpal.emoji} ${ORES.blackOpal.name}`,
-    "blackOpal",
-    ORES.blackOpal.value
-);
-
-addFurnaceItem(
-    `${ORES.diamond.emoji} ${ORES.diamond.name}`,
-    "diamond",
-    ORES.diamond.value
-);
+});
 
 if(container.innerHTML === ""){
 
