@@ -1,3 +1,61 @@
+function generateMilestones(){
+
+    const milestones = [];
+
+    // Early Game
+
+    milestones.push(
+        10,
+        25,
+        50,
+        75,
+        100
+    );
+
+    // Mid Game
+
+    for(
+        let level = 150;
+        level <= 1000;
+        level += 50
+    ){
+
+        milestones.push(level);
+
+    }
+
+    // Late Game
+
+    for(
+        let level = 1100;
+        level <= 10000;
+        level += 100
+    ){
+
+        milestones.push(level);
+
+    }
+
+    return milestones;
+
+}
+
+const FACTORY_MILESTONES =
+    generateMilestones();
+
+function createDefaultMilestones(){
+
+    const milestones = {};
+
+    FACTORY_MILESTONES.forEach(level => {
+
+        milestones[level] = false;
+
+    });
+
+    return milestones;
+
+}
 let save = JSON.parse(
     localStorage.getItem("ef_incremental")
 ) || {
@@ -24,7 +82,10 @@ lastOreValue: 0,
     stoneValue: 1,
 
 inventory: createDefaultInventory(),
-oreCollection: createDefaultCollection()
+oreCollection: createDefaultCollection(),
+
+factoryMilestones:
+    createDefaultMilestones()
 };
 
 save.factoryLevel ??= 1;
@@ -54,6 +115,16 @@ save.oreCollection ??= {};
 
 ORE_KEYS.forEach(key => {
     save.oreCollection[key] ??= 0;
+});
+
+save.factoryMilestones ??=
+    createDefaultMilestones();
+
+FACTORY_MILESTONES.forEach(level => {
+
+    save.factoryMilestones[level]
+        ??= false;
+
 });
 
           let pendingSmelt = {
@@ -87,6 +158,24 @@ ORE_KEYS.forEach(key => {
 
 }
 
+function checkFactoryMilestones(){
+
+    FACTORY_MILESTONES.forEach(level => {
+
+        if(
+            save.factoryLevel >= level
+        ){
+
+            save.factoryMilestones[
+                level
+            ] = true;
+
+        }
+
+    });
+
+}
+
 function updateFactoryLevel(){
 
     save.factoryLevel = Math.floor(
@@ -97,9 +186,10 @@ function updateFactoryLevel(){
 
     );
 
-    if(save.factoryLevel < 1)
-        save.factoryLevel = 1;
+if(save.factoryLevel < 1)
+    save.factoryLevel = 1;
 
+checkFactoryMilestones();
 }
 
 function saveGame(){
