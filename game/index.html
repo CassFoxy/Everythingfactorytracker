@@ -64,6 +64,31 @@
     </div>
 
 </div>
+
+        <div class="card">
+
+    <h2>Milestones</h2>
+
+    <button
+        class="book-button"
+        onclick="openMilestones()">
+
+        🏆
+
+    </button>
+
+    <div>
+
+        Completed:
+        <span id="milestoneCount">
+
+            0
+
+        </span>
+
+    </div>
+
+</div>
 <div class="card">
 
     <h2>Collection Book</h2>
@@ -481,6 +506,34 @@
     </div>
 
 </div>
+</div>
+
+    <div
+id="milestonesModal"
+class="modal">
+
+    <div class="modal-content">
+
+        <span
+            class="close-button"
+            onclick="closeMilestones()">
+
+            ×
+
+        </span>
+
+        <h2>
+
+            Factory Milestones
+
+        </h2>
+
+        <div id="milestoneItems">
+
+        </div>
+
+    </div>
+
 </div>
 
 <script src="ores.js"></script>
