@@ -77,6 +77,14 @@ button{
     cursor:pointer;
 }
 
+.dev-reset{
+
+    background:#991b1b;
+    color:white;
+    border:1px solid #dc2626;
+
+}
+
 .xp-bar-container{
     width:100%;
     height:24px;
