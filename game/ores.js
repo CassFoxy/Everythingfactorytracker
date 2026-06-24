@@ -356,6 +356,32 @@ const TIER_4_ORES = [
 
 const ORE_KEYS = Object.keys(ORES);
 
+function createDefaultInventory(){
+
+    const inventory = {
+        stone: 0
+    };
+
+    ORE_KEYS.forEach(key => {
+        inventory[key] = 0;
+    });
+
+    return inventory;
+
+}
+
+function createDefaultCollection(){
+
+    const collection = {};
+
+    ORE_KEYS.forEach(key => {
+        collection[key] = 0;
+    });
+
+    return collection;
+
+}
+
 function getRandomOre(oreList){
 
     const key =
