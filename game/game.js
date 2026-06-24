@@ -965,6 +965,19 @@ if(
 
 }
 
+if(
+    pendingAchievement !== null
+){
+
+    showAchievementPopup(
+        pendingAchievement
+    );
+
+    pendingAchievement =
+        null;
+
+}
+
 }
 
 document.getElementById("mineButton")
@@ -1516,6 +1529,36 @@ function closeMilestonePopup(){
 
     document.getElementById(
         "milestonePopup"
+    ).style.display =
+        "none";
+
+}
+
+function showAchievementPopup(
+    achievement
+){
+
+    document.getElementById(
+        "achievementPopupName"
+    ).textContent =
+        achievement.name;
+
+    document.getElementById(
+        "achievementPopupDescription"
+    ).textContent =
+        achievement.description;
+
+    document.getElementById(
+        "achievementPopup"
+    ).style.display =
+        "block";
+
+}
+
+function closeAchievementPopup(){
+
+    document.getElementById(
+        "achievementPopup"
     ).style.display =
         "none";
 
