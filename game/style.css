@@ -97,7 +97,11 @@ button{
 
     width:0%;
 
-    background:#22c55e;
+background:linear-gradient(
+    90deg,
+    #22c55e,
+    #4ade80
+);
 
     transition:width 0.3s ease;
 }
