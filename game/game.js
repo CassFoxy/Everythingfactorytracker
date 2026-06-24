@@ -708,29 +708,16 @@ document.getElementById("furnaceCard")
 .style.display =
     "block";
 
-updateOreDisplay("amberLabel","amberCount","Amber",save.oreCollection.amber);
-updateOreDisplay("amethystLabel","amethystCount","Amethyst",save.oreCollection.amethyst);
-updateOreDisplay("malachiteLabel","malachiteCount","Malachite",save.oreCollection.malachite);
-updateOreDisplay("quartzLabel","quartzCount","Quartz",save.oreCollection.quartz);
-updateOreDisplay("topazLabel","topazCount","Topaz",save.oreCollection.topaz);
+ORE_KEYS.forEach(key => {
 
-updateOreDisplay("aquamarineLabel","aquamarineCount","Aquamarine",save.oreCollection.aquamarine);
-updateOreDisplay("citrineLabel","citrineCount","Citrine",save.oreCollection.citrine);
-updateOreDisplay("garnetLabel","garnetCount","Garnet",save.oreCollection.garnet);
-updateOreDisplay("jadeLabel","jadeCount","Jade",save.oreCollection.jade);
-updateOreDisplay("peridotLabel","peridotCount","Peridot",save.oreCollection.peridot);
+    updateOreDisplay(
+        key + "Label",
+        key + "Count",
+        ORES[key].name,
+        save.oreCollection[key]
+    );
 
-updateOreDisplay("emeraldLabel","emeraldCount","Emerald",save.oreCollection.emerald);
-updateOreDisplay("rubyLabel","rubyCount","Ruby",save.oreCollection.ruby);
-updateOreDisplay("sapphireLabel","sapphireCount","Sapphire",save.oreCollection.sapphire);
-updateOreDisplay("spinelLabel","spinelCount","Spinel",save.oreCollection.spinel);
-updateOreDisplay("tourmalineLabel","tourmalineCount","Tourmaline",save.oreCollection.tourmaline);
-
-updateOreDisplay("alexandriteLabel","alexandriteCount","Alexandrite",save.oreCollection.alexandrite);
-updateOreDisplay("blackOpalLabel","blackOpalCount","Black Opal",save.oreCollection.blackOpal);
-updateOreDisplay("diamondLabel","diamondCount","Diamond",save.oreCollection.diamond);
-updateOreDisplay("onyxLabel","onyxCount","Onyx",save.oreCollection.onyx);
-updateOreDisplay("tanzaniteLabel","tanzaniteCount","Tanzanite",save.oreCollection.tanzanite);
+});
 
 updateInventoryTooltip(
     "invStone",
@@ -738,125 +725,19 @@ updateInventoryTooltip(
     save.stoneValue
 );
 
-updateInventoryTooltip(
-    "invAmber",
-    save.inventory.amber,
-    ORES.amber.value
-);
+ORE_KEYS.forEach(key => {
 
-updateInventoryTooltip(
-    "invAmethyst",
-    save.inventory.amethyst,
-    ORES.amethyst.value
-);
+    updateInventoryTooltip(
+        "inv" +
+        key.charAt(0).toUpperCase() +
+        key.slice(1),
 
-updateInventoryTooltip(
-    "invMalachite",
-    save.inventory.malachite,
-    ORES.malachite.value
-);
+        save.inventory[key],
 
-updateInventoryTooltip(
-    "invQuartz",
-    save.inventory.quartz,
-    ORES.quartz.value
-);
+        ORES[key].value
+    );
 
-updateInventoryTooltip(
-    "invTopaz",
-    save.inventory.topaz,
-    ORES.topaz.value
-);
-
-updateInventoryTooltip(
-    "invAquamarine",
-    save.inventory.aquamarine,
-    ORES.aquamarine.value
-);
-
-updateInventoryTooltip(
-    "invCitrine",
-    save.inventory.citrine,
-    ORES.citrine.value
-);
-
-updateInventoryTooltip(
-    "invGarnet",
-    save.inventory.garnet,
-    ORES.garnet.value
-);
-
-updateInventoryTooltip(
-    "invJade",
-    save.inventory.jade,
-    ORES.jade.value
-);
-
-updateInventoryTooltip(
-    "invPeridot",
-    save.inventory.peridot,
-    ORES.peridot.value
-);
-
-updateInventoryTooltip(
-    "invEmerald",
-    save.inventory.emerald,
-    ORES.emerald.value
-);
-
-updateInventoryTooltip(
-    "invRuby",
-    save.inventory.ruby,
-    ORES.ruby.value
-);
-
-updateInventoryTooltip(
-    "invSapphire",
-    save.inventory.sapphire,
-    ORES.sapphire.value
-);
-
-updateInventoryTooltip(
-    "invSpinel",
-    save.inventory.spinel,
-    ORES.spinel.value
-);
-
-updateInventoryTooltip(
-    "invTourmaline",
-    save.inventory.tourmaline,
-    ORES.tourmaline.value
-);
-
-updateInventoryTooltip(
-    "invAlexandrite",
-    save.inventory.alexandrite,
-    ORES.alexandrite.value
-);
-
-updateInventoryTooltip(
-    "invBlackOpal",
-    save.inventory.blackOpal,
-    ORES.blackOpal.value
-);
-
-updateInventoryTooltip(
-    "invDiamond",
-    save.inventory.diamond,
-    ORES.diamond.value
-);
-
-updateInventoryTooltip(
-    "invOnyx",
-    save.inventory.onyx,
-    ORES.onyx.value
-);
-
-updateInventoryTooltip(
-    "invTanzanite",
-    save.inventory.tanzanite,
-    ORES.tanzanite.value
-);
+});
     
     const discovered = Object.values(
     save.oreCollection
