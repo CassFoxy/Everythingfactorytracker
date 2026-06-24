@@ -354,6 +354,8 @@ const TIER_4_ORES = [
     "diamond"
 ];
 
+const ORE_KEYS = Object.keys(ORES);
+
 function getRandomOre(oreList){
 
     const key =
