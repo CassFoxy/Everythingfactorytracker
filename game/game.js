@@ -766,121 +766,121 @@ updateInventoryTooltip(
 updateInventoryTooltip(
     "invAmber",
     save.inventory.amber,
-    10
+    ORES.amber.value
 );
 
 updateInventoryTooltip(
     "invAmethyst",
     save.inventory.amethyst,
-    40
+    ORES.amethyst.value
 );
 
 updateInventoryTooltip(
     "invMalachite",
     save.inventory.malachite,
-    50
+    ORES.malachite.value
 );
 
 updateInventoryTooltip(
     "invQuartz",
     save.inventory.quartz,
-    20
+    ORES.quartz.value
 );
 
 updateInventoryTooltip(
     "invTopaz",
     save.inventory.topaz,
-    30
+    ORES.topaz.value
 );
 
 updateInventoryTooltip(
     "invAquamarine",
     save.inventory.aquamarine,
-    1000
+    ORES.aquamarine.value
 );
 
 updateInventoryTooltip(
     "invCitrine",
     save.inventory.citrine,
-    250
+    ORES.citrine.value
 );
 
 updateInventoryTooltip(
     "invGarnet",
     save.inventory.garnet,
-    500
+    ORES.garnet.value
 );
 
 updateInventoryTooltip(
     "invJade",
     save.inventory.jade,
-    900
+    ORES.jade.value
 );
 
 updateInventoryTooltip(
     "invPeridot",
     save.inventory.peridot,
-    750
+    ORES.peridot.value
 );
 
 updateInventoryTooltip(
     "invEmerald",
     save.inventory.emerald,
-    25000
+    ORES.emerald.value
 );
 
 updateInventoryTooltip(
     "invRuby",
     save.inventory.ruby,
-    20000
+    ORES.ruby.value
 );
 
 updateInventoryTooltip(
     "invSapphire",
     save.inventory.sapphire,
-    15000
+    ORES.sapphire.value
 );
 
 updateInventoryTooltip(
     "invSpinel",
     save.inventory.spinel,
-    5000
+    ORES.spinel.value
 );
 
 updateInventoryTooltip(
     "invTourmaline",
     save.inventory.tourmaline,
-    10000
+    ORES.tourmaline.value
 );
 
 updateInventoryTooltip(
     "invAlexandrite",
     save.inventory.alexandrite,
-    100000
+    ORES.alexandrite.value
 );
 
 updateInventoryTooltip(
     "invBlackOpal",
     save.inventory.blackOpal,
-    150000
+    ORES.blackOpal.value
 );
 
 updateInventoryTooltip(
     "invDiamond",
     save.inventory.diamond,
-    250000
+    ORES.diamond.value
 );
 
 updateInventoryTooltip(
     "invOnyx",
     save.inventory.onyx,
-    50000
+    ORES.onyx.value
 );
 
 updateInventoryTooltip(
     "invTanzanite",
     save.inventory.tanzanite,
-    75000
+    ORES.tanzanite.value
 );
     
     const discovered = Object.values(
