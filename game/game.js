@@ -334,10 +334,10 @@ if(
     ] === 1
 ){
 
-    showDiscoveryPopup(
-        ore.name,
-        ore.value
-    );
+showDiscoveryPopup(
+    `${ore.emoji} ${ore.name}`,
+    ore.value
+);
 
 }
 
@@ -374,10 +374,10 @@ if(
     ] === 1
 ){
 
-    showDiscoveryPopup(
-        ore.name,
-        ore.value
-    );
+showDiscoveryPopup(
+    `${ore.emoji} ${ore.name}`,
+    ore.value
+);
 
 }
 
@@ -414,10 +414,10 @@ if(
     ] === 1
 ){
 
-    showDiscoveryPopup(
-        ore.name,
-        ore.value
-    );
+showDiscoveryPopup(
+    `${ore.emoji} ${ore.name}`,
+    ore.value
+);
 
 }
 
@@ -453,10 +453,10 @@ if(
     ] === 1
 ){
 
-    showDiscoveryPopup(
-        ore.name,
-        ore.value
-    );
+showDiscoveryPopup(
+    `${ore.emoji} ${ore.name}`,
+    ore.value
+);
 
 }
 
