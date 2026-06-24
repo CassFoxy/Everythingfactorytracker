@@ -471,6 +471,30 @@ const nextLevelXP =
         save.factoryLevel + 1
     );
 
+    const currentLevelXP =
+    getXPForLevel(
+        save.factoryLevel
+    );
+
+const xpIntoLevel =
+    save.factoryXP -
+    currentLevelXP;
+
+const xpNeeded =
+    nextLevelXP -
+    currentLevelXP;
+
+const xpPercent =
+    Math.min(
+        100,
+        (xpIntoLevel / xpNeeded) * 100
+    );
+
+    document.getElementById(
+    "xpBar"
+).style.width =
+    xpPercent + "%";
+
 document.getElementById(
     "factoryXP"
 ).textContent =
