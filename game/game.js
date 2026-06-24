@@ -312,20 +312,13 @@ function mineOre(){
 
 if(roll < 0.000004){
 
-const ores = [
-    {name:"🌈 Alexandrite", value:100000, key:"alexandrite"},
-    {name:"🖤 Black Opal", value:150000, key:"blackOpal"},
-    {name:"💎 Diamond", value:250000, key:"diamond"},
-    {name:"⚫ Onyx", value:50000, key:"onyx"},
-    {name:"💜 Tanzanite", value:75000, key:"tanzanite"}
-];
-
 const ore =
-    ores[Math.floor(
-        Math.random() * ores.length
-    )];
+    getRandomOre(
+        TIER_4_ORES
+    );
 
-save.lastOre = ore.name;
+save.lastOre =
+    `${ore.emoji} ${ore.name}`;
 save.lastOreValue = ore.value;
 
 save.oreCollection[
@@ -350,7 +343,8 @@ if(
 
 save.tier4Ores++;
 
-save.factoryXP += 1000;
+save.factoryXP +=
+    ore.xp;
 
     }
 
@@ -358,20 +352,13 @@ save.factoryXP += 1000;
 
 else if(roll < 0.000024){
 
-const ores = [
-    {name:"💚 Emerald", value:25000, key:"emerald"},
-    {name:"❤️ Ruby", value:20000, key:"ruby"},
-    {name:"💙 Sapphire", value:15000, key:"sapphire"},
-    {name:"💗 Spinel", value:5000, key:"spinel"},
-    {name:"🌈 Tourmaline", value:10000, key:"tourmaline"}
-];
-
 const ore =
-    ores[Math.floor(
-        Math.random() * ores.length
-    )];
+    getRandomOre(
+        TIER_3_ORES
+    );
 
-save.lastOre = ore.name;
+save.lastOre =
+    `${ore.emoji} ${ore.name}`;
 save.lastOreValue = ore.value;
 
 save.oreCollection[
@@ -396,7 +383,8 @@ if(
 
 save.tier3Ores++;
 
-save.factoryXP += 100;
+save.factoryXP +=
+    ore.xp;
 
     }
 
@@ -404,20 +392,13 @@ save.factoryXP += 100;
 
 else if(roll < 0.001024){
 
-const ores = [
-    {name:"💎 Aquamarine", value:1000, key:"aquamarine"},
-    {name:"🟡 Citrine", value:250, key:"citrine"},
-    {name:"🔴 Garnet", value:500, key:"garnet"},
-    {name:"🟢 Jade", value:900, key:"jade"},
-    {name:"💚 Peridot", value:750, key:"peridot"}
-];
-
 const ore =
-    ores[Math.floor(
-        Math.random() * ores.length
-    )];
+    getRandomOre(
+        TIER_2_ORES
+    );
 
-save.lastOre = ore.name;
+save.lastOre =
+    `${ore.emoji} ${ore.name}`;
 save.lastOreValue = ore.value;
 
 save.oreCollection[
@@ -441,8 +422,8 @@ if(
 }
 
 save.tier2Ores++;
-
-save.factoryXP += 25;
+save.factoryXP +=
+    ore.xp;
 
     }
 
