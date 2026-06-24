@@ -320,10 +320,58 @@ const ORES = {
         rarity: 250000
     }
 
-};
+const TIER_1_ORES = [
+    "amber",
+    "quartz",
+    "topaz",
+    "amethyst",
+    "malachite"
+];
 
-function getRarityText(rarity) {
+const TIER_2_ORES = [
+    "citrine",
+    "garnet",
+    "peridot",
+    "jade",
+    "aquamarine"
+];
 
-    return "1 in " + rarity.toLocaleString();
+const TIER_3_ORES = [
+    "spinel",
+    "tourmaline",
+    "sapphire",
+    "ruby",
+    "emerald"
+];
+
+const TIER_4_ORES = [
+    "onyx",
+    "tanzanite",
+    "alexandrite",
+    "blackOpal",
+    "diamond"
+];
+
+function getRandomOre(oreList){
+
+    const key =
+        oreList[
+            Math.floor(
+                Math.random() *
+                oreList.length
+            )
+        ];
+
+    return {
+        key: key,
+        ...ORES[key]
+    };
+
+}
+
+function getRarityText(rarity){
+
+    return "1 in " +
+        rarity.toLocaleString();
 
 }
