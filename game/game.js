@@ -952,6 +952,24 @@ document.getElementById(
 ).textContent =
     completedMilestones;
 
+    const completedAchievements =
+
+    Object.keys(
+        save.achievements
+    ).length;
+
+document.getElementById(
+    "achievementCount"
+).textContent =
+    completedAchievements;
+
+document.getElementById(
+    "achievementTotal"
+).textContent =
+    Object.keys(
+        ACHIEVEMENTS
+    ).length;
+
 if(
     pendingMilestone !== null
 ){
@@ -1146,6 +1164,26 @@ function closeMilestones(){
 
     document.getElementById(
         "milestonesModal"
+    ).style.display =
+        "none";
+
+}
+
+function openAchievements(){
+
+    buildAchievementsMenu();
+
+    document.getElementById(
+        "achievementsModal"
+    ).style.display =
+        "block";
+
+}
+
+function closeAchievements(){
+
+    document.getElementById(
+        "achievementsModal"
     ).style.display =
         "none";
 
@@ -1462,6 +1500,61 @@ function buildMilestonesMenu(){
             "<strong>Level " +
             level.toLocaleString() +
             "</strong><br>" +
+            (
+                unlocked
+                ? "Unlocked"
+                : "Locked"
+            );
+
+        container.appendChild(
+            div
+        );
+
+    });
+
+}
+
+function buildAchievementsMenu(){
+
+    const container =
+        document.getElementById(
+            "achievementItems"
+        );
+
+    container.innerHTML = "";
+
+    Object.entries(
+        ACHIEVEMENTS
+    ).forEach(([id, achievement]) => {
+
+        const unlocked =
+            save.achievements[id];
+
+        const div =
+            document.createElement(
+                "div"
+            );
+
+        div.className =
+            "achievement-item " +
+            (
+                unlocked
+                ? "achievement-unlocked"
+                : "achievement-locked"
+            );
+
+        div.innerHTML =
+
+            "<strong>" +
+
+            achievement.name +
+
+            "</strong><br>" +
+
+            achievement.description +
+
+            "<br><br>" +
+
             (
                 unlocked
                 ? "Unlocked"
