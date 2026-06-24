@@ -89,6 +89,39 @@
     </div>
 
 </div>
+
+        <div class="card">
+
+    <h2>Achievements</h2>
+
+    <button
+        class="book-button"
+        onclick="openAchievements()">
+
+        🏅
+
+    </button>
+
+    <div>
+
+        Unlocked:
+        <span id="achievementCount">
+
+            0
+
+        </span>
+
+        /
+
+        <span id="achievementTotal">
+
+            0
+
+        </span>
+
+    </div>
+
+</div>
 <div class="card">
 
     <h2>Collection Book</h2>
@@ -543,6 +576,34 @@ class="modal">
             Awesome!
 
         </button>
+
+    </div>
+
+</div>
+
+    <div
+id="achievementsModal"
+class="modal">
+
+    <div class="modal-content">
+
+        <span
+            class="close-button"
+            onclick="closeAchievements()">
+
+            ×
+
+        </span>
+
+        <h2>
+
+            🏅 Achievements
+
+        </h2>
+
+        <div id="achievementItems">
+
+        </div>
 
     </div>
 
