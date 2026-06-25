@@ -285,6 +285,7 @@ function unlockAchievement(id){
     pendingAchievement =
         ACHIEVEMENTS[id];
 
+    saveGame();
 }
 
 function checkAchievements(){
@@ -1657,6 +1658,24 @@ function showAchievementPopup(
         );
 
     }, 7000);
+
+}
+
+function resetSave(){
+
+    if(
+        !confirm(
+            "Delete all save data?"
+        )
+    ){
+        return;
+    }
+
+    localStorage.removeItem(
+        "ef_incremental"
+    );
+
+    location.reload();
 
 }
 
