@@ -172,14 +172,16 @@ background:linear-gradient(
     margin-top:15px;
 
     margin-left:-10px;
-
     margin-right:-10px;
-
     margin-bottom:-10px;
 
     padding:14px;
 
-    background:#22c55e;
+    background:linear-gradient(
+        180deg,
+        #22c55e,
+        #16a34a
+    );
 
     color:white;
 
@@ -191,7 +193,17 @@ background:linear-gradient(
 
     border-top:2px solid #4ade80;
 
+    user-select:none;
+
+    transition:.2s;
+
     animation:claimPulse 1.8s infinite;
+
+}
+
+.achievement-item:hover .achievement-claim-banner{
+
+    filter:brightness(1.15);
 
 }
 
