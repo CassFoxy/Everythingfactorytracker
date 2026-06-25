@@ -59,7 +59,10 @@ stat: "totalOresMined",
 
     target: 1,
 
-    reward: null
+reward:{
+    type:null,
+    value:0
+}
 
 },
 
@@ -77,7 +80,10 @@ stat: "totalOresMined",
 
     target: 100,
 
-    reward: null
+reward:{
+    type:null,
+    value:0
+}
 
 },
 
@@ -95,7 +101,10 @@ stat: "totalOresMined",
 
     target: 1000,
 
-    reward: null
+reward:{
+    type:null,
+    value:0
+}
 
 },
 firstDiscovery: {
@@ -112,7 +121,10 @@ firstDiscovery: {
 
     target: 1,
 
-    reward: null
+reward:{
+    type:null,
+    value:0
+}
 
 },
 
@@ -130,7 +142,10 @@ firstSmelt: {
 
     target: 1,
 
-    reward: null
+reward:{
+    type:null,
+    value:0
+}
 
 },
 
@@ -146,7 +161,10 @@ factoryOwner: {
 
     target: 10,
 
-    reward: null
+reward:{
+    type:null,
+    value:0
+}
 
 },
 
@@ -1634,7 +1652,8 @@ div.className =
 // Build the progress text
 
 let progressText = "";
-
+let progressPercent = 0;
+        
 if(
     achievement.type === "stat"
 ){
@@ -1648,6 +1667,14 @@ if(
         achievement.target
 
     );
+
+    progressPercent =
+
+    (current /
+
+    achievement.target)
+
+    * 100;
 
     progressText =
 
@@ -1677,6 +1704,14 @@ else if(
 
     );
 
+    progressPercent =
+
+    (current /
+
+    achievement.target)
+
+    * 100;
+
     progressText =
 
         formatNumber(current)
@@ -1692,6 +1727,8 @@ else if(
         );
 
 }
+
+let rewardText = "???";
 
 div.innerHTML =
 
@@ -1717,11 +1754,29 @@ div.innerHTML =
 
         "<strong>Progress</strong><br>" +
 
-        progressText
+        progressText +
 
-    );
+        "<div class='achievement-progress'>" +
 
-container.appendChild(
+            "<div class='achievement-progress-fill' style='width:" +
+
+                progressPercent +
+
+                "%'></div>" +
+
+        "</div>"
+
+    )
+
+    +
+
+    "<br><br>" +
+
+    "<strong>Reward</strong><br>" +
+
+    rewardText;
+
+        container.appendChild(
     div
 );
 
