@@ -113,7 +113,7 @@ let save = JSON.parse(
 cash: 100,
 
 factoryLevel: 1,
-factoryXP: 100,
+factoryXP: 0,
 
     droppers: 0,
     adders: 0,
