@@ -1769,9 +1769,62 @@ function buildAchievementsMenu(){
 
     let currentCategory = "";
 
-    Object.entries(
-        ACHIEVEMENTS
-    ).forEach(([id, achievement]) => {
+Object.entries(
+    ACHIEVEMENTS
+)
+
+.sort((a, b) => {
+
+    const aSave =
+
+        save.achievements[a[0]] ||
+
+        {
+            unlocked:false,
+            claimed:false
+        };
+
+    const bSave =
+
+        save.achievements[b[0]] ||
+
+        {
+            unlocked:false,
+            claimed:false
+        };
+
+    function getPriority(state){
+
+        if(
+            state.unlocked &&
+            !state.claimed
+        ){
+            return 0;
+        }
+
+        if(
+            state.claimed
+        ){
+            return 1;
+        }
+
+        return 2;
+
+    }
+
+    return (
+
+        getPriority(aSave)
+
+        -
+
+        getPriority(bSave)
+
+    );
+
+})
+
+.forEach(([id, achievement]) => {
 
         if(
             achievement.category !==
