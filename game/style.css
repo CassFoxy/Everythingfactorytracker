@@ -142,6 +142,8 @@ background:linear-gradient(
 
 .achievement-item{
 
+    position:relative;
+
     border:1px solid #334155;
 
     border-radius:8px;
@@ -149,6 +151,69 @@ background:linear-gradient(
     padding:10px;
 
     margin-bottom:10px;
+
+    overflow:hidden;
+
+    transition:
+        transform .2s,
+        border-color .2s,
+        box-shadow .2s;
+
+}
+
+.achievement-item:hover{
+
+    transform:translateY(-2px);
+
+}
+
+.achievement-claim-overlay{
+
+    position:absolute;
+
+    inset:0;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    text-align:center;
+
+    background:rgba(34,197,94,.35);
+
+    color:#dcfce7;
+
+    font-weight:bold;
+
+    font-size:20px;
+
+    pointer-events:none;
+
+    animation:claimPulse 1.8s infinite;
+
+}
+
+@keyframes claimPulse{
+
+    0%{
+
+        opacity:.45;
+
+    }
+
+    50%{
+
+        opacity:.85;
+
+    }
+
+    100%{
+
+        opacity:.45;
+
+    }
 
 }
 
