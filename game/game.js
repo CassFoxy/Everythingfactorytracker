@@ -224,7 +224,50 @@ achievementStats: {
 
 },
 
-achievements: {}
+achievements: {},
+
+permanentBonuses:{
+
+    oreValue:0,
+
+    dropperSpeed:0,
+
+    adderPower:0,
+
+    multiplierPower:0,
+
+    duplicateChance:0,
+
+    furnaceCapacity:0,
+
+    factoryXP:0,
+
+    miningLuck:0
+
+},
+
+cosmetics:{
+
+    unlocked:{
+
+        default:true
+
+    },
+
+    equipped:{
+
+        dropper:"default",
+
+        adder:"default",
+
+        multiplier:"default",
+
+        furnace:"default"
+
+    }
+
+}
+
 };
 
 save.factoryLevel ??= 1;
@@ -274,6 +317,87 @@ save.achievementStats.oresDiscovered ??= 0;
 save.achievementStats.oresSmelted ??= 0;
 
 save.achievements ??= {};
+Object.keys(
+    save.achievements
+).forEach(id => {
+
+    if(
+        typeof save.achievements[id] ===
+        "boolean"
+    ){
+
+        save.achievements[id] = {
+
+            unlocked:
+                save.achievements[id],
+
+            claimed: false
+
+        };
+
+    }
+
+});
+save.permanentBonuses ??= {
+
+    oreValue:0,
+
+    dropperSpeed:0,
+
+    adderPower:0,
+
+    multiplierPower:0,
+
+    duplicateChance:0,
+
+    furnaceCapacity:0,
+
+    factoryXP:0,
+
+    miningLuck:0
+
+};
+
+save.permanentBonuses.oreValue ??= 0;
+save.permanentBonuses.dropperSpeed ??= 0;
+save.permanentBonuses.adderPower ??= 0;
+save.permanentBonuses.multiplierPower ??= 0;
+save.permanentBonuses.duplicateChance ??= 0;
+save.permanentBonuses.furnaceCapacity ??= 0;
+save.permanentBonuses.factoryXP ??= 0;
+save.permanentBonuses.miningLuck ??= 0;
+
+save.cosmetics ??= {
+
+    unlocked:{
+
+        default:true
+
+    },
+
+    equipped:{
+
+        dropper:"default",
+
+        adder:"default",
+
+        multiplier:"default",
+
+        furnace:"default"
+
+    }
+
+};
+
+save.cosmetics.unlocked ??= {};
+save.cosmetics.equipped ??= {};
+
+save.cosmetics.unlocked.default ??= true;
+
+save.cosmetics.equipped.dropper ??= "default";
+save.cosmetics.equipped.adder ??= "default";
+save.cosmetics.equipped.multiplier ??= "default";
+save.cosmetics.equipped.furnace ??= "default";
 
 FACTORY_MILESTONES.forEach(level => {
 
@@ -357,15 +481,24 @@ checkFactoryMilestones();
 
 function unlockAchievement(id){
 
-    if(save.achievements[id])
+    if(
+        save.achievements[id]?.unlocked
+    )
         return;
 
-    save.achievements[id] = true;
+    save.achievements[id] = {
+
+        unlocked:true,
+
+        claimed:false
+
+    };
 
     pendingAchievement =
         ACHIEVEMENTS[id];
 
     saveGame();
+
 }
 
 function checkAchievements(){
@@ -374,8 +507,10 @@ function checkAchievements(){
         ACHIEVEMENTS
     ).forEach(([id, achievement]) => {
 
-        if(save.achievements[id])
-            return;
+if(
+    save.achievements[id]?.unlocked
+)
+    return;
 
         if(
             achievement.type === "stat"
@@ -414,6 +549,31 @@ function checkAchievements(){
         }
 
     });
+
+}
+
+function claimAchievement(id){
+
+    const achievement =
+        save.achievements[id];
+
+    if(
+        !achievement ||
+        !achievement.unlocked ||
+        achievement.claimed
+    ){
+        return;
+    }
+
+    achievement.claimed = true;
+
+    // Reward system goes here later
+
+    saveGame();
+
+    buildAchievementsMenu();
+
+    updateUI();
 
 }
 
@@ -1300,8 +1460,11 @@ function closeFurnace(){
               if(amount <= 0)
     return;
 
-    const div =
-        document.createElement("div");
+const div =
+    document.createElement(
+        "div"
+    );
+
 
     div.style.marginBottom =
         "15px";
@@ -1631,23 +1794,63 @@ function buildAchievementsMenu(){
             );
 
         }
+const achievementSave =
+
+    save.achievements[id] ||
+
+    {
+
+        unlocked:false,
+
+        claimed:false
+
+    };
 
 const unlocked =
-    save.achievements[id];
+    achievementSave.unlocked;
+
+const claimed =
+    achievementSave.claimed;
 
 const div =
     document.createElement(
         "div"
     );
 
+div.dataset.id = id;
+
 div.className =
     "achievement-item " +
 
     (
-        unlocked
-        ? "achievement-unlocked"
-        : "achievement-locked"
+
+        claimed
+
+        ?
+
+        "achievement-unlocked"
+
+        :
+
+        "achievement-locked"
+
     );
+
+        if(
+    unlocked &&
+    !claimed
+){
+
+    div.style.cursor =
+        "pointer";
+
+    div.onclick = () => {
+
+        claimAchievement(id);
+
+    };
+
+}
 
 // Build the progress text
 
@@ -1730,7 +1933,32 @@ else if(
 
 let rewardText = "???";
 
+        let claimOverlay = "";
+
+if(
+    unlocked &&
+    !claimed
+){
+
+    claimOverlay =
+
+        "<div class='achievement-claim-overlay'>" +
+
+        "<div>" +
+
+        "🎁<br>" +
+
+        "CLAIM REWARD" +
+
+        "</div>" +
+
+        "</div>";
+
+}
+
 div.innerHTML =
+
+    claimOverlay +
 
     "<strong>" +
 
@@ -1743,16 +1971,23 @@ div.innerHTML =
     "<br><br>" +
 
     (
+claimed
 
-        unlocked
+?
 
-        ?
+"🟢 Completed"
 
-        "✔ Unlocked"
+:
 
-        :
+unlocked
 
-        "<strong>Progress</strong><br>" +
+?
+
+"🟡 Reward Available"
+
+:
+
+"<strong>Progress</strong><br>" +
 
         progressText +
 
