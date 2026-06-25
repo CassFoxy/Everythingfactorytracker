@@ -1721,12 +1721,56 @@ summary{
 
 }
 
+    /* Vacation Notice */
+
+.vacation-banner{
+    background:linear-gradient(135deg,#dc2626,#ef4444);
+    color:#fff;
+    border:3px solid #fbbf24;
+    border-radius:18px;
+    padding:20px;
+    margin:20px 0;
+    text-align:center;
+    font-size:1.45rem;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    box-shadow:
+        0 0 30px rgba(239,68,68,.45),
+        0 0 10px rgba(251,191,36,.35);
+    animation:pulseNotice 1.8s infinite;
+}
+
+.vacation-banner span{
+    display:block;
+    margin-top:8px;
+    font-size:1rem;
+    font-weight:600;
+    text-transform:none;
+    letter-spacing:0;
+}
+
+@keyframes pulseNotice{
+    0%,100%{
+        transform:scale(1);
+        box-shadow:0 0 25px rgba(239,68,68,.45);
+    }
+    50%{
+        transform:scale(1.02);
+        box-shadow:0 0 40px rgba(239,68,68,.7);
+    }
+}
+
 @media(max-width:768px){.grid,.stats{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="container">
 <img src="community_logo.png" class="logo">
+    <div class="vacation-banner">
+    🚨 TRACKER WILL NOT BE UPDATED THIS WEEK DUE TO A VACATION 🚨
+    <span>Updates will resume next week. Thank you for your patience!</span>
+</div>
 
 <div class="social-links">
 
