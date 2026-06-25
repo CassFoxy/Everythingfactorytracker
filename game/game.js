@@ -1986,32 +1986,7 @@ else if(
 
 let rewardText = "???";
 
-        let claimOverlay = "";
-
-if(
-    unlocked &&
-    !claimed
-){
-
-    claimOverlay =
-
-        "<div class='achievement-claim-overlay'>" +
-
-        "<div>" +
-
-        "🎁<br>" +
-
-        "CLAIM REWARD" +
-
-        "</div>" +
-
-        "</div>";
-
-}
-
 div.innerHTML =
-
-    claimOverlay +
 
     "<strong>" +
 
@@ -2059,10 +2034,29 @@ unlocked
     +
 
     "<br><br>" +
+"<strong>Reward</strong><br>" +
 
-    "<strong>Reward</strong><br>" +
+rewardText +
 
-    rewardText;
+(
+
+    unlocked &&
+
+    !claimed
+
+    ?
+
+    "<div class='achievement-claim-banner'>" +
+
+    "🎁 CLAIM REWARD" +
+
+    "</div>"
+
+    :
+
+    ""
+
+);
 
         container.appendChild(
     div
