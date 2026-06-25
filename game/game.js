@@ -45,52 +45,110 @@ const FACTORY_MILESTONES =
 
 const ACHIEVEMENTS = {
 
-    firstSwing: {
-        name: "First Swing",
-        description: "Mine your first stone.",
-        type: "stat",
-        stat: "stoneMined",
-        target: 1
-    },
+firstSwing: {
 
-    stoneMiner: {
-        name: "Stone Miner",
-        description: "Mine 100 stone.",
-        type: "stat",
-        stat: "stoneMined",
-        target: 100
-    },
+    category: "⛏ Mining",
 
-    dedicatedMiner: {
-        name: "Dedicated Miner",
-        description: "Mine 1,000 stone.",
-        type: "stat",
-        stat: "stoneMined",
-        target: 1000
-    },
+    name: "First Swing",
 
-    firstDiscovery: {
-        name: "Shiny!",
-        description: "Discover your first ore.",
-        type: "stat",
-        stat: "oresDiscovered",
-        target: 1
-    },
+    description: "Mine your first stone.",
 
-    firstSmelt: {
-        name: "First Smelt",
-        description: "Smelt an ore.",
-        type: "stat",
-        stat: "oresSmelted",
-        target: 1
-    },
+    type: "stat",
 
-    factoryOwner: {
-        name: "Factory Owner",
-        description: "Reach Factory Level 10.",
-        type: "level",
-        target: 10
-    }
+stat: "totalOresMined",
+
+    target: 1,
+
+    reward: null
+
+},
+
+stoneMiner: {
+
+    category: "⛏ Mining",
+
+name: "Ore Miner",
+    
+description: "Mine 100 ores.",
+
+    type: "stat",
+
+stat: "totalOresMined",
+
+    target: 100,
+
+    reward: null
+
+},
+
+dedicatedMiner: {
+
+    category: "⛏ Mining",
+
+name: "Dedicated Miner",
+    
+description: "Mine 1,000 ores.",
+
+    type: "stat",
+
+stat: "totalOresMined",
+
+    target: 1000,
+
+    reward: null
+
+},
+firstDiscovery: {
+
+    category: "📖 Collection",
+
+    name: "Shiny!",
+
+    description: "Discover your first ore.",
+
+    type: "stat",
+
+    stat: "oresDiscovered",
+
+    target: 1,
+
+    reward: null
+
+},
+
+firstSmelt: {
+
+    category: "🔥 Furnace",
+
+    name: "First Smelt",
+
+    description: "Smelt an ore.",
+
+    type: "stat",
+
+    stat: "oresSmelted",
+
+    target: 1,
+
+    reward: null
+
+},
+
+factoryOwner: {
+
+    category: "🏭 Factory",
+
+    name: "Factory Owner",
+
+    description: "Reach Factory Level 10.",
+
+    type: "level",
+
+    target: 10,
+
+    reward: null
+
+},
 
 };
 
@@ -140,7 +198,7 @@ factoryMilestones:
 
 achievementStats: {
 
-    stoneMined: 0,
+    totalOresMined: 0,
 
     oresDiscovered: 0,
 
@@ -185,13 +243,17 @@ save.factoryMilestones ??=
 
 save.achievementStats ??= {
 
-    stoneMined: 0,
+    totalOresMined: 0,
 
     oresDiscovered: 0,
 
     oresSmelted: 0
 
 };
+
+save.achievementStats.totalOresMined ??= 0;
+save.achievementStats.oresDiscovered ??= 0;
+save.achievementStats.oresSmelted ??= 0;
 
 save.achievements ??= {};
 
@@ -649,7 +711,7 @@ save.inventory.stone++;
 
 save.totalOres++;
 
-save.achievementStats.stoneMined++;
+save.achievementStats.totalOresMined++;
 
 checkAchievements();
 
@@ -1524,47 +1586,144 @@ function buildAchievementsMenu(){
 
     container.innerHTML = "";
 
+    let currentCategory = "";
+
     Object.entries(
         ACHIEVEMENTS
     ).forEach(([id, achievement]) => {
 
-        const unlocked =
-            save.achievements[id];
+        if(
+            achievement.category !==
+            currentCategory
+        ){
 
-        const div =
-            document.createElement(
-                "div"
+            currentCategory =
+                achievement.category;
+
+            const heading =
+                document.createElement(
+                    "h3"
+                );
+
+            heading.textContent =
+                currentCategory;
+
+            container.appendChild(
+                heading
             );
 
-        div.className =
-            "achievement-item " +
-            (
-                unlocked
-                ? "achievement-unlocked"
-                : "achievement-locked"
-            );
+        }
 
-        div.innerHTML =
+const unlocked =
+    save.achievements[id];
 
-            "<strong>" +
+const div =
+    document.createElement(
+        "div"
+    );
 
-            achievement.name +
+div.className =
+    "achievement-item " +
 
-            "</strong><br>" +
+    (
+        unlocked
+        ? "achievement-unlocked"
+        : "achievement-locked"
+    );
 
-            achievement.description +
+// Build the progress text
 
-            "<br><br>" +
+let progressText = "";
 
-            (
-                unlocked
-                ? "Unlocked"
-                : "Locked"
-            );
+if(
+    achievement.type === "stat"
+){
 
-        container.appendChild(
-            div
+    const current = Math.min(
+
+        save.achievementStats[
+            achievement.stat
+        ] || 0,
+
+        achievement.target
+
+    );
+
+    progressText =
+
+        formatNumber(current)
+
+        +
+
+        " / "
+
+        +
+
+        formatNumber(
+            achievement.target
         );
+
+}
+
+else if(
+    achievement.type === "level"
+){
+
+    const current = Math.min(
+
+        save.factoryLevel,
+
+        achievement.target
+
+    );
+
+    progressText =
+
+        formatNumber(current)
+
+        +
+
+        " / "
+
+        +
+
+        formatNumber(
+            achievement.target
+        );
+
+}
+
+div.innerHTML =
+
+    "<strong>" +
+
+    achievement.name +
+
+    "</strong><br>" +
+
+    achievement.description +
+
+    "<br><br>" +
+
+    (
+
+        unlocked
+
+        ?
+
+        "✔ Unlocked"
+
+        :
+
+        "<strong>Progress</strong><br>" +
+
+        progressText
+
+    );
+
+container.appendChild(
+    div
+);
 
     });
 
