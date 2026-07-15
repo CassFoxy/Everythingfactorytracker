@@ -2723,35 +2723,2598 @@ A smaller, polished release is preferred over a larger but unfinished experience
 
 # Volume II - Player Journey
 
-**Purpose**
-
-Documents the intended player experience from the moment the game launches through to long-term progression.
-
-This volume focuses on how the player experiences the game rather than how systems are implemented.
+> [!IMPORTANT]
+>
+> **Volume Status:** 🟠 In Development
+>
+> **Volume Purpose:** Document the player's complete journey through Everything Factory Incremental from launching the game for the first time to reaching long-term progression.
+>
+> **Target Audience:** Gameplay Designers, Programmers, UI Designers, QA Testers.
+>
+> **Prerequisites:** Volume I – Project Foundation.
+>
+> **Estimated Reading Time:** 45–60 Minutes.
 
 ---
 
-## Planned Sections
+# Overview
 
-### 1. First Launch ⚪
+Volume II documents the intended player journey throughout Everything Factory Incremental.
 
-### 2. First Minute ⚪
+Unlike later volumes, which define the technical implementation of gameplay systems, this volume focuses entirely on the player's experience.
 
-### 3. First Five Minutes ⚪
+Every chapter follows the order in which the player naturally encounters milestones throughout progression.
 
-### 4. First Hour ⚪
+The purpose of this volume is to ensure that gameplay systems are introduced in a logical, rewarding and engaging sequence that supports the design principles established within Volume I.
 
-### 5. Early Game ⚪
+Rather than measuring progression using time, this volume measures progression through meaningful gameplay milestones.
 
-### 6. Mid Game ⚪
+This allows the player journey to remain accurate even if balancing changes alter how quickly progression occurs.
 
-### 7. Late Game ⚪
+---
 
-### 8. End Game ⚪
+## Volume II Documentation Rule
 
-### 9. First Rebirth ⚪
+Volume II documents the player's experience rather than the implementation of gameplay systems.
 
-### 10. Long-Term Progression ⚪
+Whenever possible, chapters should focus on:
+
+- Player expectations.
+- Emotional responses.
+- Learning progression.
+- Gameplay pacing.
+- Natural discovery.
+- Milestone transitions.
+
+Detailed mechanics, numerical balancing, formulas, technical implementation and development considerations are intentionally deferred to later volumes.
+
+---
+
+# Objectives
+
+Upon completing this volume the reader should understand:
+
+- How a new player begins the game.
+- The intended onboarding experience.
+- The order in which mechanics are introduced.
+- The reasoning behind each progression milestone.
+- How the player gradually learns increasingly complex systems.
+- How progression transitions from manual gameplay to automation.
+- The intended pacing of the player's journey.
+- The complete progression path from a new save to long-term gameplay.
+
+---
+
+# Volume Structure
+
+| Section | Status | Purpose |
+|---------|--------|---------|
+| **2.1 First Launch** | ⚪ | Documents the player's very first interaction with the game. |
+| **2.2 First Resource** | ⚪ | Covers the first manual gathering of Stone and introduction to resource collection. |
+| **2.3 First Sale** | ⚪ | Introduces the economy, selling resources and earning the first currency. |
+| **2.4 First Upgrade** | ⚪ | Covers the player's first permanent progression upgrade and introduces progression philosophy. |
+| **2.5 First Automation** | ⚪ | Documents unlocking and understanding the first automated factory components. |
+| **2.6 First Factory Expansion** | ⚪ | Covers expanding the factory and introducing larger-scale production. |
+| **2.7 First Optimisation** | ⚪ | Documents when players begin experimenting with layouts, efficiency and strategy. |
+| **2.8 First Discovery** | ⚪ | Introduces discovering new ores, mechanics and hidden progression. |
+| **2.9 First Long-Term Goal** | ⚪ | Covers achievements, collections, milestones and other persistent objectives. |
+| **2.10 First Rebirth** | ⚪ | Documents the player's first prestige experience and permanent progression reset. |
+| **2.11 Long-Term Progression** | ⚪ | Defines the intended experience after all core mechanics have been introduced. |
+
+---
+
+# Dependencies
+
+Volume II builds directly upon the principles established within Volume I.
+
+Every gameplay milestone documented within this volume should support:
+
+- Game Vision
+- Design Philosophy
+- Development Philosophy
+- Player Experience Goals
+
+Detailed implementation is intentionally deferred to Volume III.
+
+---
+
+# Completion Criteria
+
+Volume II shall be considered complete once:
+
+- Every major progression milestone has been documented.
+- The onboarding experience has been fully specified.
+- The order of gameplay mechanics has been established.
+- Every gameplay system has an intended introduction point.
+- Long-term progression has been defined.
+- The complete player journey can be understood without referencing later volumes.
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial Volume II framework created. |
+
+---
+
+# Player Journey Structure
+
+The player journey is divided into three major acts.
+
+Each act represents a significant shift in the player's understanding of the game and introduces new expectations, mechanics and long-term objectives.
+
+The purpose of these acts is to ensure that gameplay complexity increases naturally while maintaining a rewarding and engaging experience.
+
+---
+
+# Act I — Learning the Basics
+
+**Chapters**
+
+- 2.1 First Launch
+- 2.2 First Resource
+- 2.3 First Sale
+- 2.4 First Upgrade
+
+**Purpose**
+
+Introduce the player to the world, establish the core gameplay loop and teach the fundamental mechanics required for progression.
+
+The player should finish this act understanding the basic gameplay cycle while looking forward to unlocking automation.
+
+---
+
+# Act II — Building the Factory
+
+**Chapters**
+
+- 2.5 First Automation
+- 2.6 First Factory Expansion
+- 2.7 First Optimisation
+- 2.8 First Discovery
+
+**Purpose**
+
+Transition the player from manual gameplay into factory management.
+
+The emphasis shifts from learning mechanics to improving efficiency, discovering new systems and making meaningful strategic decisions.
+
+---
+
+# Act III — Mastery & Long-Term Progression
+
+**Chapters**
+
+- 2.9 First Long-Term Goal
+- 2.10 First Rebirth
+- 2.11 Long-Term Progression
+
+**Purpose**
+
+Introduce persistent progression systems that encourage players to continue improving their factory over weeks, months and future updates.
+
+By the end of this act, every major gameplay system introduced in Version 1.0 should have become interconnected.
+
+---
+
+# Act I — Learning the Basics
+
+> *The player learns the fundamental gameplay loop and establishes the foundations that every future gameplay system builds upon.*
+
+---
+
+## 2.1 First Launch
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-001
+>
+> **Player Milestone:** First Launch
+>
+> **Prerequisite:** None
+>
+> **Next Milestone:** First Resource
+
+---
+
+# Purpose
+
+This section defines the player's first experience when launching Everything Factory Incremental.
+
+The first launch is responsible for creating a positive first impression, introducing the game's visual identity and encouraging the player to begin interacting with the world.
+
+No complex gameplay systems should be introduced during this stage.
+
+Instead, the objective is to establish curiosity and confidence.
+
+---
+
+# Design Philosophy
+
+The first launch should answer three questions for the player as quickly as possible.
+
+- What is this game?
+- What am I supposed to do?
+- Why should I keep playing?
+
+The player should never feel confused immediately after joining.
+
+Instead, they should feel encouraged to explore.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Curiosity.
+- Excitement.
+- Comfort.
+- Confidence.
+
+The player should immediately understand that the game is approachable while also sensing that there is significantly more depth waiting to be discovered.
+
+---
+
+# First Impression Goals
+
+The opening experience should communicate:
+
+- The visual style of the game.
+- The atmosphere of the world.
+- The quality of the user interface.
+- The polish of the gameplay.
+- The responsiveness of player controls.
+
+The player should feel that they are entering a carefully designed world rather than an unfinished project.
+
+---
+
+# Initial World Design
+
+Upon spawning, the player should immediately see:
+
+- Their starting factory area.
+- The first resource node.
+- A clear route towards interaction.
+- A clean and uncluttered environment.
+- Visual hints towards future expansion.
+
+The world should feel larger than the player's current capabilities.
+
+This encourages curiosity without overwhelming the player.
+
+---
+
+# User Interface
+
+Only essential interface elements should be visible during the first launch.
+
+Examples include:
+
+- Cash.
+- Inventory.
+- Experience.
+- Factory Level.
+- Basic objective.
+
+Advanced systems should remain hidden until they become relevant.
+
+The interface should gradually expand alongside progression.
+
+---
+
+# Player Guidance
+
+The game should naturally encourage the player towards interacting with the first resource.
+
+Guidance should rely upon environmental design wherever possible.
+
+Examples include:
+
+- Camera positioning.
+- Object placement.
+- Lighting.
+- Visual emphasis.
+- Simple objective prompts.
+
+Lengthy tutorials should be avoided.
+
+Players should learn primarily through interaction.
+
+---
+
+# Audio & Presentation
+
+The first launch should establish the identity of Everything Factory Incremental.
+
+Considerations include:
+
+- Ambient music.
+- User interface sounds.
+- Mining sound effects.
+- Interaction feedback.
+- Visual animations.
+
+Every interaction should feel responsive.
+
+---
+
+# Success Criteria
+
+The first launch has achieved its objective if the player:
+
+- Understands where they are.
+- Understands what to interact with.
+- Feels comfortable exploring.
+- Successfully begins interacting with the world.
+- Looks forward to discovering additional mechanics.
+
+---
+
+# Transition
+
+The completion of this milestone occurs when the player successfully begins interacting with their first resource.
+
+At this point, progression moves into **2.2 First Resource**, where the player learns the fundamental gameplay mechanic of gathering materials.
+
+---
+
+# Related Sections
+
+- Volume I – Project Foundation
+- 1.5 Player Experience Goals
+- 2.2 First Resource
+- Volume III – Core Gameplay Systems
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial First Launch specification created. |
+
+---
+
+## 2.2 First Resource
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-002
+>
+> **Player Milestone:** First Resource
+>
+> **Prerequisite:** First Launch
+>
+> **Next Milestone:** First Sale
+
+---
+
+# Purpose
+
+This milestone introduces the player to the first interactive gameplay mechanic within Everything Factory Incremental.
+
+The player gathers their first resource, Stone, establishing the fundamental gameplay loop that every future progression system will build upon.
+
+This interaction should immediately communicate that player actions produce tangible rewards.
+
+---
+
+# Design Philosophy
+
+The first resource serves as the player's introduction to progression.
+
+Although gathering Stone appears simple, it establishes several important concepts that remain relevant throughout the entire game.
+
+These concepts include:
+
+- Interaction produces resources.
+- Resources have value.
+- Resources contribute towards progression.
+- Every action moves the player forward.
+
+This milestone should feel satisfying despite its simplicity.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Curiosity.
+- Satisfaction.
+- Immediate feedback.
+- A sense of accomplishment.
+
+The player should understand that interacting with the world always results in meaningful progress.
+
+---
+
+# System Overview
+
+Stone represents the first obtainable resource within Everything Factory Incremental.
+
+It is intentionally common and easy to collect.
+
+Although Stone has relatively low value compared with later resources, it establishes mechanics that will later apply to every ore and collectible item within the game.
+
+Stone is designed to teach gameplay rather than provide significant wealth.
+
+---
+
+# Gameplay Flow
+
+The intended sequence is:
+
+```text
+Player approaches Stone
+
+↓
+
+Player interacts
+
+↓
+
+Mining animation begins
+
+↓
+
+Stone collected
+
+↓
+
+Inventory updates
+
+↓
+
+Player receives visual and audio feedback
+
+↓
+
+Player notices increasing inventory
+
+↓
+
+Player begins asking:
+
+"What do I do with this?"
+```
+
+This final question naturally transitions the player into the next milestone.
+
+---
+
+# User Interface Behaviour
+
+During this milestone the player should become familiar with:
+
+- Inventory count increasing.
+- Resource notifications.
+- Collection feedback.
+- Experience gained (if applicable).
+- Progress indicators.
+
+Only the information required for this milestone should be visible.
+
+The interface should avoid unnecessary complexity.
+
+---
+
+# Audio & Visual Feedback
+
+Collecting the first Stone should feel rewarding.
+
+Feedback should include:
+
+- Mining sound effects.
+- Collection sound.
+- Visual particle effects.
+- Inventory animation.
+- Resource popup.
+- Subtle screen feedback where appropriate.
+
+Every interaction should reinforce that progress has been made.
+
+---
+
+# Educational Purpose
+
+Without presenting explicit tutorials, the player should naturally learn that:
+
+- Resources can be gathered.
+- Gathering resources is straightforward.
+- The inventory stores collected materials.
+- Collected materials will become useful.
+
+The game should encourage learning through interaction rather than instruction.
+
+---
+
+# Success Criteria
+
+This milestone has achieved its objective if the player:
+
+- Successfully collects Stone.
+- Understands that resources can be gathered.
+- Notices the inventory updating.
+- Understands that progression has begun.
+- Wants to discover the purpose of the collected resources.
+
+---
+
+# Transition
+
+At the completion of this milestone the player has collected resources but has not yet received a reward for doing so.
+
+The natural question becomes:
+
+> "How do I turn these resources into progress?"
+
+The answer is introduced in **2.3 First Sale**, where the player learns that collected resources can be exchanged for currency, unlocking the economic progression that drives the early game.
+
+---
+
+# Related Sections
+
+- 2.1 First Launch
+- 2.3 First Sale
+- Volume III – Resource System
+- Volume III – Stone
+- Volume III – Inventory
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial First Resource specification created. |
+
+---
+
+## 2.3 First Sale
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-003
+>
+> **Player Milestone:** First Sale
+>
+> **Prerequisite:** First Resource
+>
+> **Next Milestone:** First Upgrade
+
+---
+
+# Purpose
+
+This milestone introduces the player to the in-game economy by allowing them to exchange their first collected resources for currency.
+
+It establishes one of the most important progression concepts within Everything Factory Incremental:
+
+> Collected resources have value.
+
+The player should immediately understand that gathering resources directly contributes towards future progression.
+
+---
+
+# Design Philosophy
+
+The first sale exists to connect effort with reward.
+
+Until this point the player has gathered resources but has not yet experienced meaningful progression.
+
+Selling resources transforms collected items into purchasing power, introducing the economic loop that drives the remainder of the game.
+
+This interaction should feel rewarding without requiring explanation.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Satisfaction.
+- Achievement.
+- Motivation.
+- Curiosity.
+
+The player should begin asking:
+
+- "What can I buy now?"
+- "How can I earn currency faster?"
+- "What happens if I keep collecting resources?"
+
+These questions naturally encourage continued progression.
+
+---
+
+# System Overview
+
+The selling system introduces the concept that gathered resources contribute towards permanent progression.
+
+The player learns that:
+
+- Resources are valuable.
+- Currency is earned through gameplay.
+- Currency enables progression.
+- Gathering resources has a meaningful purpose.
+
+The first sale marks the moment where the complete gameplay loop begins to take shape.
+
+---
+
+# Gameplay Flow
+
+The intended sequence is:
+
+```text
+Player gathers Stone
+
+↓
+
+Player reaches the selling point
+
+↓
+
+Player sells collected resources
+
+↓
+
+Currency increases
+
+↓
+
+Selling feedback is displayed
+
+↓
+
+Player notices they can now afford new upgrades
+
+↓
+
+Player begins exploring available purchases
+```
+
+The sale should feel immediate and rewarding.
+
+Waiting should never interrupt the player's first experience with the economy.
+
+---
+
+# User Interface Behaviour
+
+During this milestone the player should become familiar with:
+
+- Current currency.
+- Currency increases.
+- Selling interface.
+- Resource totals.
+- Basic purchasing information.
+
+The player should always understand:
+
+- What they sold.
+- What they received.
+- Their new balance.
+
+Feedback should be clear, immediate and satisfying.
+
+---
+
+# Audio & Visual Feedback
+
+Selling resources should provide positive reinforcement.
+
+Examples include:
+
+- Currency increase animation.
+- Coin sound effect.
+- Resource removal animation.
+- Currency popup.
+- UI highlights.
+
+The player should immediately recognise that progression has occurred.
+
+---
+
+# Developer Intent
+
+The purpose of this milestone is to establish trust in the game's progression system.
+
+The player should quickly understand that every action has a tangible reward.
+
+The selling mechanic is intentionally introduced before any major upgrades so that players appreciate the relationship between gathering resources, earning currency and unlocking new opportunities.
+
+This milestone also creates anticipation for the next stage of progression, where currency can be invested rather than simply collected.
+
+---
+
+# Success Criteria
+
+This milestone has achieved its objective if the player:
+
+- Successfully sells resources.
+- Understands that resources generate currency.
+- Recognises that currency enables progression.
+- Begins looking for ways to improve earnings.
+- Wants to purchase their first upgrade.
+
+---
+
+# Transition
+
+After earning currency for the first time, the player's attention naturally shifts towards spending it.
+
+Rather than asking:
+
+> "How do I make money?"
+
+The player now asks:
+
+> "What should I buy first?"
+
+This curiosity leads directly into **2.4 First Upgrade**, where the player experiences their first permanent improvement and begins to understand that every investment strengthens their future progression.
+
+---
+
+# Related Sections
+
+- 2.2 First Resource
+- 2.4 First Upgrade
+- Volume III – Selling System
+- Volume III – Currency System
+- Volume III – Economy
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial First Sale specification created. |
+
+---
+
+## 2.4 First Upgrade
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-004
+>
+> **Player Milestone:** First Upgrade
+>
+> **Prerequisite:** First Sale
+>
+> **Next Milestone:** First Automation
+
+---
+
+# Purpose
+
+This milestone introduces the player to permanent progression through their first meaningful purchase.
+
+For the first time, the player exchanges earned currency for a lasting improvement that increases future efficiency.
+
+This establishes one of the most important concepts within Everything Factory Incremental:
+
+> Investing resources today creates greater rewards tomorrow.
+
+This milestone transforms progression from simple resource gathering into long-term decision making.
+
+---
+
+# Design Philosophy
+
+The first upgrade is intentionally designed to create excitement for future progression.
+
+Rather than simply increasing a statistic, the purchase should demonstrate that the player's decisions permanently improve their factory and future gameplay.
+
+The player should immediately notice the benefit of their investment.
+
+Every future upgrade builds upon this same philosophy.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Satisfaction.
+- Ownership.
+- Progress.
+- Anticipation.
+
+The player should feel that they have taken the first meaningful step towards building something much larger than their starting factory.
+
+The upgrade should encourage the player to immediately begin working towards their next purchase.
+
+---
+
+# System Overview
+
+The first upgrade introduces several important progression concepts.
+
+The player learns that:
+
+- Currency has long-term value.
+- Purchases permanently improve progression.
+- Different upgrades will eventually require meaningful decisions.
+- Progress is no longer temporary.
+
+This milestone establishes the foundation for every future upgrade system within the game.
+
+---
+
+# Gameplay Flow
+
+The intended sequence is:
+
+```text
+Player earns currency
+
+↓
+
+Player opens the upgrade interface
+
+↓
+
+Player reviews available upgrades
+
+↓
+
+Player purchases their first upgrade
+
+↓
+
+The upgrade immediately takes effect
+
+↓
+
+The player notices improved efficiency
+
+↓
+
+The player begins planning their next purchase
+```
+
+The improvement should be obvious enough that the player immediately recognises the value of investing in upgrades.
+
+---
+
+# User Interface Behaviour
+
+The player should become familiar with:
+
+- Upgrade categories.
+- Upgrade descriptions.
+- Purchase buttons.
+- Cost displays.
+- Upgrade levels.
+- Affordability indicators.
+
+The interface should clearly communicate:
+
+- What the upgrade does.
+- What it costs.
+- Whether it has been purchased.
+- How progression has changed.
+
+The purchasing experience should feel quick, intuitive and rewarding.
+
+---
+
+# Audio & Visual Feedback
+
+Purchasing an upgrade should feel like a meaningful achievement.
+
+Examples include:
+
+- Purchase sound effects.
+- Upgrade animations.
+- Visual confirmation.
+- Updated progression indicators.
+- Immediate gameplay feedback.
+
+The player should never question whether the purchase was successful.
+
+---
+
+# Developer Intent
+
+This milestone exists to teach investment rather than spending.
+
+The player should understand that currency is not simply collected—it is transformed into permanent progress.
+
+The first upgrade should deliberately create a positive feedback loop:
+
+- Gather resources.
+- Earn currency.
+- Invest in upgrades.
+- Progress faster.
+- Unlock new possibilities.
+
+This loop becomes the foundation for the remainder of the game.
+
+The player's first purchase should also create anticipation for larger and more exciting upgrades later in progression.
+
+---
+
+# Success Criteria
+
+This milestone has achieved its objective if the player:
+
+- Purchases their first upgrade.
+- Understands that upgrades provide permanent progression.
+- Notices an immediate improvement.
+- Feels motivated to purchase additional upgrades.
+- Begins planning future progression.
+
+---
+
+# Transition
+
+At this point the player understands the complete manual progression loop.
+
+They can:
+
+- Gather resources.
+- Sell resources.
+- Purchase upgrades.
+
+The next milestone introduces the first major evolution of gameplay.
+
+Rather than performing every action manually, the player unlocks automation for the first time.
+
+This transition represents one of the largest shifts in the player's journey and marks the beginning of factory management.
+
+The player now enters **Act II — Building the Factory**, beginning with **2.5 First Automation**.
+
+---
+
+# Related Sections
+
+- 2.3 First Sale
+- 2.5 First Automation
+- Volume III – Upgrade System
+- Volume III – Shop System
+- Volume III – Progression Systems
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial First Upgrade specification created. |
+
+---
+
+# Act II — Building the Factory
+
+> *The player transitions from manually gathering resources to designing, expanding and optimising an increasingly capable automated factory.*
+
+---
+
+## 2.5 First Automation
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-005
+>
+> **Player Milestone:** First Automation
+>
+> **Prerequisite:** First Upgrade
+>
+> **Next Milestone:** First Factory Expansion
+
+---
+
+# Purpose
+
+This milestone introduces the player to automation for the first time.
+
+Automation represents the largest shift in gameplay since the beginning of the game.
+
+Until this point, every resource has required direct player interaction.
+
+From this milestone onwards, the factory itself begins contributing towards progression.
+
+The player's role begins transitioning from manually gathering resources to designing, expanding and improving an increasingly efficient production system.
+
+---
+
+# Design Philosophy
+
+Automation should feel transformative.
+
+The player's first automated machine should not simply reduce clicking.
+
+Instead, it should fundamentally change how the player thinks about progression.
+
+From this point onwards, the player should begin asking questions such as:
+
+- How can I make this faster?
+- How can I build a better factory?
+- What should I automate next?
+- How can I improve efficiency?
+
+Automation should introduce a new layer of gameplay rather than replacing existing gameplay.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Excitement.
+- Empowerment.
+- Curiosity.
+- Creativity.
+- Satisfaction.
+
+This milestone should create the feeling that the player is now building something much larger than themselves.
+
+The factory should begin to feel alive.
+
+---
+
+# System Overview
+
+Automation introduces the first factory components capable of producing resources independently.
+
+The player begins interacting with production systems rather than performing every task manually.
+
+This milestone establishes the foundation for every future factory mechanic including:
+
+- Production chains.
+- Resource flow.
+- Factory layouts.
+- Building placement.
+- Efficiency improvements.
+- Future automation systems.
+
+Automation should complement manual gameplay rather than immediately replacing it.
+
+---
+
+# Gameplay Flow
+
+The intended sequence is:
+
+```text
+Player unlocks automation
+
+↓
+
+Player purchases their first automated building
+
+↓
+
+Player places the building
+
+↓
+
+The building begins operating
+
+↓
+
+Resources are produced automatically
+
+↓
+
+The player observes the production process
+
+↓
+
+The player begins experimenting with factory layouts
+
+↓
+
+The player wants to expand production
+```
+
+The first automated production cycle should be immediately visible.
+
+The player should never wonder whether the machine is working.
+
+---
+
+# User Interface Behaviour
+
+The player should become familiar with:
+
+- Building placement.
+- Production indicators.
+- Machine status.
+- Resource flow.
+- Factory interaction.
+- Automation controls.
+
+The interface should communicate that automation is simple to understand while leaving room for increasing complexity later in the game.
+
+---
+
+# Audio & Visual Feedback
+
+Automation should feel satisfying to watch.
+
+Examples include:
+
+- Machine operating sounds.
+- Conveyor movement.
+- Resource animations.
+- Building activation effects.
+- Production indicators.
+- Continuous movement throughout the factory.
+
+The factory should appear active even when the player is not interacting directly.
+
+Movement creates the impression that the factory is constantly working.
+
+---
+
+# Educational Purpose
+
+This milestone should naturally teach the player that:
+
+- Machines can perform work independently.
+- Factory layout influences production.
+- Automation increases efficiency.
+- Building placement matters.
+- Production can continue while the player focuses elsewhere.
+
+The player should begin thinking like a factory designer rather than simply a resource collector.
+
+---
+
+# Developer Intent
+
+This milestone represents the point where Everything Factory Incremental establishes its unique identity.
+
+The objective is not to remove manual gameplay.
+
+Instead, the objective is to shift the player's role.
+
+Before automation, the player performs the work.
+
+After automation, the player improves the systems that perform the work.
+
+This change in perspective is fundamental to the long-term design of the game.
+
+Every future production system, upgrade and optimisation mechanic builds upon this milestone.
+
+If the player finishes this milestone feeling excited to redesign and improve their factory, then it has achieved its purpose.
+
+---
+
+# Success Criteria
+
+This milestone has achieved its objective if the player:
+
+- Successfully unlocks automation.
+- Places their first automated building.
+- Understands that machines can produce resources independently.
+- Watches automated production with interest.
+- Begins considering factory layout.
+- Wants to expand their production capabilities.
+
+---
+
+# Transition
+
+The player has now experienced the first stage of automation.
+
+The natural next question becomes:
+
+> "How much bigger can I make this?"
+
+Rather than focusing on a single automated machine, the player begins thinking about expanding their entire production line.
+
+This transition marks the beginning of **2.6 First Factory Expansion**, where the player starts building a larger, more capable and increasingly efficient factory.
+
+---
+
+# Related Sections
+
+- 2.4 First Upgrade
+- 2.6 First Factory Expansion
+- Volume III – Factory System
+- Volume III – Droppers
+- Volume III – Conveyors
+- Volume III – Automation
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial First Automation specification created. |
+
+---
+
+## 2.6 First Factory Expansion
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-006
+>
+> **Player Milestone:** First Factory Expansion
+>
+> **Prerequisite:** First Automation
+>
+> **Next Milestone:** First Optimisation
+
+---
+
+# Purpose
+
+This milestone introduces the player to the concept of expanding and managing a growing factory.
+
+Rather than focusing on a single automated machine, the player now begins thinking about the factory as an interconnected production system.
+
+Expansion should feel exciting, rewarding and full of possibilities.
+
+The player should recognise that their factory is no longer a temporary setup but something that will continue to evolve throughout their journey.
+
+---
+
+# Design Philosophy
+
+Factory expansion represents the transition from owning machines to designing a production network.
+
+The player should begin making decisions about:
+
+- Where to place new buildings.
+- How production flows through the factory.
+- How available space is used.
+- Which areas should be expanded first.
+- How future growth should be planned.
+
+Growth should encourage thoughtful decisions rather than simply placing more machines wherever space allows.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Ambition.
+- Creativity.
+- Ownership.
+- Curiosity.
+- Achievement.
+
+The player should begin viewing the factory as a personal creation rather than a collection of independent buildings.
+
+Every expansion should feel like visible progress.
+
+---
+
+# System Overview
+
+Factory expansion introduces the concept that progression is not limited to unlocking new buildings.
+
+The arrangement, organisation and growth of the factory become important parts of gameplay.
+
+As the factory expands, the player naturally begins to encounter:
+
+- Increased production.
+- Larger layouts.
+- More building interactions.
+- More opportunities for improvement.
+- Greater planning requirements.
+
+Expansion should create opportunities rather than complications.
+
+---
+
+# Gameplay Flow
+
+The intended sequence is:
+
+```text
+Player earns additional currency
+
+↓
+
+Player purchases more factory components
+
+↓
+
+Production increases
+
+↓
+
+Available space begins filling
+
+↓
+
+The player rearranges parts of the factory
+
+↓
+
+The factory becomes noticeably larger
+
+↓
+
+The player begins recognising opportunities for improvement
+```
+
+The player should clearly see the difference between their original factory and its expanded form.
+
+The growth should feel earned.
+
+---
+
+# User Interface Behaviour
+
+During this milestone the player should become comfortable with:
+
+- Placing additional machines.
+- Navigating a larger factory.
+- Viewing production areas.
+- Managing available space.
+- Identifying where expansion is possible.
+
+The interface should continue feeling organised despite the increasing number of factory components.
+
+---
+
+# Audio & Visual Feedback
+
+As the factory grows, the environment should become increasingly active.
+
+Examples include:
+
+- Multiple machines operating simultaneously.
+- Larger production lines.
+- Continuous conveyor movement.
+- Increased resource flow.
+- More visual activity throughout the factory.
+
+The player should be able to observe the factory becoming busier over time.
+
+The factory should look alive.
+
+---
+
+# Educational Purpose
+
+This milestone teaches the player that:
+
+- Growth creates new opportunities.
+- Planning ahead becomes increasingly valuable.
+- Factory layout influences future development.
+- Expansion is an ongoing process rather than a single achievement.
+
+The player should naturally begin thinking beyond their next purchase.
+
+---
+
+# Developer Intent
+
+The purpose of this milestone is to establish factory building as a core gameplay experience.
+
+Expansion should never feel like placing identical machines repeatedly.
+
+Instead, every addition should make the player feel that their factory is becoming larger, more capable and more impressive.
+
+The player should develop a sense of ownership over their factory.
+
+When they look at it, they should recognise it as the result of their own decisions and progression.
+
+This emotional connection encourages long-term investment in the game.
+
+---
+
+# Success Criteria
+
+This milestone has achieved its objective if the player:
+
+- Expands beyond their initial production setup.
+- Understands that factory growth is a continuous objective.
+- Begins planning future layouts.
+- Takes pride in the appearance and efficiency of their factory.
+- Wants to continue expanding rather than remaining with a minimal setup.
+
+---
+
+# Transition
+
+As the factory grows, simply adding more machines becomes less effective.
+
+The player naturally begins asking questions such as:
+
+- "Can I arrange this better?"
+- "Is there a more efficient layout?"
+- "Am I using my space effectively?"
+
+This marks the beginning of **2.7 First Optimisation**, where the player's focus shifts from expanding production to improving it.
+
+---
+
+# Related Sections
+
+- 2.5 First Automation
+- 2.7 First Optimisation
+- Volume III – Factory System
+- Volume III – Building Placement
+- Volume III – Factory Expansion
+- Volume III – Production Flow
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial First Factory Expansion specification created. |
+
+---
+
+## 2.7 First Optimisation
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-007
+>
+> **Player Milestone:** First Optimisation
+>
+> **Prerequisite:** First Factory Expansion
+>
+> **Next Milestone:** First Discovery
+
+---
+
+# Purpose
+
+This milestone introduces the player to optimisation as a core gameplay philosophy.
+
+Until this point, progression has primarily been achieved by collecting more resources, purchasing additional buildings and expanding the factory.
+
+Now the player begins improving what already exists.
+
+Rather than asking "What should I buy next?", the player begins asking "Can I make this better?"
+
+This marks the transition from simple progression into strategic gameplay.
+
+---
+
+# Design Philosophy
+
+Optimisation is intended to reward curiosity, experimentation and thoughtful planning.
+
+The player should naturally discover that two factories containing the same buildings may perform very differently depending upon how they have been designed.
+
+The game should encourage players to experiment rather than presenting a single perfect solution.
+
+Every improvement should feel earned through understanding rather than luck.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Curiosity.
+- Satisfaction.
+- Creativity.
+- Problem solving.
+- Mastery.
+
+Players should begin feeling that their own decisions directly influence the success of their factory.
+
+Success should increasingly come from making good choices rather than simply spending more currency.
+
+---
+
+# System Overview
+
+This milestone introduces optimisation as an ongoing objective rather than a single feature.
+
+The player begins recognising opportunities to improve:
+
+- Factory layouts.
+- Building placement.
+- Production flow.
+- Upgrade priorities.
+- Resource management.
+- Expansion planning.
+
+Optimisation should become a habit that continues throughout the remainder of the game.
+
+---
+
+# Gameplay Flow
+
+The intended sequence is:
+
+```text
+Player observes factory
+
+↓
+
+Player notices an inefficiency
+
+↓
+
+Player experiments with a change
+
+↓
+
+Factory performance improves
+
+↓
+
+Player receives immediate feedback
+
+↓
+
+Player begins searching for additional improvements
+
+↓
+
+Optimisation becomes part of normal gameplay
+```
+
+Improvement should feel rewarding regardless of how small the optimisation may be.
+
+---
+
+# User Interface Behaviour
+
+The interface should support experimentation by making information easy to understand.
+
+Players should be able to quickly identify:
+
+- Building locations.
+- Production flow.
+- Upgrade effects.
+- Factory organisation.
+- Available space.
+
+The interface should help players make informed decisions without solving the optimisation challenge for them.
+
+---
+
+# Audio & Visual Feedback
+
+Optimisation should create noticeable visual improvements.
+
+Examples include:
+
+- Smoother production flow.
+- Fewer interruptions.
+- Better organised factory layouts.
+- More active production lines.
+- Increased visual activity.
+
+The player should feel that the factory is operating more efficiently because of their decisions.
+
+---
+
+# Educational Purpose
+
+This milestone teaches the player that:
+
+- Bigger is not always better.
+- Planning ahead creates long-term benefits.
+- Rearranging existing systems can be as valuable as purchasing new ones.
+- Efficiency is another form of progression.
+
+The player should understand that knowledge becomes a resource alongside currency.
+
+---
+
+# Developer Intent
+
+This milestone exists to transform the player's mindset.
+
+Until now, progression has largely been driven by unlocking and expanding.
+
+From this point onwards, progression should increasingly reward understanding.
+
+The player should begin analysing their own factory, recognising opportunities for improvement and feeling proud when those improvements produce measurable results.
+
+Importantly, the game should avoid forcing optimisation.
+
+Casual players should still be able to progress naturally, while players who enjoy experimentation and efficiency should feel rewarded for investing additional thought into their factory design.
+
+This philosophy supports multiple playstyles without making either one feel incorrect.
+
+---
+
+# Success Criteria
+
+This milestone has achieved its objective if the player:
+
+- Experiments with improving their factory.
+- Understands that efficiency matters.
+- Recognises the value of planning.
+- Begins making strategic decisions.
+- Feels rewarded for thoughtful optimisation.
+
+---
+
+# Transition
+
+As players become comfortable optimising their factory, they naturally begin looking beyond what is immediately visible.
+
+Questions such as:
+
+- "What else can I unlock?"
+- "Are there rarer resources?"
+- "What other systems exist?"
+- "What secrets haven't I discovered yet?"
+
+begin to replace questions about efficiency alone.
+
+This curiosity introduces **2.8 First Discovery**, where the player realises that Everything Factory Incremental contains far more depth than was initially apparent.
+
+---
+
+# Related Sections
+
+- 2.6 First Factory Expansion
+- 2.8 First Discovery
+- Volume III – Factory Layout
+- Volume III – Production Flow
+- Volume III – Building Systems
+- Volume III – Upgrade Systems
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial First Optimisation specification created. |
+
+---
+
+## 2.8 First Discovery
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-008
+>
+> **Player Milestone:** First Discovery
+>
+> **Prerequisite:** First Optimisation
+>
+> **Next Milestone:** First Long-Term Goal
+
+---
+
+# Purpose
+
+This milestone represents the moment the player realises that Everything Factory Incremental is far larger than it first appeared.
+
+Up until this point, progression has focused on learning, building and improving the factory.
+
+Now the player begins discovering systems, mechanics and opportunities that were not immediately visible during the early game.
+
+The objective of this milestone is to create genuine excitement about what still remains to be discovered.
+
+---
+
+# Design Philosophy
+
+Discovery is one of the defining pillars of Everything Factory Incremental.
+
+The game should never feel completely understood.
+
+As the player progresses, new mechanics, interactions and opportunities should naturally reveal themselves.
+
+The player should regularly experience moments where they realise there is far more depth than they originally expected.
+
+Discovery should reward curiosity rather than luck alone.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Surprise.
+- Curiosity.
+- Excitement.
+- Wonder.
+- Motivation.
+
+This milestone should reinforce the belief that exploration and experimentation are worthwhile.
+
+Players should feel encouraged to investigate the game rather than simply progressing through it.
+
+---
+
+# System Overview
+
+The first discovery is intentionally not tied to a single gameplay mechanic.
+
+Instead, it represents the player's first encounter with gameplay that expands their understanding of the game.
+
+Examples may include:
+
+- Discovering a rare resource.
+- Encountering a mutation.
+- Unlocking a hidden mechanic.
+- Revealing a new collection entry.
+- Finding an unexpected interaction.
+- Unlocking a previously unknown progression path.
+
+The specific implementation may evolve throughout development, but the intended player experience should remain unchanged.
+
+---
+
+# Gameplay Flow
+
+The intended sequence is:
+
+```text
+Player continues progressing
+
+↓
+
+Player encounters something unexpected
+
+↓
+
+The player investigates
+
+↓
+
+A new mechanic or opportunity is revealed
+
+↓
+
+The player begins experimenting
+
+↓
+
+The player's understanding of the game expands
+
+↓
+
+The player becomes excited to discover even more
+```
+
+The discovery should feel natural rather than scripted.
+
+Players should feel as though they uncovered something rather than simply being handed new content.
+
+---
+
+# User Interface Behaviour
+
+When a discovery occurs, the interface should acknowledge it without interrupting gameplay.
+
+Examples include:
+
+- Discovery notifications.
+- Collection updates.
+- New menu indicators.
+- Achievement progress.
+- Unlock animations.
+
+The interface should celebrate discovery while encouraging continued exploration.
+
+---
+
+# Audio & Visual Feedback
+
+Discoveries should feel memorable.
+
+Possible feedback includes:
+
+- Distinct audio cues.
+- Special visual effects.
+- Unique animations.
+- Collection highlights.
+- Celebration effects.
+
+Players should immediately recognise that they have experienced something significant.
+
+---
+
+# Educational Purpose
+
+This milestone teaches the player that:
+
+- Not every mechanic is immediately available.
+- Exploration is valuable.
+- Curiosity is rewarded.
+- The game contains hidden depth.
+- Future progression will continue introducing meaningful surprises.
+
+Players should begin actively looking for opportunities to discover additional mechanics.
+
+---
+
+# Developer Intent
+
+This milestone exists to establish discovery as a permanent part of the gameplay loop.
+
+The player should stop viewing progression as a predictable sequence of upgrades.
+
+Instead, they should begin expecting that future progression may reveal entirely new mechanics, systems and possibilities.
+
+This sense of discovery should remain throughout the lifetime of the game.
+
+Future updates should continue supporting this philosophy by introducing new content in ways that reward exploration and experimentation.
+
+Whenever possible, discovery should feel earned rather than simply unlocked by reaching a numerical requirement.
+
+---
+
+# Success Criteria
+
+This milestone has achieved its objective if the player:
+
+- Experiences genuine surprise.
+- Understands that the game contains hidden depth.
+- Begins actively exploring.
+- Looks forward to discovering additional mechanics.
+- Feels excited about continuing their journey.
+
+---
+
+# Transition
+
+By this stage, the player understands the core gameplay loop and has experienced automation, expansion, optimisation and discovery.
+
+The player is now ready to pursue objectives that extend beyond immediate progression.
+
+Rather than asking:
+
+> "What can I unlock next?"
+
+the player begins asking:
+
+> "What do I want to achieve?"
+
+This change in mindset begins **Act III — Mastery & Long-Term Progression**, starting with **2.9 First Long-Term Goal**, where the player is introduced to persistent objectives that encourage continued engagement over many play sessions.
+
+---
+
+# Related Sections
+
+- 1.1 Game Vision
+- 1.3 Design Philosophy
+- 2.7 First Optimisation
+- 2.9 First Long-Term Goal
+- Volume III – Discovery Systems
+- Volume III – Collection Systems
+- Volume III – Mutation System
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial First Discovery specification created. |
+
+---
+
+# Act III — Mastery & Long-Term Progression
+
+> *The player shifts from following guided progression to pursuing personal goals, mastering interconnected systems and preparing for years of future expansion.*
+
+---
+
+## 2.9 First Long-Term Goal
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-009
+>
+> **Player Milestone:** First Long-Term Goal
+>
+> **Prerequisite:** First Discovery
+>
+> **Next Milestone:** First Rebirth
+
+---
+
+# Purpose
+
+This milestone introduces the player to objectives that extend beyond immediate progression.
+
+Until this point, most goals have been naturally presented by the game through unlocking new mechanics and expanding the factory.
+
+Now the player begins pursuing objectives that require planning, persistence and personal motivation over many play sessions.
+
+The game shifts from asking the player to progress to inviting the player to choose what they want to accomplish next.
+
+---
+
+# Design Philosophy
+
+Long-term goals exist to give progression lasting meaning.
+
+Rather than providing a single path, the game should present multiple objectives that appeal to different types of players.
+
+Some players may focus on completing collections.
+
+Others may pursue achievements, optimise their factory, unlock every upgrade or prepare for future progression.
+
+There should never be only one "correct" objective.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Motivation.
+- Ambition.
+- Freedom.
+- Ownership.
+- Accomplishment.
+
+The player should feel that they are no longer following a fixed path.
+
+Instead, they are beginning to create their own journey through the game.
+
+---
+
+# System Overview
+
+Long-term goals introduce persistent objectives that continue alongside normal gameplay.
+
+Examples include:
+
+- Completing the Collection Log.
+- Unlocking achievements.
+- Reaching major Factory Levels.
+- Improving factory efficiency.
+- Discovering rare content.
+- Preparing for rebirth.
+- Completing milestone objectives.
+
+These systems provide direction without restricting player choice.
+
+---
+
+# Gameplay Flow
+
+The intended sequence is:
+
+```text
+Player reviews available objectives
+
+↓
+
+Player selects a personal goal
+
+↓
+
+Gameplay naturally supports that objective
+
+↓
+
+Progress towards the goal becomes visible
+
+↓
+
+The player reaches meaningful milestones
+
+↓
+
+New goals become available
+
+↓
+
+Long-term progression becomes self-directed
+```
+
+The player should feel that every session contributes towards something meaningful.
+
+---
+
+# User Interface Behaviour
+
+The interface should help players understand:
+
+- Available objectives.
+- Current progress.
+- Completed goals.
+- Upcoming rewards.
+- Suggested next milestones.
+
+Progress should be easy to follow without becoming overwhelming.
+
+The interface should encourage players to set their own priorities.
+
+---
+
+# Audio & Visual Feedback
+
+Completing meaningful objectives should feel memorable.
+
+Examples include:
+
+- Achievement celebrations.
+- Collection completion effects.
+- Milestone notifications.
+- Progress animations.
+- Reward presentations.
+
+Major accomplishments should feel distinct from everyday gameplay.
+
+---
+
+# Educational Purpose
+
+This milestone teaches the player that:
+
+- Progression extends beyond unlocking mechanics.
+- Personal goals are an important part of the game.
+- Multiple progression paths can be pursued simultaneously.
+- Long-term planning is rewarding.
+
+The player should begin thinking beyond immediate upgrades and instead focus on broader accomplishments.
+
+---
+
+# Developer Intent
+
+This milestone exists to shift motivation from externally driven progression to internally driven progression.
+
+By this stage, the player understands the mechanics of the game.
+
+The challenge is no longer learning how to play.
+
+The challenge becomes deciding what to achieve.
+
+Different players should naturally gravitate towards different objectives, creating a more personal and engaging experience.
+
+Long-term goals should remain relevant throughout the lifetime of the game and continue expanding through future updates.
+
+---
+
+# Success Criteria
+
+This milestone has achieved its objective if the player:
+
+- Chooses a long-term objective.
+- Understands that multiple progression paths exist.
+- Feels motivated to continue playing.
+- Begins planning future achievements.
+- Develops personal goals beyond immediate upgrades.
+
+---
+
+# Transition
+
+After spending time pursuing long-term goals, the player eventually encounters the first major progression decision.
+
+They begin asking:
+
+> "Is there a way to become permanently stronger?"
+
+This question introduces **2.10 First Rebirth**, where the player experiences the game's first prestige mechanic and learns that sacrificing short-term progress can unlock long-term growth.
+
+---
+
+# Related Sections
+
+- 1.5 Player Experience Goals
+- 2.8 First Discovery
+- 2.10 First Rebirth
+- Volume III – Achievement System
+- Volume III – Collection Log
+- Volume III – Milestones
+- Volume III – Factory Levels
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial First Long-Term Goal specification created. |
+---
+
+## 2.10 First Rebirth
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-010
+>
+> **Player Milestone:** First Rebirth
+>
+> **Prerequisite:** First Long-Term Goal
+>
+> **Next Milestone:** Long-Term Progression
+
+---
+
+# Purpose
+
+This milestone introduces the player's first rebirth.
+
+The rebirth represents the largest progression decision the player has encountered.
+
+For the first time, the player is asked to willingly sacrifice short-term progress in exchange for permanent long-term growth.
+
+The objective is to transform rebirth from feeling like a reset into feeling like an achievement.
+
+---
+
+# Design Philosophy
+
+Rebirth should never feel like punishment.
+
+Instead, it should represent the completion of one chapter of the player's journey and the beginning of another.
+
+The player should feel excited to rebirth because they understand the long-term benefits that will become available.
+
+Progress is not being lost.
+
+Progress is being converted into future strength.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Pride.
+- Excitement.
+- Curiosity.
+- Anticipation.
+- Confidence.
+
+The player should understand that everything they have learned will allow them to progress faster during the next cycle.
+
+The rebirth should create optimism rather than hesitation.
+
+---
+
+# System Overview
+
+The rebirth system introduces permanent progression that extends beyond a single factory.
+
+The player learns that progression exists on multiple layers.
+
+Examples include:
+
+- Permanent bonuses.
+- New progression opportunities.
+- Faster future growth.
+- Access to previously unavailable content.
+- Long-term account progression.
+
+The first rebirth establishes a gameplay loop that can continue throughout the lifetime of the game.
+
+---
+
+# Gameplay Flow
+
+The intended sequence is:
+
+```text
+Player reaches rebirth requirements
+
+↓
+
+Player reviews rebirth rewards
+
+↓
+
+Player decides to rebirth
+
+↓
+
+Factory progression resets
+
+↓
+
+Permanent progression is awarded
+
+↓
+
+Player begins a new factory
+
+↓
+
+Early progression feels noticeably faster
+
+↓
+
+Player starts planning the next rebirth
+```
+
+The player should immediately notice the value of having rebirthed.
+
+---
+
+# User Interface Behaviour
+
+The rebirth interface should clearly communicate:
+
+- What will reset.
+- What will remain.
+- Permanent rewards.
+- Rebirth benefits.
+- Confirmation before proceeding.
+
+The player should never feel uncertain about the consequences of rebirth.
+
+Transparency is essential.
+
+---
+
+# Audio & Visual Feedback
+
+The first rebirth should feel like a major achievement.
+
+Examples include:
+
+- Large visual celebration.
+- Distinctive sound effects.
+- Transition animation.
+- Permanent reward presentation.
+- New progression indicators.
+
+This should feel significantly more important than purchasing an upgrade or unlocking a new building.
+
+---
+
+# Educational Purpose
+
+This milestone teaches the player that:
+
+- Temporary progress can create permanent growth.
+- Progression exists on multiple layers.
+- Repeating the early game can be rewarding.
+- Knowledge becomes increasingly valuable.
+
+The player should recognise that each rebirth represents another opportunity to build a better factory.
+
+---
+
+# Developer Intent
+
+The rebirth system exists to extend the lifespan of the game without invalidating previous achievements.
+
+The player's understanding of the game should become one of their greatest advantages.
+
+The second factory should not simply be faster because of permanent bonuses.
+
+It should also be faster because the player now understands:
+
+- Better layouts.
+- Better upgrade priorities.
+- Better optimisation.
+- Better long-term planning.
+
+The rebirth system should reward both permanent progression and player knowledge.
+
+---
+
+# Success Criteria
+
+This milestone has achieved its objective if the player:
+
+- Completes their first rebirth.
+- Understands the value of permanent progression.
+- Feels excited to begin again.
+- Immediately notices faster progression.
+- Begins planning future rebirths.
+
+---
+
+# Transition
+
+After completing the first rebirth, the player has experienced every major progression mechanic introduced within Version 1.0.
+
+The focus now shifts away from individual milestones.
+
+Instead, the player enters a continuous gameplay cycle centred around:
+
+- Expansion.
+- Optimisation.
+- Discovery.
+- Collection.
+- Mastery.
+- Future updates.
+
+This begins **2.11 Long-Term Progression**, where the player's journey becomes self-directed and continually evolves as the game expands.
+
+---
+
+# Related Sections
+
+- 1.3 Design Philosophy
+- 2.9 First Long-Term Goal
+- 2.11 Long-Term Progression
+- Volume III – Rebirth System
+- Volume III – Permanent Progression
+- Volume III – Progression Loops
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial First Rebirth specification created. |
+
+---
+## 2.11 Long-Term Progression
+
+> [!IMPORTANT]
+>
+> **Status:** 🟠 In Development
+>
+> **Section ID:** VOL2-011
+>
+> **Player Milestone:** Long-Term Progression
+>
+> **Prerequisite:** First Rebirth
+>
+> **Next Milestone:** None (Ongoing Gameplay)
+
+---
+
+# Purpose
+
+This section defines the intended long-term player experience after every major Version 1.0 gameplay system has been introduced.
+
+Unlike previous milestones, this chapter does not represent a single event.
+
+Instead, it describes the ongoing gameplay experience that encourages players to continue returning to Everything Factory Incremental over hundreds of hours.
+
+The objective is to ensure that progression remains engaging long after the player understands the core mechanics of the game.
+
+---
+
+# Design Philosophy
+
+Long-term progression should never become repetitive simply because numerical values continue increasing.
+
+Instead, the player should continue finding new reasons to improve, experiment and expand.
+
+The game should reward:
+
+- Curiosity.
+- Planning.
+- Optimisation.
+- Collection.
+- Experimentation.
+- Mastery.
+
+The player should feel that every session contributes towards a meaningful long-term objective.
+
+---
+
+# Intended Player Experience
+
+The player should experience:
+
+- Continuous progression.
+- Freedom.
+- Ownership.
+- Discovery.
+- Achievement.
+- Mastery.
+- Excitement for future updates.
+
+Rather than feeling that they have "finished" the game, the player should feel that they have reached a stage where they can define their own objectives.
+
+---
+
+# System Overview
+
+At this point, every major gameplay system introduced in Version 1.0 should now work together as a unified progression experience.
+
+The player's gameplay naturally alternates between:
+
+- Expanding the factory.
+- Improving efficiency.
+- Discovering new mechanics.
+- Completing collections.
+- Unlocking achievements.
+- Rebirthing.
+- Pursuing personal goals.
+
+Progression should feel interconnected rather than separated into isolated systems.
+
+---
+
+# Gameplay Flow
+
+The intended long-term gameplay cycle is:
+
+```text
+Set Personal Goal
+
+↓
+
+Expand Factory
+
+↓
+
+Optimise Production
+
+↓
+
+Discover New Opportunities
+
+↓
+
+Complete Objectives
+
+↓
+
+Rebirth
+
+↓
+
+Unlock Permanent Progress
+
+↓
+
+Return Stronger
+
+↓
+
+Set A Bigger Goal
+```
+
+Unlike earlier milestones, this cycle has no intended conclusion.
+
+Each completion naturally creates the next objective.
+
+---
+
+# User Interface Behaviour
+
+The interface should increasingly support long-term gameplay by making important information easy to monitor.
+
+Examples include:
+
+- Goal tracking.
+- Collection progress.
+- Achievement completion.
+- Factory statistics.
+- Progress summaries.
+- Rebirth preparation.
+
+The interface should help players manage increasingly complex progression without becoming overwhelming.
+
+---
+
+# Audio & Visual Feedback
+
+Long-term progression should remain visually rewarding.
+
+Examples include:
+
+- Larger factories.
+- More active production lines.
+- Rare discovery celebrations.
+- Achievement effects.
+- Collection milestones.
+- Rebirth celebrations.
+
+The world should visibly reflect the player's continued progression.
+
+The player's factory should feel substantially different from where it began.
+
+---
+
+# Educational Purpose
+
+This milestone teaches the player that:
+
+- There is always another objective.
+- Progression exists on multiple layers.
+- Knowledge continues increasing alongside permanent upgrades.
+- Every gameplay system supports long-term progression.
+- Future updates will naturally expand existing mechanics rather than replacing them.
+
+The player should understand that mastery is an ongoing journey.
+
+---
+
+# Developer Intent
+
+This milestone represents the fulfilment of the design vision established within Volume I.
+
+By this stage, the player should no longer require the game to dictate every objective.
+
+Instead, the player should naturally identify opportunities for improvement based upon their own interests and preferred playstyle.
+
+One player may pursue complete collections.
+
+Another may build the most efficient factory possible.
+
+Another may chase rare discoveries.
+
+Another may prepare for future updates.
+
+None of these goals should be considered more correct than another.
+
+The purpose of Everything Factory Incremental is not to force a single path.
+
+The purpose is to provide a continually expanding sandbox of meaningful progression where players always feel there is another objective waiting to be achieved.
+
+---
+
+# Success Criteria
+
+Long-term progression has achieved its objective if players:
+
+- Continue returning after completing major milestones.
+- Regularly set new personal goals.
+- Feel motivated to improve their factory.
+- Continue discovering meaningful content.
+- Look forward to future updates.
+- Recommend the game to others because of the depth of progression.
+
+---
+
+# Transition
+
+Volume II concludes at this point.
+
+The player journey has now progressed from:
+
+- Learning the basics.
+- Building an automated factory.
+- Discovering deeper mechanics.
+- Pursuing long-term mastery.
+
+The remaining volumes no longer focus on the player's experience.
+
+Instead, they define the systems, mechanics and technical implementation that make this journey possible.
+
+The reader should now continue to **Volume III – Gameplay Specification**, where each gameplay system is documented in complete technical detail.
+
+---
+
+# Related Sections
+
+- Volume I – Project Foundation
+- Volume III – Gameplay Specification
+- Volume VI – Project Management
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial Long-Term Progression specification created. |
 
 ---
 
