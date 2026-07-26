@@ -4202,9 +4202,10 @@ let cardHtml = `
 </span>
 
 </div>
+
+<div class="variant-section">
 `;
 
-cardHtml += `<div class="variant-section">`;
 
 ITEM_VARIANTS.forEach(variant => {
 
@@ -4258,7 +4259,10 @@ ITEM_VARIANTS.forEach(variant => {
 
     });
 
-    cardHtml += `</div>`;
+cardHtml += `
+</div>
+</div>
+`;
 
 });
 
