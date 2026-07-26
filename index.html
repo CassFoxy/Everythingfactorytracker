@@ -3639,6 +3639,21 @@ JSON.parse(
     )
 ) || {};
 
+const ITEM_VARIANTS = [
+    {
+        id: "Normal",
+        label: "NORMAL"
+    },
+    {
+        id: "Gold",
+        label: "GOLD"
+    },
+    {
+        id: "Diamond",
+        label: "DIAMOND"
+    }
+];
+
 const ALL_VARIANTS = [
     "Clean",
     ...MUTATIONS.map(m => m.name)
@@ -4012,31 +4027,18 @@ ALL_VARIANTS.forEach(mut=>{
         const mutationName =
             mut.name || mut;
 
-        const normalKey =
-            `${item.id}_Normal_${mutationName}`;
+ITEM_VARIANTS.forEach(variant=>{
 
-        const goldKey =
-            `${item.id}_Gold_${mutationName}`;
+    const key =
+        `${item.id}_${variant.id}_${mutationName}`;
 
-        mutationStats[
-            mutationName
-        ].total += 2;
+    mutationStats[mutationName].total++;
 
-        if(itemSave[normalKey]){
+    if(itemSave[key]){
+        mutationStats[mutationName].collected++;
+    }
 
-            mutationStats[
-                mutationName
-            ].collected++;
-
-        }
-
-        if(itemSave[goldKey]){
-
-            mutationStats[
-                mutationName
-            ].collected++;
-
-        }
+});
 
     });
 
@@ -4100,38 +4102,36 @@ else if(item.name.includes("Furnace")){
         const mutationName =
             mut.name || mut;
 
-        const normalKey =
-            `${item.id}_Normal_${mutationName}`;
+return count + ITEM_VARIANTS.reduce((c,variant)=>{
 
-        const goldKey =
-            `${item.id}_Gold_${mutationName}`;
+    const key =
+        `${item.id}_${variant.id}_${mutationName}`;
 
-        return count +
-            (itemSave[normalKey] ? 1 : 0) +
-            (itemSave[goldKey] ? 1 : 0);
+    return c + (itemSave[key] ? 1 : 0);
+
+},0);
 
     },0);
 
 const itemTotal =
-    ALL_VARIANTS.length * 2;
+    ALL_VARIANTS.length * ITEM_VARIANTS.length;
 
 const itemMissing =
     itemTotal - itemCollected;
     if(mutationFilter){
 
-    const normalKey =
-        `${item.id}_Normal_${mutationFilter}`;
+const complete =
+    ITEM_VARIANTS.every(variant =>
 
-    const goldKey =
-        `${item.id}_Gold_${mutationFilter}`;
+        itemSave[
+            `${item.id}_${variant.id}_${mutationFilter}`
+        ]
 
-    const hasBoth =
-        itemSave[normalKey] &&
-        itemSave[goldKey];
+    );
 
-    if(hasBoth){
-        return;
-    }
+if(complete){
+    return;
+}
 
 }
     if(
@@ -4201,126 +4201,65 @@ let cardHtml = `
 
 </span>
 
-    </div>
+cardHtml += `<div class="variant-section">`;
 
-    <div class="variant-section">
-<div class="variant-header">
-
-    <span>NORMAL</span>
-
-    <button
-        class="select-all-btn"
-        onclick="selectAllVariants(
-            '${item.id}',
-            'Normal'
-        )"
-    >
-        Select All
-    </button>
-
-</div>
-
-        <div class="variant-grid normal-${item.id}">
-`;
-    
-
-ALL_VARIANTS.forEach(mut=>{
-
-    const mutationName =
-        mut.name || mut;
-
-    const normalKey =
-        `${item.id}_Normal_${mutationName}`;
-
-    total++;
-
-    if(itemSave[normalKey]){
-        collected++;
-    }
-
-cardHtml += `
-<label class="
-    variant-btn
-    ${mutationName.toLowerCase()}
-    ${itemSave[normalKey] ? "active" : ""}
-">
-            <input
-                type="checkbox"
-                ${itemSave[normalKey] ? "checked" : ""}
-                onchange="
-                    toggleVariant(
-                        '${normalKey}'
-                    )
-                "
-            >
-
-            ${mutationName}
-        </label>
-    `;
-
-});
-    
-cardHtml += `
-        </div>
-
-<div class="variant-header">
-
-    <span>GOLD ★</span>
-
-    <button
-        class="select-all-btn"
-        onclick="selectAllVariants(
-            '${item.id}',
-            'Gold'
-        )"
-    >
-        Select All
-    </button>
-
-</div>
-        <div class="variant-grid gold-${item.id}">
-`;
-ALL_VARIANTS.forEach(mut=>{
-
-    const mutationName =
-        mut.name || mut;
-
-    const goldKey =
-        `${item.id}_Gold_${mutationName}`;
-
-    total++;
-
-    if(itemSave[goldKey]){
-        collected++;
-    }
+ITEM_VARIANTS.forEach(variant => {
 
     cardHtml += `
-<label class="
-    variant-btn
-    ${mutationName.toLowerCase()}
-    ${itemSave[goldKey] ? "active" : ""}
-">
-            <input
-                type="checkbox"
-                ${itemSave[goldKey] ? "checked" : ""}
-                onchange="
-                    toggleVariant(
-                        '${goldKey}'
-                    )
-                "
-            >
+    <div class="variant-header">
 
-            ${mutationName}
-        </label>
-    `;
-});
-cardHtml += `
-        </div>
+        <span>${variant.label}</span>
+
+        <button
+            class="select-all-btn"
+            onclick="selectAllVariants('${item.id}','${variant.id}')">
+
+            Select All
+
+        </button>
 
     </div>
 
-</div>
-`;
+    <div class="variant-grid ${variant.id.toLowerCase()}-${item.id}">
+    `;
+
+    ALL_VARIANTS.forEach(mut => {
+
+        const mutationName = mut.name || mut;
+
+        const key =
+            `${item.id}_${variant.id}_${mutationName}`;
+
+        total++;
+
+        if(itemSave[key]){
+            collected++;
+        }
+
+        cardHtml += `
+        <label class="
+            variant-btn
+            ${mutationName.toLowerCase()}
+            ${itemSave[key] ? "active" : ""}
+        ">
+
+            <input
+                type="checkbox"
+                ${itemSave[key] ? "checked" : ""}
+                onchange="toggleVariant('${key}')">
+
+            ${mutationName}
+
+        </label>
+        `;
+
+    });
+
+    cardHtml += `</div>`;
+
+});
+
+cardHtml += `</div>`;
 
     if(itemType === "Adder"){
     adderHtml += cardHtml;
