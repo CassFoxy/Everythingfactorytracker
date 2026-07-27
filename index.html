@@ -1396,8 +1396,11 @@ summary{
 .rarity-mythical{
     color:#ef4444;
 }
-    .rarity-divine{
-    color:#06b6d4;
+.rarity-divine{
+    color:#f7e7a1;
+    text-shadow:
+        0 0 6px rgba(247,231,161,.45),
+        0 0 12px rgba(255,236,170,.18);
 }
 
 .rarity-secret{
@@ -2074,12 +2077,12 @@ summary{
 <summary>
     📚 Item Index Tracker
     •
-    <span id="item-collected">0</span>
-    /
-    2834
-    (
-    <span id="item-progress">0</span>%
-    )
+<span id="item-collected">0</span>
+/
+<span id="item-total">0</span>
+(
+<span id="item-progress">0</span>%
+)
 </summary>
 
 <div class="global-progress">
@@ -4410,6 +4413,10 @@ document.getElementById(
     "item-collected"
 ).textContent =
     collected;
+    document.getElementById(
+    "item-total"
+).textContent =
+    total;
     document.getElementById(
     "mutationStats"
 ).innerHTML =
