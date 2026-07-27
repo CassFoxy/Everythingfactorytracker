@@ -1188,6 +1188,58 @@ summary{
     margin-top:10px;
 
 }
+
+    .variant-header.normal span{
+    color:#b9c0c9;
+    font-weight:700;
+}
+
+.variant-header.gold span{
+    color:#ffd54a;
+    font-weight:700;
+    text-shadow:0 0 6px rgba(255,213,74,.25);
+}
+
+.variant-header.diamond span{
+    color:#67c8ff;
+    font-weight:700;
+    text-shadow:0 0 6px rgba(103,200,255,.25);
+}
+
+    .variant-grid.normal{
+    border-radius:12px;
+    padding:8px;
+}
+
+.variant-grid.gold{
+    border-radius:12px;
+    padding:8px;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(255,215,0,.05),
+            rgba(255,215,0,.015)
+        );
+
+    box-shadow:
+        inset 0 0 18px rgba(255,215,0,.05);
+}
+
+.variant-grid.diamond{
+    border-radius:12px;
+    padding:8px;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(90,220,255,.05),
+            rgba(90,220,255,.015)
+        );
+
+    box-shadow:
+        inset 0 0 18px rgba(90,220,255,.06);
+}
 .variant-grid{
 
     display:grid;
@@ -4210,7 +4262,7 @@ let cardHtml = `
 ITEM_VARIANTS.forEach(variant => {
 
     cardHtml += `
-    <div class="variant-header">
+<div class="variant-header ${variant.id.toLowerCase()}">
 
         <span>${variant.label}</span>
 
@@ -4224,7 +4276,7 @@ ITEM_VARIANTS.forEach(variant => {
 
     </div>
 
-    <div class="variant-grid ${variant.id.toLowerCase()}-${item.id}">
+<div class="variant-grid ${variant.id.toLowerCase()}">
     `;
 
     ALL_VARIANTS.forEach(mut => {
