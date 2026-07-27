@@ -4261,12 +4261,14 @@ ITEM_VARIANTS.forEach(variant => {
 
 cardHtml += `
 </div>
-</div>
 `;
 
 });
 
-cardHtml += `</div>`;
+cardHtml += `
+</div>
+</div>
+`;
 
     if(itemType === "Adder"){
     adderHtml += cardHtml;
