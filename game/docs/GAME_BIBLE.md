@@ -10729,47 +10729,319 @@ Additional notes regarding maintenance of Volume IV.
 
 # Part I — Core Game Content
 
-## 4.1 Resource Catalogue
+# 4.1 Resource Catalogue
 
-### Purpose
+> [!IMPORTANT]
+>
+> **Status:** 🟢 Implemented
+>
+> **Section ID:** VOL4-4.1
 
-Documents every obtainable resource within the game.
+---
 
-### Scope
+# Purpose
 
-Defines what qualifies as a resource.
+The Resource Catalogue serves as the authoritative reference for every obtainable resource within Everything Factory Incremental.
 
-### Resource Entry Template
+It documents the implementation details, balancing values and gameplay purpose of each resource without redefining the gameplay systems responsible for resource generation, inventory management or progression.
 
-Every resource entry contains:
+This catalogue should be considered the single source of truth for all collectible resources currently available within the game.
+
+---
+
+# Scope
+
+The Resource Catalogue contains every resource that can currently be obtained by the player.
+
+Resources are primarily acquired through manual mining and form the foundation of the game's collection, economy and progression systems.
+
+This catalogue documents:
+
+- Resource properties
+- Balancing values
+- Rarity
+- Experience rewards
+- Collection information
+- Related gameplay systems
+
+The catalogue does not document:
+
+- Mining mechanics
+- Inventory behaviour
+- Collection Log behaviour
+- Economy calculations
+- Factory production
+
+These systems are documented within Volume III.
+
+---
+
+# Design Philosophy
+
+Everything Factory Incremental intentionally avoids a traditional resource progression where increasingly valuable resources are unlocked over time.
+
+Instead, every ore exists within a single randomised loot pool from the beginning of the game.
+
+Players are encouraged to continue mining in pursuit of increasingly rare discoveries rather than reaching predetermined resource tiers through progression.
+
+This philosophy creates a gameplay loop centred around discovery, collection and luck, while maintaining long-term excitement whenever a rare ore is found.
+
+---
+
+# Resource Entry Template
+
+Every resource entry should contain:
 
 - Name
+- Tier
 - Category
 - Description
+- Base Value
+- XP Reward
+- Rarity
 - Unlock Requirement
 - Obtainable From
 - Primary Uses
-- Economic Role
-- Related Resources
-- Variants
+- Collection Behaviour
 - Related Systems
 - Developer Notes
 
-### Catalogue Entries
+---
 
-Stone
+# Documentation Notes
 
-Coal
+When creating new resource entries:
 
-Copper
+- Maintain consistent balancing terminology.
+- Avoid documenting gameplay behaviour.
+- Update balancing values whenever implementation changes.
+- Add new resources using the standard entry template.
+- Maintain one authoritative entry per resource.
 
-Iron
+---
 
-Gold
+# Resource Overview
 
-Diamond
+The current implementation contains twenty-one obtainable resources.
 
-Future Resources
+| Tier | Resources | Rarity |
+|------|-----------|---------|
+| Common | Stone | Always Available |
+| Tier 1 | Amber, Quartz, Topaz, Amethyst, Malachite | 1 in 25 |
+| Tier 2 | Citrine, Garnet, Peridot, Jade, Aquamarine | 1 in 1,000 |
+| Tier 3 | Spinel, Tourmaline, Sapphire, Ruby, Emerald | 1 in 50,000 |
+| Tier 4 | Onyx, Tanzanite, Alexandrite, Black Opal, Diamond | 1 in 250,000 |
+
+---
+
+# Gameplay Notes
+
+## Resource Progression
+
+Resources are **not** unlocked through gameplay progression.
+
+Every resource is obtainable from the beginning of the game through random chance.
+
+---
+
+## Resource Usage
+
+At the current stage of development, all resources share a single gameplay purpose.
+
+Resources can be:
+
+- Collected
+- Stored within the player's inventory
+- Sold for Cash
+- Recorded within the Collection Log
+
+Additional resource uses may be introduced during future development.
+
+---
+
+## Resource Variants
+
+The current implementation contains no resource variants.
+
+Future updates may introduce modifier systems (such as Mutations or Prefixes) which alter resource properties, but these systems are outside the scope of the current implementation.
+
+---
+
+# Catalogue Entries
+
+---
+
+# Stone
+
+## Tier
+
+Common
+
+---
+
+## Category
+
+Basic Resource
+
+---
+
+## Description
+
+Stone is the most common resource within Everything Factory Incremental and forms the foundation of the game's mining system.
+
+---
+
+## Base Value
+
+$1
+
+---
+
+## XP Reward
+
+1 XP
+
+---
+
+## Rarity
+
+Always Available
+
+---
+
+## Unlock Requirement
+
+Available from the start of the game.
+
+---
+
+## Obtainable From
+
+- Manual Mining
+
+---
+
+## Primary Uses
+
+- Sell for Cash
+- Collection Log Completion
+
+---
+
+## Collection Behaviour
+
+Recorded permanently upon first discovery.
+
+---
+
+## Related Systems
+
+- Resource System
+- Economy System
+- Inventory System
+- Collection Log System
+- Factory Level System
+
+---
+
+## Developer Notes
+
+Acts as the baseline resource against which all other resource values are balanced.
+
+---
+
+# Tier 1 Resources
+
+| Resource | Value | XP | Rarity |
+|----------|------:|---:|---------|
+| Amber | $10 | 5 | 1 in 25 |
+| Quartz | $20 | 5 | 1 in 25 |
+| Topaz | $30 | 5 | 1 in 25 |
+| Amethyst | $40 | 5 | 1 in 25 |
+| Malachite | $50 | 5 | 1 in 25 |
+
+Developer Notes:
+
+Tier 1 introduces players to uncommon resources while remaining common enough to be discovered regularly.
+
+---
+
+# Tier 2 Resources
+
+| Resource | Value | XP | Rarity |
+|----------|------:|---:|---------|
+| Citrine | $250 | 25 | 1 in 1,000 |
+| Garnet | $500 | 25 | 1 in 1,000 |
+| Peridot | $750 | 25 | 1 in 1,000 |
+| Jade | $900 | 25 | 1 in 1,000 |
+| Aquamarine | $1,000 | 25 | 1 in 1,000 |
+
+Developer Notes:
+
+Tier 2 represents the transition into genuinely rare discoveries and provides significantly higher economic rewards.
+
+---
+
+# Tier 3 Resources
+
+| Resource | Value | XP | Rarity |
+|----------|------:|---:|---------|
+| Spinel | $5,000 | 100 | 1 in 50,000 |
+| Tourmaline | $10,000 | 100 | 1 in 50,000 |
+| Sapphire | $15,000 | 100 | 1 in 50,000 |
+| Ruby | $20,000 | 100 | 1 in 50,000 |
+| Emerald | $25,000 | 100 | 1 in 50,000 |
+
+Developer Notes:
+
+Tier 3 resources are intended to be memorable discoveries that may not appear for extended periods of gameplay.
+
+---
+
+# Tier 4 Resources
+
+| Resource | Value | XP | Rarity |
+|----------|------:|---:|---------|
+| Onyx | $50,000 | 1,000 | 1 in 250,000 |
+| Tanzanite | $75,000 | 1,000 | 1 in 250,000 |
+| Alexandrite | $100,000 | 1,000 | 1 in 250,000 |
+| Black Opal | $150,000 | 1,000 | 1 in 250,000 |
+| Diamond | $250,000 | 1,000 | 1 in 250,000 |
+
+Developer Notes:
+
+Tier 4 resources represent the rarest naturally obtainable resources currently implemented and serve as long-term collection goals.
+
+---
+
+# Future Expansion
+
+Future versions of this catalogue may include:
+
+- Resource Mutations
+- Resource Prefixes
+- Additional Resource Tiers
+- Event-exclusive Resources
+- Crafted Resources
+- Processing Chains
+- Resource Metadata
+
+---
+
+# Related Sections
+
+- Volume III – Resource System
+- Volume III – Economy System
+- Volume III – Collection Log System
+- 4.2 Currency Catalogue
+
+---
+
+# Revision History
+
+| Version | Summary |
+|----------|---------|
+| 1.0.0 | Initial Resource Catalogue created. |
 
 ---
 
