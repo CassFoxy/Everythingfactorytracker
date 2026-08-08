@@ -89,6 +89,7 @@ var BASE_ITEMS = [
 { id: "popsicle_multiplier", name: "Popsicle Multiplier", rarity: "Rare" },
 { id: "umbrella_multiplier", name: "Umbrella Multiplier", rarity: "Rare" },
 { id: "wind_up_multiplier", name: "Wind-up Multiplier", rarity: "Rare" },
+{ id: "floatie_multiplier", name: "Floatie Multiplier", rarity: "Rare" },
 
 // Junkyard
 { id: "toast_adder", name: "Toast Adder", rarity: "Rare", isJunkyard: true },
@@ -120,6 +121,10 @@ var BASE_ITEMS = [
 { id: "door_multiplier", name: "Door Multiplier", rarity: "Epic" },
 { id: "fishing_multiplier", name: "Fishing Multiplier", rarity: "Epic" },
 { id: "pancake_multiplier", name: "Pancake Multiplier", rarity: "Epic" },
+{ id: "jello_multiplier", name: "Jello Multiplier", rarity: "Epic" },
+{ id: "phone_multiplier", name: "Phone Multiplier", rarity: "Epic" },
+{ id: "hang_glider_multiplier", name: "Hang Glider Multiplier", rarity: "Epic" },
+{ id: "crab_claw_multiplier", name: "Crab Claw Multiplier", rarity: "Epic" },
 
 // Junkyard
 { id: "horseshoe_multiplier", name: "Horseshoe Multiplier", rarity: "Epic", isJunkyard: true },
@@ -151,12 +156,16 @@ var BASE_ITEMS = [
 { id: "frog_multiplier", name: "Frog Multiplier", rarity: "Legendary" },
 { id: "storm_multiplier", name: "Storm Multiplier", rarity: "Legendary" },
 { id: "hot_pot_furnace", name: "Hot Pot Furnace", rarity: "Legendary" },
+{ id: "microphone_multiplier", name: "Microphone Multiplier", rarity: "Legendary" },
+{ id: "blender_multiplier", name: "Blender Multiplier", rarity: "Legendary" },
+{ id: "magician_multiplier", name: "Magician Multiplier", rarity: "Legendary" },
 
 // Junkyard
 { id: "moai_multiplier", name: "Moai Multiplier", rarity: "Legendary", isJunkyard: true },
 { id: "junk_multiplier", name: "Junk Multiplier", rarity: "Legendary", isJunkyard: true },
 { id: "birdhouse_dropper", name: "Birdhouse Dropper", rarity: "Legendary", isJunkyard: true },
 { id: "beetle_multiplier", name: "Beetle Multiplier", rarity: "Legendary", isJunkyard: true },
+{ id: "crt_multiplier", name: "CRT Multiplier", rarity: "Legendary", isJunkyard: true },
 
 // MYTHICAL (18)
 { id: "laser_sword_multiplier", name: "Laser Sword Multiplier", rarity: "Mythical" },
@@ -175,6 +184,8 @@ var BASE_ITEMS = [
 { id: "needle_multiplier", name: "Needle Multiplier", rarity: "Mythical" },
 { id: "surfboard_multiplier", name: "Surfboard Multiplier", rarity: "Mythical" },
 { id: "linarite_dropper", name: "Linarite Dropper", rarity: "Mythical" },
+{ id: "fork_adder", name: "Fork Adder", rarity: "Mythical" },
+{ id: "radar_multiplier", name: "Radar Multiplier", rarity: "Mythical" },
 
 // Junkyard
 { id: "windmill_multiplier", name: "Windmill Multiplier", rarity: "Mythical", isJunkyard: true },
@@ -188,9 +199,13 @@ var BASE_ITEMS = [
 { id: "virus_adder", name: "Virus Adder", rarity: "Divine" },
 { id: "atomic_furnace", name: "Atomic Furnace", rarity: "Divine" },
 { id: "diamond_dropper", name: "Diamond Dropper", rarity: "Divine" },
+{ id: "banhammer_multiplier", name: "Banhammer Multiplier", rarity: "Divine" },
+{ id: "ukulele_multiplier", name: "Ukulele Multiplier", rarity: "Divine" },
+{ id: "observatory_furnace", name: "Observatory Furnace", rarity: "Divine" },
 
 // Junkyard
 { id: "washing_machine_multiplier", name: "Washing Machine Multiplier", rarity: "Divine", isJunkyard: true },
+{ id: "dreamcatcher_multiplier", name: "Dreamcatcher Multiplier", rarity: "Divine", isJunkyard: true },
 ];
 
 window.MUTATIONS = MUTATIONS;
