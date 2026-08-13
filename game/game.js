@@ -1465,28 +1465,27 @@ function updateAutoFurnaceUI(){
                 ></div>
 
 
-                <div
-                    id="autoFurnaceValue"
-                ></div>
+<div
+    id="autoFurnaceValue"
+></div>
 
-                <div
+</div>
+
+<div
     style="
         margin-top:10px;
     "
 >
-    <button
-        id="autoFurnaceToggle"
-        onclick="
-            autoFurnaceState.enabled
-                ? stopAutoFurnace()
-                : startAutoFurnace()
-        "
-    >
-        Stop Auto Furnace
-    </button>
+<button
+    id="autoFurnaceToggle"
+    onclick="
+        autoFurnaceState.enabled
+            ? stopAutoFurnace()
+            : startAutoFurnace()
+    "
+>
+</button>
 </div>
-
-            </div>
 
         `;
 
