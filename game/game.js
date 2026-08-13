@@ -1717,36 +1717,9 @@ else{
 
                 : "Waiting for resources.";
 
-    }
+      }
 
-}
-
-
-        const available =
-            getAutoFurnaceAvailableCount();
-
-
-        const canStart =
-            getAutoFurnaceBatch()
-                .length > 0;
-
-
-        if(status){
-
-            status.textContent =
-                canStart
-
-                ? `Ready — ${available.toLocaleString()} eligible item${available === 1 ? "" : "s"} available.`
-
-                : getAutoFurnaceBatchMode() === "full"
-
-                    ? "Waiting for 100 eligible items."
-
-                    : "Waiting for resources.";
-
-        }
-
-    }
+   }
 
 }
 
