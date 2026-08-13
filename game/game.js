@@ -284,8 +284,12 @@ save.tier4Ores ??= 0;
 save.lastOre ??= "None";
 save.lastOreValue ??= 0;
           save.stoneValue ??= 1;
-          save.inventory ??= {};
+save.inventory ??= {};
 save.furnaceTier ??= 0;
+
+save.autoFurnaceBatch ??= [];
+save.autoFurnaceEnabled ??= true;
+save.autoFurnaceStartTime ??= 0;
 
 save.autoFurnaceMode ??= "oresStone";
 save.autoFurnaceBatchMode ??= "available";
@@ -630,10 +634,34 @@ function upgradeFurnace(){
 const AUTO_FURNACE_CYCLE_MS = 10000;
 
 let autoFurnaceState = {
+    enabled: true,
     processing: false,
     startTime: 0,
     batch: []
 };
+autoFurnaceState.enabled =
+    save.autoFurnaceEnabled;
+if(
+    save.autoFurnaceBatch.length > 0
+){
+
+    autoFurnaceState.batch =
+        save.autoFurnaceBatch;
+
+
+    if(
+        save.autoFurnaceStartTime > 0
+    ){
+
+        autoFurnaceState.processing =
+            true;
+
+        autoFurnaceState.startTime =
+            save.autoFurnaceStartTime;
+
+    }
+
+}
 
 
 function getAutoFurnaceMode(){
@@ -855,6 +883,7 @@ function getAutoFurnaceBatchValue(
 function startAutoFurnaceCycle(){
 
     if(
+        !autoFurnaceState.enabled ||
         save.furnaceTier < 2 ||
         autoFurnaceState.processing
     ){
@@ -863,8 +892,10 @@ function startAutoFurnaceCycle(){
 
     }
 
+
     const batch =
         getAutoFurnaceBatch();
+
 
     if(batch.length === 0){
 
@@ -874,6 +905,45 @@ function startAutoFurnaceCycle(){
 
     }
 
+
+    /*
+        Move the selected resources
+        out of the player's inventory.
+
+        They now physically belong
+        to the Auto Furnace.
+    */
+
+    batch.forEach(item => {
+
+        save.inventory[item.key] =
+            Math.max(
+                0,
+                save.inventory[item.key] -
+                item.amount
+            );
+
+    });
+
+
+    /*
+        Save the batch inside the furnace.
+
+        This prevents the items from being
+        available to mutations, manual
+        smelting, or other systems.
+    */
+
+    save.autoFurnaceBatch =
+        batch.map(item => ({
+            key: item.key,
+            amount: item.amount,
+            value: item.value,
+            name: item.name,
+            emoji: item.emoji
+        }));
+
+
     autoFurnaceState.processing =
         true;
 
@@ -881,7 +951,16 @@ function startAutoFurnaceCycle(){
         Date.now();
 
     autoFurnaceState.batch =
-        batch;
+        save.autoFurnaceBatch;
+
+
+    save.autoFurnaceStartTime =
+        autoFurnaceState.startTime;
+
+
+    saveGame();
+
+    updateUI();
 
     updateAutoFurnaceUI();
 
@@ -898,13 +977,16 @@ function finishAutoFurnaceCycle(){
 
     }
 
+
     const batch =
         autoFurnaceState.batch;
+
 
     const totalItems =
         getAutoFurnaceBatchTotal(
             batch
         );
+
 
     const totalValue =
         getAutoFurnaceBatchValue(
@@ -913,22 +995,13 @@ function finishAutoFurnaceCycle(){
 
 
     /*
-        Remove the exact resources
-        that were reserved when the
-        cycle began.
+        The items were already removed
+        from the player's inventory when
+        the batch started.
+
+        Completing the cycle now permanently
+        consumes the furnace contents.
     */
-
-    batch.forEach(item => {
-
-        save.inventory[item.key] =
-            Math.max(
-                0,
-                save.inventory[item.key] -
-                item.amount
-            );
-
-    });
-
 
     save.cash +=
         totalValue;
@@ -948,6 +1021,15 @@ function finishAutoFurnaceCycle(){
     updateFactoryLevel();
 
 
+    /*
+        Empty the temporary furnace inventory.
+    */
+
+    save.autoFurnaceBatch = [];
+
+    save.autoFurnaceStartTime = 0;
+
+
     autoFurnaceState.processing =
         false;
 
@@ -964,9 +1046,89 @@ function finishAutoFurnaceCycle(){
 
 
     /*
-        Start the next batch immediately
-        if one is available.
+        Only begin another batch if
+        Auto Furnace is still enabled.
+
+        If the player pressed Stop while
+        this batch was running, this batch
+        finishes normally and then the
+        furnace stops.
     */
+
+    if(
+        autoFurnaceState.enabled
+    ){
+
+        startAutoFurnaceCycle();
+
+    }
+    else{
+
+        updateAutoFurnaceUI();
+
+    }
+
+}
+
+function stopAutoFurnace(){
+
+    /*
+        Disable the creation of new batches.
+    */
+
+    autoFurnaceState.enabled =
+        false;
+
+
+    /*
+        If a batch is currently processing,
+        allow it to finish normally.
+
+        We do NOT return the items.
+        We do NOT interrupt the cycle.
+    */
+
+    if(
+        autoFurnaceState.processing
+    ){
+
+        save.autoFurnaceEnabled =
+            false;
+
+        saveGame();
+
+        updateAutoFurnaceUI();
+
+        return;
+
+    }
+
+
+    /*
+        If the furnace is idle, it stops
+        immediately.
+    */
+
+    save.autoFurnaceEnabled =
+        false;
+
+    saveGame();
+
+    updateAutoFurnaceUI();
+
+}
+
+function startAutoFurnace(){
+
+    autoFurnaceState.enabled =
+        true;
+
+    save.autoFurnaceEnabled =
+        true;
+
+    saveGame();
+
+    updateAutoFurnaceUI();
 
     startAutoFurnaceCycle();
 
@@ -977,6 +1139,48 @@ function updateAutoFurnace(){
 
     if(save.furnaceTier < 2)
         return;
+
+
+    /*
+        If Auto Furnace has been stopped,
+        do not start another batch.
+
+        If a batch is already processing,
+        we still allow it to finish.
+    */
+
+    if(
+        !autoFurnaceState.enabled
+    ){
+
+        if(
+            autoFurnaceState.processing
+        ){
+
+            const elapsed =
+                Date.now() -
+                autoFurnaceState.startTime;
+
+
+            if(
+                elapsed >=
+                AUTO_FURNACE_CYCLE_MS
+            ){
+
+                finishAutoFurnaceCycle();
+
+                return;
+
+            }
+
+        }
+
+
+        updateAutoFurnaceUI();
+
+        return;
+
+    }
 
 
     if(autoFurnaceState.processing){
@@ -1265,6 +1469,23 @@ function updateAutoFurnaceUI(){
                     id="autoFurnaceValue"
                 ></div>
 
+                <div
+    style="
+        margin-top:10px;
+    "
+>
+    <button
+        id="autoFurnaceToggle"
+        onclick="
+            autoFurnaceState.enabled
+                ? stopAutoFurnace()
+                : startAutoFurnace()
+        "
+    >
+        Stop Auto Furnace
+    </button>
+</div>
+
             </div>
 
         `;
@@ -1308,6 +1529,40 @@ function updateAutoFurnaceUI(){
         document.getElementById(
             "autoFurnaceProcessing"
         );
+
+    const toggleButton =
+    document.getElementById(
+        "autoFurnaceToggle"
+    );
+
+
+if(toggleButton){
+
+    if(
+        autoFurnaceState.processing &&
+        !autoFurnaceState.enabled
+    ){
+
+        toggleButton.textContent =
+            "Finishing Current Batch...";
+
+        toggleButton.disabled =
+            true;
+
+    }
+    else{
+
+        toggleButton.disabled =
+            false;
+
+        toggleButton.textContent =
+            autoFurnaceState.enabled
+                ? "Stop Auto Furnace"
+                : "Start Auto Furnace";
+
+    }
+
+}
 
 
     if(
@@ -1356,13 +1611,14 @@ function updateAutoFurnaceUI(){
                 )
                 .join("<br>");
 
+if(status){
 
-        if(status){
+    status.textContent =
+        autoFurnaceState.enabled
+            ? "Processing current batch..."
+            : "Finishing current batch — Auto Furnace will stop when complete.";
 
-            status.textContent =
-                "Processing current batch...";
-
-        }
+}
 
 
         if(processing){
@@ -1409,14 +1665,61 @@ function updateAutoFurnaceUI(){
             `Batch value: $${formatNumber(batchValue)}`;
 
     }
-    else{
+else{
 
-        if(processing){
+    if(processing){
 
-            processing.style.display =
-                "none";
+        processing.style.display =
+            "none";
+
+    }
+
+
+    /*
+        Auto Furnace is manually stopped.
+    */
+
+    if(
+        !autoFurnaceState.enabled
+    ){
+
+        if(status){
+
+            status.textContent =
+                "Auto Furnace stopped.";
 
         }
+
+        return;
+
+    }
+
+
+    const available =
+        getAutoFurnaceAvailableCount();
+
+
+    const canStart =
+        getAutoFurnaceBatch()
+            .length > 0;
+
+
+    if(status){
+
+        status.textContent =
+            canStart
+
+            ? `Ready — ${available.toLocaleString()} eligible item${available === 1 ? "" : "s"} available.`
+
+            : getAutoFurnaceBatchMode() === "full"
+
+                ? "Waiting for 100 eligible items."
+
+                : "Waiting for resources.";
+
+    }
+
+}
 
 
         const available =
