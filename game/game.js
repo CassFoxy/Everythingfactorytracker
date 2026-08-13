@@ -285,7 +285,10 @@ save.lastOre ??= "None";
 save.lastOreValue ??= 0;
           save.stoneValue ??= 1;
           save.inventory ??= {};
-          save.furnaceTier ??= 0;
+save.furnaceTier ??= 0;
+
+save.autoFurnaceMode ??= "oresStone";
+save.autoFurnaceBatchMode ??= "available";
 
 save.inventory.stone ??= 0;
 
@@ -418,7 +421,7 @@ FACTORY_MILESTONES.forEach(level => {
 let pendingMilestone = null;
 let pendingAchievement = null;
 
-          const FURNACES = [
+const FURNACES = [
 
 {
     name: "Starter Furnace",
@@ -429,7 +432,13 @@ let pendingAchievement = null;
 {
     name: "Basic Furnace",
     capacity: 50,
-    cost: 10000
+    cost: 500
+},
+
+{
+    name: "Auto Furnace",
+    capacity: 100,
+    cost: 2500
 }
 
 ];
@@ -584,10 +593,14 @@ function saveGame(){
         );
     }
 
-          function upgradeFurnace(){
+function upgradeFurnace(){
 
-    if(save.furnaceTier >= 1)
+    if(
+        save.furnaceTier >=
+        FURNACES.length - 1
+    ){
         return;
+    }
 
     const nextTier =
         FURNACES[
@@ -606,7 +619,834 @@ function saveGame(){
 
     save.furnaceTier++;
 
+    save.autoFurnaceMode ??= "oresStone";
+    save.autoFurnaceBatchMode ??= "available";
+
+    saveGame();
+    updateUI();
+
 }
+
+const AUTO_FURNACE_CYCLE_MS = 10000;
+
+let autoFurnaceState = {
+    processing: false,
+    startTime: 0,
+    batch: []
+};
+
+
+function getAutoFurnaceMode(){
+
+    return save.autoFurnaceMode ||
+        "oresStone";
+
+}
+
+
+function getAutoFurnaceBatchMode(){
+
+    return save.autoFurnaceBatchMode ||
+        "available";
+
+}
+
+
+function getAutoFurnaceAvailableCount(){
+
+    const mode =
+        getAutoFurnaceMode();
+
+    if(mode === "stoneOnly"){
+
+        return save.inventory.stone;
+
+    }
+
+    let totalOres = 0;
+
+    ORE_KEYS.forEach(key => {
+
+        totalOres +=
+            save.inventory[key];
+
+    });
+
+    if(mode === "oresOnly"){
+
+        return totalOres;
+
+    }
+
+    return (
+        totalOres +
+        save.inventory.stone
+    );
+
+}
+
+
+function getAutoFurnaceBatch(){
+
+    if(save.furnaceTier < 2)
+        return [];
+
+    const capacity =
+        FURNACES[2].capacity;
+
+    const available =
+        getAutoFurnaceAvailableCount();
+
+    if(available <= 0)
+        return [];
+
+    if(
+        getAutoFurnaceBatchMode() === "full" &&
+        available < capacity
+    ){
+
+        return [];
+
+    }
+
+    const mode =
+        getAutoFurnaceMode();
+
+    let remaining =
+        capacity;
+
+    const batch = [];
+
+
+    /*
+        ORES
+
+        Always select ores from
+        highest value to lowest value.
+    */
+
+    if(mode !== "stoneOnly"){
+
+        const sortedOres =
+            [...ORE_KEYS].sort(
+                (a, b) =>
+                    ORES[b].value -
+                    ORES[a].value
+            );
+
+        for(
+            const key of sortedOres
+        ){
+
+            if(remaining <= 0)
+                break;
+
+            const amount =
+                Math.min(
+                    save.inventory[key],
+                    remaining
+                );
+
+            if(amount <= 0)
+                continue;
+
+            batch.push({
+
+                key: key,
+
+                amount: amount,
+
+                value:
+                    ORES[key].value,
+
+                name:
+                    ORES[key].name,
+
+                emoji:
+                    ORES[key].emoji
+
+            });
+
+            remaining -= amount;
+
+        }
+
+    }
+
+
+    /*
+        STONE
+
+        Stone is always filler.
+
+        It is only selected after
+        all eligible ores have been
+        selected.
+    */
+
+    if(
+        mode !== "oresOnly" &&
+        remaining > 0 &&
+        save.inventory.stone > 0
+    ){
+
+        const amount =
+            Math.min(
+                save.inventory.stone,
+                remaining
+            );
+
+        batch.push({
+
+            key: "stone",
+
+            amount: amount,
+
+            value:
+                save.stoneValue,
+
+            name: "Stone",
+
+            emoji: "🪨"
+
+        });
+
+    }
+
+    return batch;
+
+}
+
+
+function getAutoFurnaceBatchTotal(
+    batch
+){
+
+    return batch.reduce(
+
+        (total, item) =>
+            total + item.amount,
+
+        0
+
+    );
+
+}
+
+
+function getAutoFurnaceBatchValue(
+    batch
+){
+
+    return batch.reduce(
+
+        (total, item) =>
+            total +
+            item.amount *
+            item.value,
+
+        0
+
+    );
+
+}
+
+
+function startAutoFurnaceCycle(){
+
+    if(
+        save.furnaceTier < 2 ||
+        autoFurnaceState.processing
+    ){
+
+        return;
+
+    }
+
+    const batch =
+        getAutoFurnaceBatch();
+
+    if(batch.length === 0){
+
+        updateAutoFurnaceUI();
+
+        return;
+
+    }
+
+    autoFurnaceState.processing =
+        true;
+
+    autoFurnaceState.startTime =
+        Date.now();
+
+    autoFurnaceState.batch =
+        batch;
+
+    updateAutoFurnaceUI();
+
+}
+
+
+function finishAutoFurnaceCycle(){
+
+    if(
+        !autoFurnaceState.processing
+    ){
+
+        return;
+
+    }
+
+    const batch =
+        autoFurnaceState.batch;
+
+    const totalItems =
+        getAutoFurnaceBatchTotal(
+            batch
+        );
+
+    const totalValue =
+        getAutoFurnaceBatchValue(
+            batch
+        );
+
+
+    /*
+        Remove the exact resources
+        that were reserved when the
+        cycle began.
+    */
+
+    batch.forEach(item => {
+
+        save.inventory[item.key] =
+            Math.max(
+                0,
+                save.inventory[item.key] -
+                item.amount
+            );
+
+    });
+
+
+    save.cash +=
+        totalValue;
+
+
+    save.achievementStats
+        .oresSmelted +=
+        totalItems;
+
+
+    save.factoryXP +=
+        totalItems;
+
+
+    checkAchievements();
+
+    updateFactoryLevel();
+
+
+    autoFurnaceState.processing =
+        false;
+
+    autoFurnaceState.startTime =
+        0;
+
+    autoFurnaceState.batch =
+        [];
+
+
+    saveGame();
+
+    updateUI();
+
+
+    /*
+        Start the next batch immediately
+        if one is available.
+    */
+
+    startAutoFurnaceCycle();
+
+}
+
+
+function updateAutoFurnace(){
+
+    if(save.furnaceTier < 2)
+        return;
+
+
+    if(autoFurnaceState.processing){
+
+        const elapsed =
+            Date.now() -
+            autoFurnaceState.startTime;
+
+
+        if(
+            elapsed >=
+            AUTO_FURNACE_CYCLE_MS
+        ){
+
+            finishAutoFurnaceCycle();
+
+            return;
+
+        }
+
+    }
+    else{
+
+        startAutoFurnaceCycle();
+
+    }
+
+
+    updateAutoFurnaceUI();
+
+}
+
+
+function setAutoFurnaceMode(mode){
+
+    if(
+        ![
+            "stoneOnly",
+            "oresOnly",
+            "oresStone"
+        ].includes(mode)
+    ){
+
+        return;
+
+    }
+
+    save.autoFurnaceMode =
+        mode;
+
+    saveGame();
+
+    updateAutoFurnaceUI();
+
+}
+
+
+function setAutoFurnaceBatchMode(
+    mode
+){
+
+    if(
+        ![
+            "available",
+            "full"
+        ].includes(mode)
+    ){
+
+        return;
+
+    }
+
+    save.autoFurnaceBatchMode =
+        mode;
+
+    saveGame();
+
+    updateAutoFurnaceUI();
+
+}
+
+
+function formatAutoFurnaceTime(
+    milliseconds
+){
+
+    return Math.max(
+        0,
+        milliseconds / 1000
+    ).toFixed(1) + "s";
+
+}
+
+
+function updateAutoFurnaceUI(){
+
+    const container =
+        document.getElementById(
+            "autoFurnaceControls"
+        );
+
+
+    if(!container)
+        return;
+
+
+    if(save.furnaceTier < 2){
+
+        container.innerHTML =
+            "";
+
+        return;
+
+    }
+
+
+    /*
+        Build the controls only once.
+
+        The live update loop changes
+        the progress elements rather
+        than rebuilding the dropdowns
+        every 100ms.
+    */
+
+    if(
+        !document.getElementById(
+            "autoFurnaceStatus"
+        )
+    ){
+
+        container.innerHTML = `
+
+            <hr>
+
+            <h3>⚙️ Auto Furnace</h3>
+
+
+            <div
+                style="
+                    margin-bottom:10px;
+                "
+            >
+
+                <strong>
+                    Smelting Mode
+                </strong>
+
+                <br>
+
+                <select
+                    id="autoFurnaceModeSelect"
+                    onchange="
+                        setAutoFurnaceMode(
+                            this.value
+                        )
+                    "
+                    style="
+                        width:100%;
+                        margin-top:5px;
+                        padding:6px;
+                    "
+                >
+
+                    <option value="oresStone">
+                        Ores → Stone
+                    </option>
+
+                    <option value="oresOnly">
+                        Ores Only
+                    </option>
+
+                    <option value="stoneOnly">
+                        Stone Only
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div
+                style="
+                    margin-bottom:10px;
+                "
+            >
+
+                <strong>
+                    Batch Mode
+                </strong>
+
+                <br>
+
+                <select
+                    id="autoFurnaceBatchModeSelect"
+                    onchange="
+                        setAutoFurnaceBatchMode(
+                            this.value
+                        )
+                    "
+                    style="
+                        width:100%;
+                        margin-top:5px;
+                        padding:6px;
+                    "
+                >
+
+                    <option value="available">
+                        Smelt Available
+                    </option>
+
+                    <option value="full">
+                        Wait for 100 Items
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div id="autoFurnaceStatus">
+                Waiting for resources.
+            </div>
+
+
+            <div
+                id="autoFurnaceProcessing"
+                style="
+                    display:none;
+                    margin-top:12px;
+                "
+            >
+
+                <strong>
+                    🔥 Currently Smelting
+                </strong>
+
+
+                <div
+                    id="autoFurnaceBatch"
+                    style="margin-top:6px;"
+                ></div>
+
+
+                <div
+                    id="autoFurnaceBatchCount"
+                    style="margin-top:8px;"
+                ></div>
+
+
+                <div
+                    style="
+                        width:100%;
+                        height:16px;
+                        background:#ddd;
+                        border-radius:8px;
+                        overflow:hidden;
+                        margin-top:6px;
+                    "
+                >
+
+                    <div
+                        id="autoFurnaceProgress"
+                        style="
+                            width:0%;
+                            height:100%;
+                            background:#f39c12;
+                        "
+                    ></div>
+
+                </div>
+
+
+                <div
+                    id="autoFurnaceTime"
+                    style="margin-top:6px;"
+                ></div>
+
+
+                <div
+                    id="autoFurnaceRemaining"
+                ></div>
+
+
+                <div
+                    id="autoFurnaceValue"
+                ></div>
+
+            </div>
+
+        `;
+
+    }
+
+
+    const modeSelect =
+        document.getElementById(
+            "autoFurnaceModeSelect"
+        );
+
+    const batchModeSelect =
+        document.getElementById(
+            "autoFurnaceBatchModeSelect"
+        );
+
+
+    if(modeSelect){
+
+        modeSelect.value =
+            getAutoFurnaceMode();
+
+    }
+
+
+    if(batchModeSelect){
+
+        batchModeSelect.value =
+            getAutoFurnaceBatchMode();
+
+    }
+
+
+    const status =
+        document.getElementById(
+            "autoFurnaceStatus"
+        );
+
+    const processing =
+        document.getElementById(
+            "autoFurnaceProcessing"
+        );
+
+
+    if(
+        autoFurnaceState.processing
+    ){
+
+        const elapsed =
+            Date.now() -
+            autoFurnaceState.startTime;
+
+
+        const progress =
+            Math.min(
+                100,
+                (
+                    elapsed /
+                    AUTO_FURNACE_CYCLE_MS
+                ) * 100
+            );
+
+
+        const remaining =
+            Math.max(
+                0,
+                AUTO_FURNACE_CYCLE_MS -
+                elapsed
+            );
+
+
+        const batchTotal =
+            getAutoFurnaceBatchTotal(
+                autoFurnaceState.batch
+            );
+
+
+        const batchValue =
+            getAutoFurnaceBatchValue(
+                autoFurnaceState.batch
+            );
+
+
+        const batchDescription =
+            autoFurnaceState.batch
+                .map(item =>
+                    `${item.emoji} ${item.name} ×${item.amount.toLocaleString()}`
+                )
+                .join("<br>");
+
+
+        if(status){
+
+            status.textContent =
+                "Processing current batch...";
+
+        }
+
+
+        if(processing){
+
+            processing.style.display =
+                "block";
+
+        }
+
+
+        document.getElementById(
+            "autoFurnaceBatch"
+        ).innerHTML =
+            batchDescription;
+
+
+        document.getElementById(
+            "autoFurnaceBatchCount"
+        ).textContent =
+            `${batchTotal.toLocaleString()} / 100 items`;
+
+
+        document.getElementById(
+            "autoFurnaceProgress"
+        ).style.width =
+            progress + "%";
+
+
+        document.getElementById(
+            "autoFurnaceTime"
+        ).textContent =
+            `${formatAutoFurnaceTime(elapsed)} / 10.0s`;
+
+
+        document.getElementById(
+            "autoFurnaceRemaining"
+        ).textContent =
+            `Time remaining: ${formatAutoFurnaceTime(remaining)}`;
+
+
+        document.getElementById(
+            "autoFurnaceValue"
+        ).textContent =
+            `Batch value: $${formatNumber(batchValue)}`;
+
+    }
+    else{
+
+        if(processing){
+
+            processing.style.display =
+                "none";
+
+        }
+
+
+        const available =
+            getAutoFurnaceAvailableCount();
+
+
+        const canStart =
+            getAutoFurnaceBatch()
+                .length > 0;
+
+
+        if(status){
+
+            status.textContent =
+                canStart
+
+                ? `Ready — ${available.toLocaleString()} eligible item${available === 1 ? "" : "s"} available.`
+
+                : getAutoFurnaceBatchMode() === "full"
+
+                    ? "Waiting for 100 eligible items."
+
+                    : "Waiting for resources.";
+
+        }
+
+    }
+
+}
+
           
 function getDropperCost(){
 
@@ -1317,7 +2157,15 @@ setInterval(function(){
 
 }, 1000);
 
-    setInterval(saveGame, 5000);
+
+setInterval(function(){
+
+    updateAutoFurnace();
+
+}, 100);
+
+
+setInterval(saveGame, 5000);
           
           function formatNumber(num){
 
@@ -1565,11 +2413,17 @@ function showSmeltOptions(
     `;
 }
 
-          function prepareSmelt(
+function prepareSmelt(
     key,
     value,
     percent
 ){
+
+    if(autoFurnaceState.processing){
+
+        return;
+
+    }
 
 const requestedAmount =
     Math.floor(
@@ -1637,6 +2491,14 @@ document.getElementById(
 }
 
 function confirmSmelt(){
+
+    if(autoFurnaceState.processing){
+
+        closeSmeltConfirm();
+
+        return;
+
+    }
 
     save.inventory[
         pendingSmelt.key
