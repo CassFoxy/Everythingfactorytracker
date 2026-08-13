@@ -1717,9 +1717,7 @@ else{
 
                 : "Waiting for resources.";
 
-      }
-
-   }
+    }
 
 }
 
