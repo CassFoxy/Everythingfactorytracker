@@ -1729,7 +1729,7 @@ if(status){
         document.getElementById(
             "autoFurnaceValue"
         ).textContent =
-            `Batch value: $${formatNumber(batchValue)}`;
+`Batch value: $${formatNumber(batchValue, 2)}`
 
     }
 else{
@@ -2209,8 +2209,9 @@ document.getElementById(
 
     ).toLocaleString();
 
-    document.getElementById("cash").textContent =
-        formatNumber(save.cash);
+document.getElementById("cash").textContent =
+    "$" +
+    formatCash(save.cash);
 
     document.getElementById("droppers").textContent =
         save.droppers;
@@ -2287,8 +2288,12 @@ else{
     document.getElementById("lastOre").textContent =
     save.lastOre;
 
-    document.getElementById("lastOreValue").textContent =
-    formatNumber(save.lastOreValue);
+document.getElementById("lastOreValue").textContent =
+    "$" +
+    formatNumber(
+        save.lastOreValue,
+        2
+    );
 
 document.getElementById("totalOres").textContent =
     formatNumber(save.totalOres);
@@ -3676,12 +3681,14 @@ rewardText +
     ).textContent =
         oreName;
 
-    document.getElementById(
-        "popupOreValue"
-    ).textContent =
-        formatNumber(
-            oreValue
-        );
+document.getElementById(
+    "popupOreValue"
+).textContent =
+    "$" +
+    formatNumber(
+        oreValue,
+        2
+    );
 
     document.getElementById(
         "discoveryPopup"
