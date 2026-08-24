@@ -246,6 +246,32 @@ permanentBonuses:{
 
 },
 
+    cycleBonuses:{
+
+    oreValue:0,
+
+    dropperSpeed:0,
+
+    adderPower:0,
+
+    multiplierPower:0,
+
+    duplicateChance:0,
+
+    furnaceCapacity:0,
+
+    factoryXP:0,
+
+    miningLuck:0,
+
+    allLuck:0,
+
+    allIncome:0,
+
+    smeltSpeed:0
+
+},
+
 cosmetics:{
 
     unlocked:{
@@ -283,7 +309,7 @@ save.tier4Ores ??= 0;
 
 save.lastOre ??= "None";
 save.lastOreValue ??= 0;
-          save.stoneValue ??= 1;
+save.stoneValue ??= 1;
 save.inventory ??= {};
 save.furnaceTier ??= 0;
 
@@ -373,6 +399,48 @@ save.permanentBonuses.duplicateChance ??= 0;
 save.permanentBonuses.furnaceCapacity ??= 0;
 save.permanentBonuses.factoryXP ??= 0;
 save.permanentBonuses.miningLuck ??= 0;
+save.permanentBonuses.allLuck ??= 0;
+save.permanentBonuses.allIncome ??= 0;
+save.permanentBonuses.smeltSpeed ??= 0;
+
+save.cycleBonuses ??= {
+
+    oreValue:0,
+
+    dropperSpeed:0,
+
+    adderPower:0,
+
+    multiplierPower:0,
+
+    duplicateChance:0,
+
+    furnaceCapacity:0,
+
+    factoryXP:0,
+
+    miningLuck:0,
+
+    allLuck:0,
+
+    allIncome:0,
+
+    smeltSpeed:0
+
+};
+
+
+save.cycleBonuses.oreValue ??= 0;
+save.cycleBonuses.dropperSpeed ??= 0;
+save.cycleBonuses.adderPower ??= 0;
+save.cycleBonuses.multiplierPower ??= 0;
+save.cycleBonuses.duplicateChance ??= 0;
+save.cycleBonuses.furnaceCapacity ??= 0;
+save.cycleBonuses.factoryXP ??= 0;
+save.cycleBonuses.miningLuck ??= 0;
+save.cycleBonuses.allLuck ??= 0;
+save.cycleBonuses.allIncome ??= 0;
+save.cycleBonuses.smeltSpeed ??= 0;
 
 save.cosmetics ??= {
 
@@ -1011,9 +1079,9 @@ function finishAutoFurnaceCycle(){
         .oresSmelted +=
         totalItems;
 
-
-    save.factoryXP +=
-        totalItems;
+addFactoryXP(
+    totalItems
+);
 
 
     checkAchievements();
@@ -1781,7 +1849,7 @@ save.stoneOres++;
 
 save.totalOres++;
 
-save.factoryXP += 0.1;
+addFactoryXP(1);
         
         if(
             Math.random() <
@@ -1793,7 +1861,7 @@ save.stoneOres++;
 
 save.totalOres++;
 
-save.factoryXP += 0.1;
+addFactoryXP(1);
 
         }
 
@@ -1847,8 +1915,9 @@ checkAchievements();
 
 save.tier4Ores++;
 
-save.factoryXP +=
-    ore.xp;
+addFactoryXP(
+    ore.xp
+);
 
     }
 
@@ -1892,8 +1961,9 @@ checkAchievements();
 
 save.tier3Ores++;
 
-save.factoryXP +=
-    ore.xp;
+addFactoryXP(
+    ore.xp
+);
 
     }
 
@@ -1936,8 +2006,9 @@ checkAchievements();
 }
 
 save.tier2Ores++;
-save.factoryXP +=
-    ore.xp;
+addFactoryXP(
+    ore.xp
+);
 
     }
 
@@ -1981,8 +2052,9 @@ checkAchievements();
 
 save.tier1Ores++;
 
-save.factoryXP +=
-    ore.xp;
+addFactoryXP(
+    ore.xp
+);
 
     }
 
@@ -1998,7 +2070,7 @@ save.stoneOres++;
 
 save.inventory.stone++;
 
-        save.factoryXP += 1;
+addFactoryXP(1);
 
 }
 
@@ -2442,24 +2514,414 @@ setInterval(function(){
 
 setInterval(saveGame, 5000);
           
-          function formatNumber(num){
+function formatNumber(num, decimals = 2){
 
-    if(num < 1000)
-        return Math.floor(num);
+    num = Number(num);
 
-    if(num < 1000000)
+    if(!Number.isFinite(num)){
+        return "∞";
+    }
+
+    if(num === 0){
+        return (0).toFixed(decimals);
+    }
+
+    const abs = Math.abs(num);
+
+    // Numbers below 10,000 use normal formatting
+    if(abs < 10000){
+
+        return num.toLocaleString(
+            undefined,
+            {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            }
+        );
+
+    }
+
+    return formatLargeNumber(
+        num,
+        decimals
+    );
+
+}
+
+const LARGE_NUMBER_SUFFIXES = [
+
+    { exponent: 3, suffix: "K" },
+
+    { exponent: 6, suffix: "M" },
+    { exponent: 9, suffix: "B" },
+    { exponent: 12, suffix: "T" },
+
+    { exponent: 15, suffix: "Qa" },
+    { exponent: 18, suffix: "Qi" },
+    { exponent: 21, suffix: "Sx" },
+    { exponent: 24, suffix: "Sp" },
+    { exponent: 27, suffix: "Oc" },
+    { exponent: 30, suffix: "No" },
+
+    { exponent: 33, suffix: "Dc" },
+    { exponent: 36, suffix: "Ud" },
+    { exponent: 39, suffix: "Dd" },
+    { exponent: 42, suffix: "Td" },
+    { exponent: 45, suffix: "Qad" },
+    { exponent: 48, suffix: "Qid" },
+    { exponent: 51, suffix: "Sed" },
+    { exponent: 54, suffix: "Spd" },
+    { exponent: 57, suffix: "Ocd" },
+    { exponent: 60, suffix: "Nod" },
+
+    { exponent: 63, suffix: "Vg" },
+    { exponent: 66, suffix: "Uvg" },
+    { exponent: 69, suffix: "Dvg" },
+    { exponent: 72, suffix: "Tvg" },
+    { exponent: 75, suffix: "Qavg" },
+    { exponent: 78, suffix: "Qivg" },
+    { exponent: 81, suffix: "Sxvg" },
+    { exponent: 84, suffix: "Spvg" },
+    { exponent: 87, suffix: "Ocvg" },
+    { exponent: 90, suffix: "Novg" },
+
+    { exponent: 93, suffix: "Tg" },
+    { exponent: 96, suffix: "Utg" },
+    { exponent: 99, suffix: "Dtg" },
+    { exponent: 102, suffix: "Ttg" },
+    { exponent: 105, suffix: "Qatg" },
+    { exponent: 108, suffix: "Qitg" },
+    { exponent: 111, suffix: "Sxtg" },
+    { exponent: 114, suffix: "Sptg" },
+    { exponent: 117, suffix: "Octg" },
+    { exponent: 120, suffix: "Notg" },
+
+    { exponent: 123, suffix: "Qg" },
+    { exponent: 126, suffix: "Uqg" },
+    { exponent: 129, suffix: "Dqg" },
+    { exponent: 132, suffix: "Tqg" },
+    { exponent: 135, suffix: "Qaqg" },
+    { exponent: 138, suffix: "Qiqg" },
+    { exponent: 141, suffix: "Sxqg" },
+    { exponent: 144, suffix: "Spqg" },
+    { exponent: 147, suffix: "Ocqg" },
+    { exponent: 150, suffix: "Noqg" },
+
+    { exponent: 153, suffix: "Qqg" },
+    { exponent: 156, suffix: "Uqqg" },
+    { exponent: 159, suffix: "Dqqg" },
+    { exponent: 162, suffix: "Tqqg" },
+    { exponent: 165, suffix: "Qaq" },
+    { exponent: 168, suffix: "Qiq" },
+    { exponent: 171, suffix: "Sxq" },
+    { exponent: 174, suffix: "Spq" },
+    { exponent: 177, suffix: "Ocq" },
+    { exponent: 180, suffix: "Noq" },
+
+    { exponent: 183, suffix: "Og" },
+    { exponent: 186, suffix: "Uog" },
+    { exponent: 189, suffix: "Dog" },
+    { exponent: 192, suffix: "Tog" },
+    { exponent: 195, suffix: "Qaog" },
+    { exponent: 198, suffix: "Qiog" },
+    { exponent: 201, suffix: "Sxog" },
+    { exponent: 204, suffix: "Spog" },
+    { exponent: 207, suffix: "Ocog" },
+    { exponent: 210, suffix: "Noog" },
+
+    { exponent: 213, suffix: "Ng" },
+    { exponent: 216, suffix: "Ung" },
+    { exponent: 219, suffix: "Dng" },
+    { exponent: 222, suffix: "Tng" },
+    { exponent: 225, suffix: "Qang" },
+    { exponent: 228, suffix: "Qing" },
+    { exponent: 231, suffix: "Sxng" },
+    { exponent: 234, suffix: "Spng" },
+    { exponent: 237, suffix: "Ocng" },
+    { exponent: 240, suffix: "Nong" },
+
+    { exponent: 243, suffix: "Ce" }
+
+];
+
+function formatLargeNumber(
+    num,
+    decimals = 2
+){
+
+    const abs = Math.abs(num);
+
+    if(abs < 10000){
+
+        return num.toLocaleString(
+            undefined,
+            {
+                minimumFractionDigits:
+                    decimals,
+
+                maximumFractionDigits:
+                    decimals
+            }
+        );
+
+    }
+
+    // Find the largest suffix we can use
+    let selected = null;
+
+    for(
+        let i = 0;
+        i < LARGE_NUMBER_SUFFIXES.length;
+        i++
+    ){
+
+        if(
+            abs >=
+            Math.pow(
+                10,
+                LARGE_NUMBER_SUFFIXES[i].exponent
+            )
+        ){
+
+            selected =
+                LARGE_NUMBER_SUFFIXES[i];
+
+        }
+        else{
+
+            break;
+
+        }
+
+    }
+
+    // Centillion and below
+    if(selected){
+
+        const scaled =
+            num /
+            Math.pow(
+                10,
+                selected.exponent
+            );
+
         return (
-            num / 1000
-        ).toFixed(1) + "K";
+            scaled.toFixed(decimals)
+            +
+            selected.suffix
+        );
 
-    if(num < 1000000000)
-        return (
-            num / 1000000
-        ).toFixed(1) + "M";
+    }
+
+    // Beyond Centillion
+    const exponent =
+        Math.floor(
+            Math.log10(abs)
+        );
+
+    const mantissa =
+        num /
+        Math.pow(
+            10,
+            exponent
+        );
 
     return (
-        num / 1000000000
-    ).toFixed(1) + "B";
+        mantissa.toFixed(decimals)
+        +
+        "e" +
+        exponent
+    );
+
+}
+
+function formatCash(num){
+
+    num = Number(num);
+
+    if(!Number.isFinite(num)){
+        return "∞";
+    }
+
+    num = Math.floor(num);
+
+    if(num < 10000){
+
+        return num.toLocaleString();
+
+    }
+
+    return formatLargeNumber(
+        num,
+        2
+    );
+
+}
+
+function formatXP(num){
+
+    return Math.round(
+        Number(num)
+    ).toLocaleString();
+
+}
+
+function formatPercent(decimal){
+
+    return (
+        Number(decimal) * 100
+    ).toFixed(2) + "%";
+
+}
+
+function formatMultiplier(multiplier){
+
+    return (
+        Number(multiplier)
+            .toFixed(2)
+    ) + "×";
+
+}
+
+function getFactoryLevelBonus(){
+
+    return (
+        Number(save.factoryLevel) *
+        0.01
+    );
+
+}
+
+function getPermanentBonus(type){
+
+    return (
+        save.permanentBonuses[type] ||
+        0
+    );
+
+}
+
+function getCycleBonus(type){
+
+    return (
+        save.cycleBonuses[type] ||
+        0
+    );
+
+}
+
+function getCombinedBonus(type){
+
+    return (
+        getPermanentBonus(type) +
+        getCycleBonus(type)
+    );
+
+}
+
+function getFactoryLevelMultiplier(){
+
+    return (
+        1 +
+        getFactoryLevelBonus()
+    );
+
+}
+
+function getOreValueMultiplier(){
+
+    return (
+        getFactoryLevelMultiplier()
+    ) *
+    (
+        1 +
+        getCombinedBonus(
+            "oreValue"
+        )
+    );
+
+}
+
+function getOverallLuckMultiplier(){
+
+    return (
+        getFactoryLevelMultiplier()
+    ) *
+    (
+        1 +
+        getPermanentBonus(
+            "allLuck"
+        ) +
+        getCycleBonus(
+            "allLuck"
+        )
+    );
+
+}
+
+function getIncomeMultiplier(){
+
+    return (
+        getFactoryLevelMultiplier()
+    ) *
+    (
+        1 +
+        getCombinedBonus(
+            "allIncome"
+        )
+    );
+
+}
+
+function getFactoryXPMultiplier(){
+
+    return (
+        getFactoryLevelMultiplier()
+    ) *
+    (
+        1 +
+        getCombinedBonus(
+            "factoryXP"
+        )
+    );
+
+}
+
+function getSmeltSpeedMultiplier(){
+
+    return (
+        getFactoryLevelMultiplier()
+    ) *
+    (
+        1 +
+        getCombinedBonus(
+            "smeltSpeed"
+        )
+    );
+
+}
+
+function getBonusMultiplier(type){
+
+    return (
+        1 +
+        getCombinedBonus(type)
+    );
+
+}
+
+function addFactoryXP(amount){
+
+    save.factoryXP +=
+        Math.round(amount);
+
+    if(
+        save.factoryXP < 0
+    ){
+
+        save.factoryXP = 0;
+
+    }
 
 }
 
@@ -2792,8 +3254,9 @@ function confirmSmelt(){
 
 checkAchievements();
 
-    save.factoryXP +=
-    pendingSmelt.amount;
+addFactoryXP(
+    pendingSmelt.amount
+);
 
 updateFactoryLevel();
 
