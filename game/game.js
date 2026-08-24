@@ -2184,40 +2184,49 @@ document.getElementById(
     "factoryXP"
 ).textContent =
 
-    Math.floor(
+    formatXP(
         save.factoryXP
-    ).toLocaleString()
+    )
 
     +
-
     " / "
 
     +
 
-    Math.floor(
+    formatXP(
         nextLevelXP
-    ).toLocaleString();
+    );
 
 document.getElementById(
     "nextLevelXP"
 ).textContent =
 
-    Math.floor(
+    formatXP(
+        Math.max(
+            0,
+            nextLevelXP -
+            save.factoryXP
+        )
+    );
 
-        nextLevelXP -
-        save.factoryXP
+const cashElement =
+    document.getElementById("cash");
 
-    ).toLocaleString();
-
-document.getElementById("cash").textContent =
+cashElement.textContent =
     "$" +
     formatCash(save.cash);
+
+cashElement.title =
+    "$" +
+    formatFullCashValue(
+        save.cash
+    );
 
     document.getElementById("droppers").textContent =
         save.droppers;
 
-    document.getElementById("dropperCost").textContent =
-        formatNumber(getDropperCost());
+document.getElementById("dropperCost").textContent =
+    formatCash(getDropperCost());
 
     document.getElementById("adders").textContent =
         save.adders;
@@ -2262,27 +2271,22 @@ if(save.furnaceTier >=
 else{
 
     upgradeButton.textContent =
-
-        "Upgrade Furnace ($" +
-
-        formatNumber(
-
-            FURNACES[
-                save.furnaceTier + 1
-            ].cost
-
-        ) +
-
-        ")";
+"Upgrade Furnace ($" +
+formatCash(
+    FURNACES[
+        save.furnaceTier + 1
+    ].cost
+) +
+")";
 
 }
     
 
     document.getElementById("adderCost").textContent =
-        formatNumber(getAdderCost());
+        formatCash(getAdderCost());
 
     document.getElementById("multiplierCost").textContent =
-        formatNumber(getMultiplierCost());
+        formatCash(getMultiplierCost());
 
 
     document.getElementById("lastOre").textContent =
@@ -2759,6 +2763,47 @@ function formatCash(num){
     return formatLargeNumber(
         num,
         2
+    );
+
+}
+
+function formatFullCashValue(num){
+
+    num = Number(num);
+
+    if(!Number.isFinite(num)){
+        return "∞";
+    }
+
+    num = Math.floor(num);
+
+    if(
+        Math.abs(num) < 1e21
+    ){
+
+        return num.toLocaleString();
+
+    }
+
+    const exponent =
+        Math.floor(
+            Math.log10(
+                Math.abs(num)
+            )
+        );
+
+    const mantissa =
+        num /
+        Math.pow(
+            10,
+            exponent
+        );
+
+    return (
+        mantissa.toPrecision(16)
+        +
+        "e" +
+        exponent
     );
 
 }
