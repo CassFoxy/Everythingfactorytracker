@@ -12,6 +12,188 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+test("download failure leaves recovery data intact and shows a concise message", () => {
+    const app = boot("{bad");
+    app.run("exportRecoverySave()"); // Node adapter deliberately has no browser download API.
+    assert.equal(app.elements.get("recoveryStatus").textContent.includes("could not start"), true);
+    assertRecovery(app, "{bad", "PARSE_ERROR");
+});
+
+test("non-Error validation failures are classified without an uncaught exception", () => {
+    const raw = JSON.stringify(legacyFixture());
+    const app = boot(raw, "validateSaveData = () => { throw null; };");
+    assertRecovery(app, raw, "VALIDATION_ERROR");
+});
+
+function assertRecovery(app, raw, category) {
+    assert.equal(app.uncaught(), undefined);
+    assert.equal(app.run("recoveryState.active"), true);
+    assert.equal(app.error.code, category);
+    assert.equal(app.elements.get("saveRecovery").hidden, false);
+    assert.equal(app.elements.get("gameRoot").hidden, true);
+    assert.equal(app.elements.get("gameRoot").inert, true);
+    assert.equal(app.stored(), raw);
+    assert.equal(app.intervals.length, 0);
+    assert.equal(app.elements.get("mineButton").onclick, undefined);
+    app.run("saveGame()");
+    app.tick(5000);
+    assert.equal(app.storageCalls.write, 0);
+}
+
+for (const [name, raw, code, setup] of [
+    ["parse", " \r\n{ broken 🪨", "PARSE_ERROR", ""],
+    ["structure", "[]", "VALIDATION_ERROR", ""],
+    ["validation", JSON.stringify({ cash: -1 }), "VALIDATION_ERROR", ""],
+    ["future", JSON.stringify({ saveVersion: 2 }), "VERSION_ERROR", ""],
+    ["invalid version", JSON.stringify({ saveVersion: "1" }), "VERSION_ERROR", ""],
+    ["migration", JSON.stringify({ cash: 100, droppers: 0, adders: 0, multipliers: 0 }),
+        "MIGRATION_ERROR", "delete SAVE_MIGRATIONS[0];"]
+]) {
+    test("recovery categorises " + name + " and prevents writes/timers", () => {
+        const app = boot(raw, setup);
+        assertRecovery(app, raw, code);
+        assert.equal(app.run("getRecoveryRawSave()"), raw);
+    });
+}
+
+test("retry reprocesses preserved bytes without changing storage", () => {
+    const raw = "\r\n { broken \t ";
+    const app = boot(raw);
+    assert.equal(app.run("attemptSaveLoad()"), false);
+    assertRecovery(app, raw, "PARSE_ERROR");
+    assert.equal(app.storageCalls.remove, 0);
+    assert.equal(app.run("getRecoveryRawSave()"), raw);
+});
+
+test("fixed migration permits retry, registers timers once and retains raw until normal save", () => {
+    const raw = JSON.stringify(legacyFixture(), null, 2);
+    const app = boot(raw, "const retainedMigration = SAVE_MIGRATIONS[0]; delete SAVE_MIGRATIONS[0];");
+    assertRecovery(app, raw, "MIGRATION_ERROR");
+    app.run("SAVE_MIGRATIONS[0] = retainedMigration;");
+    assert.equal(app.run("attemptSaveLoad()"), true);
+    assert.equal(app.error, undefined);
+    assert.equal(app.elements.get("saveRecovery").hidden, true);
+    assert.equal(app.elements.get("gameRoot").hidden, false);
+    assert.equal(app.elements.get("gameRoot").inert, false);
+    assert.equal(app.intervals.length, 3);
+    assert.equal(app.stored(), raw);
+    app.run("attemptSaveLoad(); attemptSaveLoad();");
+    assert.equal(app.intervals.length, 3);
+    app.tick(5000);
+    assert.equal(JSON.parse(app.stored()).saveVersion, 1);
+});
+
+test("export returns exact raw text including CRLF, whitespace and unsafe-looking markup", () => {
+    const raw = '\r\n  {"x":"🪨","text":"<script>alert(1)</script>"}\t\r\n';
+    const app = boot(raw);
+    assert.equal(app.run("getRecoveryRawSave()"), raw);
+    assert.equal(app.elements.get("exportRawSave").disabled, false);
+    assert.equal(app.elements.get("recoveryReason").textContent.includes("<script>"), false);
+    assert.equal(app.storageCalls.write, 0);
+});
+
+test("empty stored string can be exported without treating it as no save", () => {
+    const app = boot("");
+    assertRecovery(app, "", "PARSE_ERROR");
+    assert.equal(app.run("getRecoveryRawSave()"), "");
+    assert.equal(app.elements.get("exportRawSave").disabled, false);
+});
+
+test("cancelled reset preserves snapshot and storage", () => {
+    const app = boot("{bad");
+    app.confirmReset(false);
+    assert.equal(app.run("resetRecoverySave()"), false);
+    assertRecovery(app, "{bad", "PARSE_ERROR");
+    assert.equal(app.storageCalls.remove, 0);
+});
+
+test("confirmed reset removes once, creates original fresh state and saves a valid version 1", () => {
+    const app = boot("{bad");
+    app.confirmReset(true);
+    assert.equal(app.run("resetRecoverySave()"), true);
+    assert.equal(app.storageCalls.remove, 1);
+    assert.equal(app.stored(), null);
+    assert.equal(app.intervals.length, 3);
+    assert.equal(app.state().saveVersion, 1);
+    assert.equal(app.state().cash, 100);
+    assert.equal(app.state().factoryXP, 0);
+    app.run("validateSaveData(save)");
+    app.tick(5000);
+    assert.deepEqual(ready(app.stored()).state(), app.state());
+});
+
+test("read failure offers retry without falsely claiming export availability", () => {
+    const raw = JSON.stringify(legacyFixture());
+    const app = boot(raw, "", { read: true });
+    assertRecovery(app, raw, "STORAGE_READ_ERROR");
+    assert.equal(app.run("getRecoveryRawSave()"), null);
+    assert.equal(app.elements.get("exportRawSave").disabled, true);
+    assert.equal(app.elements.get("resetRecoverySave").disabled, true);
+    app.confirmReset(true);
+    assert.equal(app.run("resetRecoverySave()"), false);
+    assert.equal(app.storageCalls.remove, 0);
+    app.faults.read = false;
+    assert.equal(app.run("attemptSaveLoad()"), true);
+    assert.equal(app.state().cash, 12345);
+    assert.equal(app.stored(), raw);
+});
+
+test("read failure during retry retains the previously captured export", () => {
+    const app = boot("{bad");
+    app.faults.read = true;
+    assert.equal(app.run("attemptSaveLoad()"), false);
+    assertRecovery(app, "{bad", "STORAGE_READ_ERROR");
+    assert.equal(app.run("getRecoveryRawSave()"), "{bad");
+    assert.equal(app.elements.get("exportRawSave").disabled, false);
+});
+
+test("failed remove retains recovery and permits another confirmed reset", () => {
+    const app = boot("{bad", "", { remove: true });
+    app.confirmReset(true);
+    assert.equal(app.run("resetRecoverySave()"), false);
+    assertRecovery(app, "{bad", "STORAGE_REMOVE_ERROR");
+    assert.equal(app.run("getRecoveryRawSave()"), "{bad");
+    app.faults.remove = false;
+    assert.equal(app.run("resetRecoverySave()"), true);
+    assert.equal(app.state().saveVersion, 1);
+});
+
+test("recovery/reset never calls setItem; denied writes cannot replace the original", () => {
+    const app = boot("{bad", "", { write: true });
+    app.run("saveGame(); attemptSaveLoad();");
+    assert.equal(app.storageCalls.write, 0);
+    assert.equal(app.stored(), "{bad");
+    app.confirmReset(true);
+    assert.equal(app.run("resetRecoverySave()"), true);
+    assert.equal(app.storageCalls.write, 0);
+});
+
+for (const action of ["attemptSaveLoad()", "resetRecoverySave()"]) {
+    test("changed storage is preserved during " + action, () => {
+        const app = boot("{bad");
+        const newer = JSON.stringify(legacyFixture());
+        app.replaceStored(newer);
+        app.confirmReset(true);
+        assert.equal(app.run(action), false);
+        assertRecovery(app, newer, "STORAGE_CHANGED");
+        assert.equal(app.run("getRecoveryRawSave()"), "{bad");
+        assert.equal(app.storageCalls.remove, 0);
+    });
+}
+
+test("fresh and valid legacy/current saves bypass recovery", () => {
+    for (const raw of [null, JSON.stringify(legacyFixture()),
+        JSON.stringify({ ...legacyFixture(), saveVersion: 0 }),
+        JSON.stringify({ ...legacyFixture(), saveVersion: 1 })]) {
+        const app = ready(raw);
+        assert.equal(app.run("recoveryState.active"), false);
+        assert.equal(app.elements.get("saveRecovery").hidden, true);
+        assert.equal(app.elements.get("gameRoot").hidden, false);
+        assert.equal(app.intervals.length, 3);
+    }
+});
+
+
 test("migration registry contains only real 0 -> 1; current production schema remains 1", () => {
     const app = ready();
     assert.equal(app.run("SAVE_VERSION"), 1);
@@ -403,13 +585,14 @@ test("every existing resource and legacy Boolean achievement remains accepted", 
 
 
 // Small DOM adapter for state regression tests; browser checks are separate.
-function boot(raw = null, beforeLoad = "") {
+function boot(raw = null, beforeLoad = "", storageFaults = {}) {
     const elements = new Map();
     function element() {
         const el = {
             style: {}, dataset: {}, parentElement: {}, children: [],
             classList: { add() {}, remove() {} },
-            appendChild(child) { this.children.push(child); }
+            appendChild(child) { this.children.push(child); },
+            focus() {}
         };
         let markup = "";
         Object.defineProperty(el, "innerHTML", {
@@ -429,6 +612,8 @@ function boot(raw = null, beforeLoad = "") {
     let stored = raw;
     let reloaded = false;
     let confirmation = false;
+    const faults = { ...storageFaults };
+    const storageCalls = { read: 0, write: 0, remove: 0 };
     const context = vm.createContext({
         console,
         document: {
@@ -436,9 +621,9 @@ function boot(raw = null, beforeLoad = "") {
             createElement: () => element()
         },
         localStorage: {
-            getItem(key) { assert.equal(key, KEY); return stored; },
-            setItem(key, value) { assert.equal(key, KEY); writes.push(value); stored = value; },
-            removeItem(key) { assert.equal(key, KEY); stored = null; }
+            getItem(key) { assert.equal(key, KEY); storageCalls.read++; if(faults.read) throw new Error("storage read denied"); return stored; },
+            setItem(key, value) { assert.equal(key, KEY); storageCalls.write++; if(faults.write) throw new Error("storage write denied"); writes.push(value); stored = value; },
+            removeItem(key) { assert.equal(key, KEY); storageCalls.remove++; if(faults.remove) throw new Error("storage remove denied"); stored = null; }
         },
         setInterval(fn, ms) { intervals.push({ fn, ms }); },
         setTimeout() {},
@@ -450,13 +635,16 @@ function boot(raw = null, beforeLoad = "") {
     vm.runInContext(ores, context, { filename: "ores.js" });
     let error;
     // Optional test-only fault injection after declarations, before startup.
-    const marker = "let save = readVersionedSave(";
+    const marker = "\nattemptSaveLoad();";
     assert.ok(game.includes(marker));
     const source = beforeLoad ? game.replace(marker, beforeLoad + "\n" + marker) : game;
     try { vm.runInContext(source, context, { filename: "game.js" }); }
     catch (caught) { error = caught; }
     return {
-        run, error, writes, intervals, elements,
+        run, writes, intervals, elements, faults, storageCalls,
+        get error() { return error || run("recoveryState.error") || undefined; },
+        uncaught: () => error,
+        replaceStored: value => { stored = value; },
         state: () => JSON.parse(run("JSON.stringify(save)")),
         stored: () => stored,
         tick: ms => intervals.filter(t => t.ms === ms).forEach(t => t.fn()),

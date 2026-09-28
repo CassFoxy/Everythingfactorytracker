@@ -7,6 +7,21 @@
 </head>
 
 <body>
+<section id="saveRecovery" class="card save-recovery" hidden role="alert" aria-labelledby="recoveryTitle">
+    <h1 id="recoveryTitle" tabindex="-1">Your save could not be loaded</h1>
+    <p id="recoveryReason"></p>
+    <p id="recoveryPreserved"></p>
+    <p>Download your original save before considering a reset. Retry does not change your stored data.</p>
+    <div class="recovery-actions">
+        <button id="exportRawSave">Download original save</button>
+        <button id="retrySaveLoad">Retry load</button>
+    </div>
+    <hr>
+    <p>Starting fresh removes your stored save and all its progress. You will be asked to confirm.</p>
+    <button id="resetRecoverySave" class="dev-reset">Start fresh…</button>
+    <p id="recoveryStatus" role="status"></p>
+</section>
+<div id="gameRoot" hidden inert>
 <h1 style="color:red;">
     TEST VERSION
 </h1>
@@ -675,6 +690,7 @@ class="modal">
 
 </div>
 
+</div>
 <script src="ores.js"></script>
 <script src="game.js"></script>
 

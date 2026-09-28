@@ -1,4 +1,4 @@
-# Save schema version 1 — V1-010, V1-011 and V1-012
+# Save schema version 1 — V1-010 through V1-013
 
 ## Contract
 
@@ -22,7 +22,7 @@ Version 0 to 1 has no structural gameplay transformation. Future schema changes 
 
 Older game code ignores the extra property and preserves it during ordinary saves. An older client cannot enforce the new future-version protection. This ticket does not solve concurrent tabs or downgrade protection in already published older builds.
 
-Rejected saves currently leave gameplay unable to start and report an error in the browser console. This intentionally preserves data; it is not the recovery UI requested by V1-013. JSON/storage read errors remain unhandled, as do quota/write failures. Do not tell players to delete their save as an automatic recovery path.
+Rejected saves now open the V1-013 recovery screen while gameplay remains stopped. Players can download their original save, retry, or explicitly confirm starting fresh. JSON/load errors and storage reads/removals are handled; broader normal-gameplay quota/write failures remain follow-up work. There is no automatic deletion or repair.
 
 Missing cash/machine counts and malformed nested fields are now rejected by V1-011. Established optional defaults remain unchanged, including fresh XP 0 versus legacy fallback XP 100. No schema regrouping, balancing, rebirth, permanent rewards or final factory behavior changes are included.
 
@@ -105,7 +105,7 @@ Finite large progression values are not given new balance caps or a blanket safe
 
 Fresh XP remains 0, while absent legacy XP defaults to 100. Level/XP, totals/collection and achievement progress are not forcibly reconciled: current immediate saves can capture intermediate counters, and repairing them would exceed validation scope. Bonus sign/cap rules and cosmetic eligibility remain undefined; their type-safe scaffolding is preserved.
 
-Validation covers loading, not every live mutation or storage write. Transactional saves, storage/quota errors, concurrent tabs, recovery UI/backups (V1-013), and schema consolidation (V1-014) remain separate work. Migration infrastructure is described below. A rejected save still stops startup and reports a console error; its original data stays intact.
+Validation covers loading, not every live mutation or storage write. Transactional saves, normal-gameplay storage/quota errors, atomic cross-tab coordination, automatic backups and schema consolidation (V1-014) remain separate work. Migration and recovery are described below. A rejected save stops gameplay and displays recovery options; its original data stays intact.
 
 ### V1-011 test results
 
@@ -152,5 +152,40 @@ No migration or validation writes to LocalStorage during loading. Failed loads a
 - Syntax checks passed for game.js, ores.js and both existing test scripts.
 - The unchanged Edge browser smoke suite passed normal gameplay, menus, save/reload, legacy loading and expected corrupted/future-save rejection. Saved gameplay state matched accepted V1-011 after identical actions, with no unexpected console/page errors.
 
-V1-012 is implemented and tested. The starting-XP inconsistency and existing validation boundaries are unchanged. Storage failures, concurrent tabs, recovery UI/backups and later schema consolidation remain separate work. Recommended next ticket: **V1-013 — Corrupted Save Recovery**, after review.
+V1-012 was reviewed and accepted. Its migration contract and existing validation boundaries remain unchanged by V1-013.
+
+## Player-facing recovery — V1-013
+
+Save schema/version and gameplay values are unchanged. The startup boundary now catches recognised load failures and shows a separate recovery screen. Normal game content is hidden and inert. Game state/default initialization, furnace restoration, event handlers and the three gameplay/autosave intervals activate only after successful loading or an explicitly confirmed reset. Repeated successful retry cannot register duplicate timers. saveGame also refuses writes while startup is incomplete or recovery is active.
+
+### Actions and preserved data
+
+- **Download original save:** exports the captured raw string as a plain-text file, without parsing, formatting or replacing it. Whitespace, CRLF and Unicode text are preserved. Empty stored text is exportable; absence of the key is distinct. The underlying getRecoveryRawSave helper exposes the exact captured string for testing.
+- **Retry load:** re-runs parse -> migration -> validation using the captured raw string after checking storage still matches it. It does not write or remove anything. Temporary storage-access failures can be retried; obtaining updated JavaScript still requires reloading the page.
+- **Start fresh:** a browser confirmation warns that all stored progress will be removed and recommends downloading first. Cancellation changes nothing. After confirmation and a second storage comparison, removeItem removes the key; successful removal starts the same fresh Version 1 state as normal new-game startup. As before, normal save/autosave persists that state later. Recovery/reset itself never calls setItem.
+- If storage changed since capture, retry/reset is blocked. The earlier copy remains downloadable; the UI asks the player to export it and reload to inspect the latest stored save. This is a best-effort comparison, not atomic cross-tab locking.
+- If the first storage read fails, there is no readable snapshot to export. The UI says no data was changed, disables download/reset and offers retry. If a later read fails after capture, the original captured copy remains available.
+- Removal failures retain the recovery screen and captured data. Export failures display a concise message and leave storage untouched. The download's short URL-cleanup timeout is separate from gameplay; no production or autosave timers run during recovery.
+
+### Error categories and UI
+
+Internal errors use code fields: PARSE_ERROR, VERSION_ERROR, MIGRATION_ERROR, VALIDATION_ERROR, STORAGE_READ_ERROR, STORAGE_REMOVE_ERROR, STORAGE_CHANGED and LOAD_ERROR fallback. Classification does not parse error-message strings. Pure load/migration/validation helpers still throw diagnostics; the startup boundary captures them in recoveryState.error.
+
+The player sees fixed, concise category messages, preservation status, download/retry buttons and a separated destructive action. Raw data, exception messages and stacks are never inserted into the UI. Expected rejected saves no longer generate uncaught browser errors. The existing card/button styling is reused; other game UI is unchanged.
+
+### Validation results
+
+**207 Node tests passed, 0 failed:** the 186 previous cases plus 21 recovery cases. The same VM harness now exposes handled recovery diagnostics separately from uncaught errors and supports injected storage read/write/removal failures.
+
+Tests cover all load failure categories, hidden/inert gameplay, no timers/autosave writes, exact raw export data, repeated failed retry, successful retry after restoring a migration, timer registration once, confirmation/cancellation, valid fresh state/reload, unreadable storage, failed removal, changed storage protection and no recovery/reset setItem calls. Previous migration, validation and gameplay regression coverage remains intact.
+
+JavaScript syntax checks passed. Edge browser checks passed the actual recovery UI, exact downloaded text (including CRLF, Unicode and markup-looking text), failed retry, cancelled/confirmed reset, fresh save/reload, storage-read failure and successful retry. Normal game menus/actions and saved state matched V1-012. No unexpected console/page errors occurred. The recovery layout was visually inspected.
+
+### Boundaries and follow-up
+
+No import/replacement flow or automatic repair is included. Manual import can be a later bounded feature using the same load pipeline. No automatic backup or silent reset is introduced.
+
+Normal gameplay quota/write-failure handling, atomic cross-tab coordination and transactional saves remain follow-ups. Explicit recovery actions avoid writes entirely; denied getItem/removeItem are handled here. Schema consolidation belongs to V1-014. The known fresh XP 0 versus missing legacy XP 100 inconsistency is unchanged.
+
+V1-013 is implemented and tested. Recommended next ticket: **V1-014 — Save Schema Consolidation**, after review; do not begin it automatically.
 
