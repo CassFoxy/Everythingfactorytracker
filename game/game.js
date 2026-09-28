@@ -187,6 +187,214 @@ function createDefaultMilestones(){
 // Version 0 is the existing unversioned format; version 1 only adds this tag.
 const SAVE_VERSION = 1;
 
+// Definitions must be available before validating a stored furnace tier/batch.
+const FURNACES = [
+
+{
+    name: "Starter Furnace",
+    capacity: 10,
+    cost: 0
+},
+
+{
+    name: "Basic Furnace",
+    capacity: 50,
+    cost: 500
+},
+
+{
+    name: "Auto Furnace",
+    capacity: 100,
+    cost: 2500
+}
+
+];
+
+
+function validateSaveData(data){
+
+    function invalid(path, requirement){
+        throw new Error("Invalid save: " + path + " " + requirement + ". Stored data was not changed.");
+    }
+
+    const owns = (object, key) =>
+        Object.prototype.hasOwnProperty.call(object, key);
+
+    function record(value, path){
+        if(value === null || typeof value !== "object" || Array.isArray(value))
+            invalid(path, "must be an object");
+    }
+
+    function number(value, path, minimum = 0, integer = false){
+        if(typeof value !== "number" || !Number.isFinite(value) ||
+            value < minimum || (integer && !Number.isInteger(value)))
+            invalid(path, "must be a finite " + (integer ? "integer " : "number ") + ">= " + minimum);
+    }
+
+    function boolean(value, path){
+        if(typeof value !== "boolean")
+            invalid(path, "must be a Boolean");
+    }
+
+    function string(value, path){
+        if(typeof value !== "string" || value.length === 0)
+            invalid(path, "must be a nonempty string");
+    }
+
+    // Only absence uses the established defaults below. Explicit null is invalid:
+    // JSON serialisation also turns NaN/Infinity into null.
+    function optional(object, key, check, path = key){
+        if(owns(object, key)) check(object[key], path);
+    }
+
+    record(data, "save");
+    if(data.saveVersion !== SAVE_VERSION)
+        invalid("saveVersion", "must be the supported version");
+
+    // These fields have no established legacy missing-field default.
+    for(const key of ["cash", "droppers", "adders", "multipliers"]){
+        number(data[key], key, 0, key !== "cash");
+    }
+
+    for(const key of ["factoryXP", "totalOres", "stoneOres",
+        "tier1Ores", "tier2Ores", "tier3Ores", "tier4Ores"]){
+        optional(data, key, (value, path) => number(value, path, 0, true));
+    }
+    optional(data, "factoryLevel", (value, path) => number(value, path, 1, true));
+    for(const key of ["lastOreValue", "stoneValue"])
+        optional(data, key, number);
+    optional(data, "lastOre", string);
+    optional(data, "furnaceTier", (value, path) => {
+        number(value, path, 0, true);
+        if(value >= FURNACES.length) invalid(path, "must identify an existing furnace");
+    });
+
+    function countMap(key, ids){
+        optional(data, key, (value, path) => {
+            record(value, path);
+            for(const [id, count] of Object.entries(value)){
+                if(!ids.includes(id)) invalid(path + "." + id, "has an unknown resource ID");
+                number(count, path + "." + id, 0, true);
+            }
+        });
+    }
+    countMap("inventory", ["stone", ...ORE_KEYS]);
+    countMap("oreCollection", ORE_KEYS);
+
+    optional(data, "factoryMilestones", (value, path) => {
+        record(value, path);
+        const ids = FACTORY_MILESTONES.map(String);
+        for(const [id, unlocked] of Object.entries(value)){
+            if(!ids.includes(id)) invalid(path + "." + id, "has an unknown milestone ID");
+            boolean(unlocked, path + "." + id);
+        }
+    });
+
+    optional(data, "achievements", (value, path) => {
+        record(value, path);
+        for(const [id, achievement] of Object.entries(value)){
+            const entryPath = path + "." + id;
+            if(!owns(ACHIEVEMENTS, id)) invalid(entryPath, "has an unknown achievement ID");
+            if(typeof achievement === "boolean") continue; // Existing legacy conversion.
+            record(achievement, entryPath);
+            boolean(achievement.unlocked, entryPath + ".unlocked");
+            boolean(achievement.claimed, entryPath + ".claimed");
+            if(achievement.claimed && !achievement.unlocked)
+                invalid(entryPath, "cannot be claimed while locked");
+        }
+    });
+
+    optional(data, "achievementStats", (value, path) => {
+        record(value, path);
+        for(const [id, count] of Object.entries(value))
+            number(count, path + "." + id, 0, true);
+        if(value.oresDiscovered > ORE_KEYS.length)
+            invalid(path + ".oresDiscovered", "exceeds the base ore catalogue");
+    });
+
+    for(const key of ["permanentBonuses", "cycleBonuses"]){
+        optional(data, key, (value, path) => {
+            record(value, path);
+            for(const [id, bonus] of Object.entries(value)){
+                // Scaffolding has no approved caps/sign rules. Do not invent them.
+                if(typeof bonus !== "number" || !Number.isFinite(bonus))
+                    invalid(path + "." + id, "must be a finite number");
+            }
+        });
+    }
+
+    optional(data, "cosmetics", (value, path) => {
+        record(value, path);
+        optional(value, "unlocked", (unlocked, nestedPath) => {
+            record(unlocked, nestedPath);
+            for(const [id, flag] of Object.entries(unlocked)){
+                string(id, nestedPath + " ID");
+                boolean(flag, nestedPath + "." + id);
+            }
+        }, path + ".unlocked");
+        optional(value, "equipped", (equipped, nestedPath) => {
+            record(equipped, nestedPath);
+            for(const [slot, id] of Object.entries(equipped)){
+                string(slot, nestedPath + " slot");
+                string(id, nestedPath + "." + slot);
+            }
+        }, path + ".equipped");
+        // No cosmetic catalogue/equip policy exists yet; preserve string IDs.
+    });
+
+    optional(data, "autoFurnaceEnabled", boolean);
+    optional(data, "autoFurnaceMode", (value, path) => {
+        if(!["stoneOnly", "oresOnly", "oresStone"].includes(value))
+            invalid(path, "must be an existing smelting mode");
+    });
+    optional(data, "autoFurnaceBatchMode", (value, path) => {
+        if(!["available", "full"].includes(value))
+            invalid(path, "must be an existing batch mode");
+    });
+    optional(data, "autoFurnaceStartTime", (value, path) => {
+        number(value, path, 0, true);
+        if(!Number.isSafeInteger(value) || value > 8640000000000000)
+            invalid(path, "must be a representable timestamp");
+    });
+
+    const batch = owns(data, "autoFurnaceBatch") ? data.autoFurnaceBatch : [];
+    if(!Array.isArray(batch)) invalid("autoFurnaceBatch", "must be an array");
+    let amount = 0;
+    let payout = 0;
+    const seen = new Set();
+    for(const [index, item] of batch.entries()){
+        const path = "autoFurnaceBatch[" + index + "]";
+        record(item, path);
+        if(item.key !== "stone" && !ORE_KEYS.includes(item.key))
+            invalid(path + ".key", "must identify an existing resource");
+        if(seen.has(item.key)) invalid(path + ".key", "duplicates a batch resource");
+        seen.add(item.key);
+        number(item.amount, path + ".amount", 1, true);
+        number(item.value, path + ".value");
+        for(const label of ["name", "emoji"]){
+            string(item[label], path + "." + label);
+            // Current batch labels enter innerHTML; reject markup, not player progress.
+            if(item[label].includes("<")) invalid(path + "." + label, "must be plain text");
+        }
+        amount += item.amount;
+        payout += item.amount * item.value;
+    }
+    if(amount > FURNACES[2].capacity)
+        invalid("autoFurnaceBatch", "exceeds Auto Furnace capacity");
+    const startTime = data.autoFurnaceStartTime ?? 0;
+    if(batch.length > 0){
+        if((data.furnaceTier ?? 0) !== 2 || startTime <= 0)
+            invalid("autoFurnaceBatch", "requires an Auto Furnace and a positive start timestamp");
+        if(!Number.isFinite(payout) || !Number.isFinite(data.cash + payout))
+            invalid("autoFurnaceBatch", "would produce a non-finite payout");
+    }else if(startTime !== 0){
+        invalid("autoFurnaceStartTime", "must be zero for an empty batch");
+    }
+    // Do not compare batch values/modes to current inventory or upgrades:
+    // resources were reserved earlier, and modes/upgrades may change mid-cycle.
+}
+
+
 function readVersionedSave(serializedSave){
 
     if(serializedSave === null)
@@ -216,7 +424,9 @@ function readVersionedSave(serializedSave){
 
     // Keep every existing field. Existing missing-field defaults run below.
     // Future schema changes must add explicit migrations, not just bump this tag.
-    return { ...data, saveVersion: SAVE_VERSION };
+    const versionedData = { ...data, saveVersion: SAVE_VERSION };
+    validateSaveData(versionedData);
+    return versionedData;
 
 }
 
@@ -531,27 +741,6 @@ FACTORY_MILESTONES.forEach(level => {
 let pendingMilestone = null;
 let pendingAchievement = null;
 
-const FURNACES = [
-
-{
-    name: "Starter Furnace",
-    capacity: 10,
-    cost: 0
-},
-
-{
-    name: "Basic Furnace",
-    capacity: 50,
-    cost: 500
-},
-
-{
-    name: "Auto Furnace",
-    capacity: 100,
-    cost: 2500
-}
-
-];
 
           function getXPForLevel(level){
 

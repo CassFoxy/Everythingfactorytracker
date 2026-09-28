@@ -90,7 +90,10 @@ const server = http.createServer((req, res) => {
         await app.context.close();
         console.log("PASS Chromium: populated unversioned save and reload; no console errors.");
 
-        for (const raw of ["{broken", JSON.stringify({ ...current, saveVersion: 2 })]) {
+        for (const raw of ["{broken", JSON.stringify({ ...current, saveVersion: 2 }),
+            JSON.stringify({ ...current, cash: -1 }),
+            JSON.stringify({ ...current, inventory: { stone: "2" } }),
+            JSON.stringify({ ...current, autoFurnaceBatch: null })]) {
             const rejected = await session(raw);
             assert.equal(await rejected.page.evaluate(() => localStorage.getItem("ef_incremental")), raw);
             assert.equal(await rejected.page.evaluate(() => testIntervals.length), 0);
@@ -104,7 +107,8 @@ const server = http.createServer((req, res) => {
             files.set("/game.js", fs.readFileSync(process.env.TEFI_BASELINE_GAME));
             const baseline = await normalLoop();
             const { saveVersion, ...rest } = current;
-            assert.deepEqual(rest, baseline);
+            const { saveVersion: baselineVersion, ...baselineRest } = baseline;
+            assert.deepEqual(rest, baselineRest);
             console.log("PASS Chromium: all saved gameplay fields match the pre-change source after identical actions.");
         }
     } finally {

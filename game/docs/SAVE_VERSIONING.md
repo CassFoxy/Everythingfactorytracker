@@ -1,4 +1,4 @@
-# Save schema version 1 — V1-010
+# Save schema version 1 — V1-010 and V1-011
 
 ## Contract
 
@@ -14,7 +14,7 @@ Schema versions are non-negative safe integers independent of game, Bible and de
 - Reads do not immediately write. Existing saves/autosaves persist the tag using the unchanged storage key and cadence. Unknown fields are retained.
 - Active furnace batch, timestamp, modes and stopped/enabled state remain in their original fields. No offline simulation is added.
 
-`readVersionedSave` has no DOM/storage side effects. The narrow root/version checks are necessary to safely interpret the version tag, not a complete validator.
+`readVersionedSave` has no DOM/storage side effects. It now calls `validateSaveData` before returning a stored state. The V1-011 field contract below supplements the original version checks.
 
 ## Compatibility and limits
 
@@ -24,7 +24,7 @@ Older game code ignores the extra property and preserves it during ordinary save
 
 Rejected saves currently leave gameplay unable to start and report an error in the browser console. This intentionally preserves data; it is not the recovery UI requested by V1-013. JSON/storage read errors remain unhandled, as do quota/write failures. Do not tell players to delete their save as an automatic recovery path.
 
-Existing defaults remain partial: missing cash/machine counts and malformed nested fields are V1-011 work. Fresh XP 0 versus legacy fallback XP 100 is unchanged. No schema regrouping, balancing, rebirth, permanent rewards or final factory behavior changes are included.
+Missing cash/machine counts and malformed nested fields are now rejected by V1-011. Established optional defaults remain unchanged, including fresh XP 0 versus legacy fallback XP 100. No schema regrouping, balancing, rebirth, permanent rewards or final factory behavior changes are included.
 
 ## Tests
 
@@ -38,7 +38,7 @@ node --check game/docs/tests/browser-smoke.cjs
 node --test game/docs/tests/save-versioning.test.cjs
 ```
 
-The 23 dependency-free node:test checks use the real ores.js and entire game.js in a VM with a small DOM/storage/timer adapter. Coverage includes fresh saves, populated unversioned saves, version 0/current/repeated round trips, optional missing fields, legacy Boolean achievements, malformed roots/JSON, eight invalid/future versions, autosave, reset confirmation, current mining/discovery/purchases/furnaces, XP/milestones/achievements and resumed furnace batch payment exactly once.
+The dependency-free node:test checks use the real ores.js and entire game.js in a VM with a small DOM/storage/timer adapter. The original 23 checks are retained alongside the V1-011 cases described below. Coverage includes fresh saves, populated unversioned saves, version 0/current/repeated round trips, optional missing fields, legacy Boolean achievements, malformed roots/JSON, eight invalid/future versions, autosave, reset confirmation, current mining/discovery/purchases/furnaces, XP/milestones/achievements and resumed furnace batch payment exactly once.
 
 Optional real-browser test:
 
@@ -50,7 +50,7 @@ Requires Playwright plus a browser; it is not needed for the dependency-free sui
 
 Optionally set TEFI_BASELINE_GAME to the audited pre-change game.js file. The smoke test repeats the same actions against it and compares every saved gameplay field, excluding only the new version tag.
 
-## Validation results (2026-09-28)
+## Original V1-010 validation results (2026-09-28)
 
 - Syntax checks: passed.
 - Existing game test suite: none present in the audited repository tree.
@@ -62,5 +62,56 @@ Optionally set TEFI_BASELINE_GAME to the audited pre-change game.js file. The sm
 - Initial browser runner attempts found no bundled Chromium executable and then an incorrect test locator ("Smelt" instead of the existing "Select" label). Runner configuration/locator were corrected; the final Edge run passed. No production gameplay change was made to satisfy the runner.
 - Cross-browser/mobile, long-session, full furnace-mode matrix, full missing-field validation and V1 release playthroughs are not certified by these checks.
 
-V1-010 is implemented and tested; broader V1-003/V1-015 coverage remains incomplete. Recommended next ticket: V1-011. See V1_AUDIT.md for the full audit and design gates.
+V1-010 was reviewed and accepted; broader V1-003/V1-015 coverage remains incomplete. See V1_AUDIT.md for the original audit and design gates.
+
+## Version 1 field validation — V1-011
+
+Validation runs on the parsed version-compatible candidate before any existing defaults mutate it, before it becomes live save state, and before event handlers/timers are registered. It has no storage or DOM side effects. Failures identify the field and preserve the original localStorage string. No schema version increment is required: this validates the existing format rather than changing it.
+
+### Required data and defaults
+
+Cash and the three machine counts are required on stored saves because the existing legacy loader has no missing-field defaults for them. Missing values are rejected, not replaced with fresh-game money or machines. Fresh saves still start with exactly the existing values.
+
+Other established optional fields may be absent; the unchanged default block then supplies them, including partial inventory/collection maps, milestone flags, bonus entries, cosmetics, furnace settings and achievement statistics. Explicit null, wrong types and non-finite numbers are invalid rather than treated as absence. This also catches NaN/Infinity serialised as JSON null. No strings/Booleans are coerced into numbers.
+
+### Enforced rules
+
+| Data | Validation |
+|---|---|
+| saveVersion | Existing absent/0 -> 1 compatibility; current 1 accepted; invalid/future versions rejected. |
+| Cash, lastOreValue, stoneValue | Finite, non-negative numbers. Fractional cash/value snapshots are retained. |
+| Factory XP, machine counts, production/tier counters | Finite, non-negative integers. |
+| Factory Level | Finite integer at least 1; not recomputed or reconciled with XP here. |
+| lastOre | Nonempty string; historical display text is retained. |
+| Furnace tier | Integer indexing one of the existing furnace definitions. |
+| Inventory / Ore Collection | Objects of non-negative integer counts. Inventory allows Stone and current ore IDs; collection allows the existing 20 ore IDs. Unknown IDs reject the whole save, never silently disappear. |
+| Milestones | Object keyed by the existing generated milestone levels with Boolean flags. |
+| Achievements | Existing IDs only; legacy Booleans retain their existing conversion. Object records require Boolean unlocked and claimed; claimed while locked is invalid. Extra record properties are retained. |
+| Achievement statistics | Object of non-negative integer counters; unique ore discoveries cannot exceed the current ore catalogue. Missing established entries retain defaults. |
+| Bonus scaffolding | Object of finite numbers. No invented sign restrictions, caps, effects or upgrade eligibility. Unknown numeric entries remain intact. |
+| Cosmetics | Objects; unlock flags are Booleans and equipped IDs are nonempty strings. String IDs are preserved without a new catalogue or ownership/equipping policy. |
+| Auto Furnace settings | Boolean enabled flag and one of the existing three resource modes/two batch modes. |
+| Auto Furnace timestamp | Non-negative integer representable as a JavaScript date. Future timestamps are accepted because clocks can move; no offline/time-repair policy is introduced. |
+| Auto Furnace batch | Array of unique known resource IDs; positive integer quantities, finite non-negative reserved values and plain-text name/emoji strings. Total quantity must fit the existing 100-item capacity. Payout and cash plus payout must remain finite. |
+| Furnace consistency | A nonempty batch needs Auto Furnace tier and positive timestamp. An empty batch needs timestamp zero. Stopped-but-processing batches remain valid. |
+
+Batch label markup containing a less-than sign is rejected because the current UI inserts labels into HTML. No catalogue name/value rewrite occurs: existing reserved values and plain-text labels are kept. Resources were removed from inventory at batch start; therefore the validator does not demand that batch resources also exist in inventory. It does not require the batch to match newly selected modes or current Adder values.
+
+### Preservation and boundaries
+
+Unknown top-level fields are retained. Known indexed maps validate their IDs rather than deleting unknown entries. Invalid saves are rejected as a whole before any autosave; there is no partial-reset salvage.
+
+Finite large progression values are not given new balance caps or a blanket safe-integer ceiling. Existing JavaScript precision limits, eventual arithmetic overflow and high-machine-count simulation performance remain technical follow-ups. Schema versions and timestamps have their own stricter technical bounds.
+
+Fresh XP remains 0, while absent legacy XP defaults to 100. Level/XP, totals/collection and achievement progress are not forcibly reconciled: current immediate saves can capture intermediate counters, and repairing them would exceed validation scope. Bonus sign/cap rules and cosmetic eligibility remain undefined; their type-safe scaffolding is preserved.
+
+This ticket validates loading, not every live mutation or storage write. Transactional saves, storage/quota errors, concurrent tabs, migration infrastructure (V1-012), recovery UI/backups (V1-013), and schema consolidation (V1-014) remain separate work. A rejected save still stops startup and reports a console error; its original data stays intact.
+
+### V1-011 test results
+
+158 Node tests passed, 0 failed: the 23 existing V1-010 tests plus 135 focused validation/default/compatibility tests in the same harness. Coverage includes wrong types, negatives, fractions, non-finite values, invalid IDs/maps/achievement/milestone data, batches/timestamps/payout overflow, missing optional versus required fields, unknown data, legacy compatibility, repeated round trips and non-destructive rejection.
+
+Syntax checks passed for both game scripts and both existing test scripts. The existing Edge browser smoke runner passed normal gameplay/menus, save/reload, legacy saves, malformed JSON, future versions, negative cash, wrongly typed inventory counts and a null furnace batch. Rejected cases had their expected startup error and no timers. The normal gameplay snapshot matched accepted V1-010 across all saved fields.
+
+V1-011 is implemented and tested. Recommended next ticket: **V1-012 — Save Migration**. Do not begin it until review.
 
