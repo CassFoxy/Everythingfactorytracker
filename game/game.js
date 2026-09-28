@@ -183,9 +183,47 @@ function createDefaultMilestones(){
     return milestones;
 
 }
-let save = JSON.parse(
+// Save schema versions are independent of game and design versions.
+// Version 0 is the existing unversioned format; version 1 only adds this tag.
+const SAVE_VERSION = 1;
+
+function readVersionedSave(serializedSave){
+
+    if(serializedSave === null)
+        return null;
+
+    const data = JSON.parse(serializedSave);
+
+    if(
+        data === null ||
+        typeof data !== "object" ||
+        Array.isArray(data)
+    ){
+        throw new Error("Invalid save: expected a player-state object. Stored data was not changed.");
+    }
+
+    const version = Object.prototype.hasOwnProperty.call(data, "saveVersion")
+        ? data.saveVersion
+        : 0;
+
+    if(!Number.isSafeInteger(version) || version < 0){
+        throw new Error("Invalid saveVersion. Stored data was not changed.");
+    }
+
+    if(version > SAVE_VERSION){
+        throw new Error("This save requires a newer game version. Stored data was not changed.");
+    }
+
+    // Keep every existing field. Existing missing-field defaults run below.
+    // Future schema changes must add explicit migrations, not just bump this tag.
+    return { ...data, saveVersion: SAVE_VERSION };
+
+}
+
+let save = readVersionedSave(
     localStorage.getItem("ef_incremental")
 ) || {
+saveVersion: SAVE_VERSION,
 cash: 100,
 
 factoryLevel: 1,
