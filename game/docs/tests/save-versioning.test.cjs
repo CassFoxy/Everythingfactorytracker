@@ -500,6 +500,14 @@ function assertRejected(raw, expectedPath) {
     assert.equal(app.writes.length, 0);
     assert.equal(app.intervals.length, 0);
     assert.equal(app.elements.get("mineButton").onclick, undefined);
+    assert.equal(app.uncaught(), undefined);
+    assert.equal(app.elements.get("saveRecovery").hidden, false);
+    assert.equal(app.elements.get("gameRoot").hidden, true);
+    assert.equal(app.elements.get("gameRoot").inert, true);
+    assert.equal(app.run("getRecoveryRawSave()"), raw);
+    app.run("saveGame()");
+    app.tick(5000);
+    assert.equal(app.storageCalls.write, 0);
 }
 
 const invalidFields = [
@@ -665,7 +673,7 @@ test("unknown top-level JSON data and inert scaffold IDs survive repeated round 
 
 test("batch snapshot survives changed modes/upgrades and a future timestamp", () => {
     const data = legacyFixture();
-    data.autoFurnaceStartTime = Date.now() + 86400000;
+    data.autoFurnaceStartTime = ready().now() + 86400000;
     data.autoFurnaceMode = "stoneOnly"; // A player may change this while the ore batch runs.
     data.autoFurnaceBatchMode = "full";
     data.autoFurnaceBatch[0].value = 12.5; // Reserved value is not recalculated on load.
@@ -711,7 +719,168 @@ test("every existing resource and legacy Boolean achievement remains accepted", 
 
 
 // Small DOM adapter for state regression tests; browser checks are separate.
-function boot(raw = null, beforeLoad = "", storageFaults = {}) {
+function saveAndReload(app) {
+    const expected = app.state();
+    app.tick(5000);
+    assert.deepEqual(JSON.parse(app.stored()), expected);
+    const next = boot(app.stored(), "", {}, app.now());
+    assert.equal(next.error, undefined, next.error?.stack);
+    assert.deepEqual(next.state(), expected);
+    return next;
+}
+
+test("fully populated progress, scaffolding and mixed achievement states survive real persistence cycles", () => {
+    const data = legacyFixture();
+    Object.assign(data, {
+        totalOres: 321, stoneOres: 201, tier1Ores: 60, tier2Ores: 30, tier3Ores: 20, tier4Ores: 10,
+        lastOre: "Diamond", lastOreValue: 250000,
+        achievementStats: { totalOresMined: 321, oresDiscovered: 20, oresSmelted: 123 },
+        autoFurnaceMode: "oresOnly", autoFurnaceBatchMode: "full",
+        unknown: { history: [null, false, "🪨", { amount: 42 }] }
+    });
+    Object.keys(data.inventory).forEach((key, i) => { data.inventory[key] = i * 2; });
+    Object.keys(data.oreCollection).forEach((key, i) => { data.oreCollection[key] = i + 3; });
+    Object.keys(data.permanentBonuses).forEach((key, i) => { data.permanentBonuses[key] = (i + 1) / 100; });
+    Object.keys(data.cycleBonuses).forEach((key, i) => { data.cycleBonuses[key] = (i + 2) / 100; });
+    Object.keys(data.cosmetics.equipped).forEach(key => { data.cosmetics.equipped[key] = key + "-historic"; });
+    data.achievements.firstDiscovery = true;
+    data.achievements.firstSmelt = false;
+    delete data.factoryMilestones["25"];
+    let app = ready(JSON.stringify(data));
+    assert.deepEqual(app.state().achievements.firstDiscovery, { unlocked: true, claimed: false });
+    assert.deepEqual(app.state().achievements.firstSmelt, { unlocked: false, claimed: false });
+    assert.equal(app.state().factoryMilestones["25"], false);
+    const expected = app.state();
+    for (let cycle = 0; cycle < 5; cycle++) app = saveAndReload(app);
+    assert.deepEqual(app.state(), expected);
+});
+
+test("saving mid-cycle preserves reservations and stop-after-current across the exact completion boundary", () => {
+    const data = ready().state();
+    Object.assign(data, { furnaceTier: 2, cash: 1000 });
+    data.inventory.stone = 3;
+    data.inventory.amber = 2;
+    let app = ready(JSON.stringify(data));
+    app.tick(100);
+    const started = app.state();
+    assert.equal(started.autoFurnaceStartTime, app.now());
+    assert.equal(started.inventory.stone, 0);
+    assert.equal(started.inventory.amber, 0);
+    assert.equal(started.autoFurnaceBatch.reduce((n, item) => n + item.amount, 0), 5);
+    app.advance(4000);
+    app = saveAndReload(app);
+    app.run('setAutoFurnaceMode("stoneOnly"); setAutoFurnaceBatchMode("full"); stopAutoFurnace();');
+    assert.deepEqual(app.state().autoFurnaceBatch, started.autoFurnaceBatch);
+    app = saveAndReload(app);
+    app.advance(5999);
+    app.tick(100);
+    assert.equal(app.state().cash, 1000);
+    assert.equal(app.state().autoFurnaceStartTime, started.autoFurnaceStartTime);
+    app.advance(1);
+    app.tick(100);
+    assert.equal(app.state().cash, 1023);
+    assert.equal(app.state().factoryXP, 5);
+    assert.equal(app.state().achievementStats.oresSmelted, 5);
+    assert.equal(app.state().autoFurnaceStartTime, 0);
+    assert.deepEqual(app.state().autoFurnaceBatch, []);
+    for (let cycle = 0; cycle < 3; cycle++) {
+        app = saveAndReload(app);
+        app.advance(20000);
+        app.tick(100);
+        assert.equal(app.state().cash, 1023);
+        assert.equal(app.state().achievementStats.oresSmelted, 5);
+    }
+});
+
+test("enabled furnace reload completes one batch then reserves the next without duplicating payout", () => {
+    const data = ready().state();
+    data.furnaceTier = 2;
+    data.inventory.stone = 150;
+    let app = ready(JSON.stringify(data));
+    app.tick(100);
+    assert.equal(app.state().inventory.stone, 50);
+    app.advance(10000);
+    app = saveAndReload(app);
+    app.tick(100);
+    assert.equal(app.state().cash, 200);
+    assert.equal(app.state().inventory.stone, 0);
+    assert.equal(app.state().autoFurnaceBatch[0].amount, 50);
+    assert.equal(app.state().autoFurnaceStartTime, app.now());
+    app = saveAndReload(app);
+    app.tick(100);
+    assert.equal(app.state().cash, 200);
+    app.advance(10000);
+    app.tick(100);
+    assert.equal(app.state().cash, 250);
+    assert.equal(app.state().achievementStats.oresSmelted, 150);
+    app = saveAndReload(app);
+    app.advance(10000);
+    app.tick(100);
+    assert.equal(app.state().cash, 250);
+    assert.deepEqual(app.state().autoFurnaceBatch, []);
+});
+
+test("full-batch mode survives idle reload and starts only when enough resources exist", () => {
+    const data = ready().state();
+    data.furnaceTier = 2;
+    data.inventory.stone = 99;
+    let app = ready(JSON.stringify(data));
+    app.run('setAutoFurnaceMode("stoneOnly"); setAutoFurnaceBatchMode("full");');
+    app = saveAndReload(app);
+    app.tick(100);
+    assert.deepEqual(app.state().autoFurnaceBatch, []);
+    assert.equal(app.state().inventory.stone, 99);
+    app.elements.get("mineButton").onclick();
+    app.tick(100);
+    assert.equal(app.state().autoFurnaceBatch[0].amount, 100);
+    assert.equal(app.state().inventory.stone, 0);
+    app = saveAndReload(app);
+    assert.equal(app.state().autoFurnaceBatchMode, "full");
+});
+
+test("deterministic 100-mine sequence preserves purchases, discoveries, smelting and milestones through 20 reloads", () => {
+    let app = ready();
+    app.run('save.regressionMetadata = { retained: ["sequence", 1] };');
+    for (let cycle = 0; cycle < 20; cycle++) {
+        // One resource from each existing tier plus Stone, without changing production rules.
+        for (const roll of [0, 0.00001, 0.0005, 0.01, 0.5]) {
+            app.run("Math.random = () => " + roll);
+            app.elements.get("mineButton").onclick();
+        }
+        app.run("Math.random = () => 0.5;");
+        app.tick(1000);
+        app.run(`
+            for(const key of ["stone", ...ORE_KEYS]){
+                if(save.inventory[key] > 0){
+                    prepareSmelt(key, key === "stone" ? save.stoneValue : ORES[key].value, 1);
+                    confirmSmelt();
+                }
+            }
+        `);
+        if (cycle === 0) {
+            for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                app.elements.get(id).onclick();
+            assert.equal(app.state().droppers, 1);
+            assert.equal(app.state().adders, 1);
+            assert.equal(app.state().multipliers, 1);
+            assert.equal(app.state().furnaceTier, 1);
+            app.run('claimAchievement("firstDiscovery");');
+        }
+        const state = app.state();
+        assert.equal(state.achievementStats.totalOresMined, (cycle + 1) * 5);
+        for (const tier of [1, 2, 3, 4]) assert.equal(state["tier" + tier + "Ores"], cycle + 1);
+        assert.equal(state.achievementStats.oresDiscovered, 4);
+        assert.equal(state.achievements.firstDiscovery.claimed, true);
+        app = saveAndReload(app);
+    }
+    assert.equal(app.state().factoryMilestones["10"], true);
+    assert.equal(app.state().achievementStats.oresSmelted, 119);
+    assert.equal(app.state().inventory.stone, 0);
+    assert.deepEqual(app.state().regressionMetadata, { retained: ["sequence", 1] });
+    app.run("validateSaveData(save)");
+});
+
+function boot(raw = null, beforeLoad = "", storageFaults = {}, now = 1700000000000) {
     const elements = new Map();
     function element() {
         const el = {
@@ -742,6 +911,7 @@ function boot(raw = null, beforeLoad = "", storageFaults = {}) {
     const storageCalls = { read: 0, write: 0, remove: 0 };
     const context = vm.createContext({
         console,
+        testClockNow: () => now,
         document: {
             getElementById: id => elements.get(id) || null,
             createElement: () => element()
@@ -757,7 +927,7 @@ function boot(raw = null, beforeLoad = "", storageFaults = {}) {
         location: { reload() { reloaded = true; } }
     });
     const run = code => vm.runInContext(code, context);
-    run("Math.random = () => 0.5;");
+    run("Math.random = () => 0.5; Date.now = () => testClockNow();");
     vm.runInContext(ores, context, { filename: "ores.js" });
     let error;
     // Optional test-only fault injection after declarations, before startup.
@@ -768,6 +938,8 @@ function boot(raw = null, beforeLoad = "", storageFaults = {}) {
     catch (caught) { error = caught; }
     return {
         run, writes, intervals, elements, faults, storageCalls,
+        now: () => now,
+        advance: ms => { now += ms; },
         get error() { return error || run("recoveryState.error") || undefined; },
         uncaught: () => error,
         replaceStored: value => { stored = value; },

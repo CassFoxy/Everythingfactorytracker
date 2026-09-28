@@ -1,4 +1,4 @@
-# Save schema version 1 — V1-010 through V1-014
+# Save schema version 1 — V1-010 through V1-015
 
 ## Contract
 
@@ -62,7 +62,7 @@ Optionally set TEFI_BASELINE_GAME to the audited pre-change game.js file. The sm
 - Initial browser runner attempts found no bundled Chromium executable and then an incorrect test locator ("Smelt" instead of the existing "Select" label). Runner configuration/locator were corrected; the final Edge run passed. No production gameplay change was made to satisfy the runner.
 - Cross-browser/mobile, long-session, full furnace-mode matrix, full missing-field validation and V1 release playthroughs are not certified by these checks.
 
-V1-010 was reviewed and accepted; broader V1-003/V1-015 coverage remains incomplete. See V1_AUDIT.md for the original audit and design gates.
+V1-010 was reviewed and accepted. V1-015 regression verification is recorded below; broader V1-003 CI work remains separate. See V1_AUDIT.md for the original historical audit and design gates.
 
 ## Version 1 field validation — V1-011
 
@@ -235,4 +235,51 @@ JavaScript syntax checks passed for both runtime scripts and both test scripts. 
 
 Recovery UI, validation, migration and balance are unchanged. Known follow-ups remain opening-XP inconsistency, UI-owned stoneValue refresh, broader normal-gameplay storage write/quota handling and atomic cross-tab coordination. No design decision was needed for this bounded consolidation.
 
-V1-014 is implemented and tested. Recommended next ticket: **V1-015 — Save Regression Tests**, after review; do not begin it automatically.
+V1-014 was reviewed and accepted. Its schema and default-completion contract remain unchanged.
+
+## Save regression certification — V1-015
+
+This ticket changes only this document and the two existing test scripts. No production code, balance, schema version, migration, default values or recovery UI changed. No new persistence defect was found; no defect fix was required.
+
+### Focused coverage review
+
+The existing 217 cases already covered fresh/unversioned/0/1 saves, adjacent migration ordering/failures, current-version bypass, validation types/IDs, optional versus required fields, canonical object isolation, partial nested defaults, Boolean achievement conversion, unknown data, repeated populated reloads, historical furnace snapshots and completed-batch payouts. Recovery coverage already included exact export, retries, reset confirmation/cancellation, storage read/remove failures and changed-storage protection. The browser suite already covered normal gameplay/reload and the recovery journey.
+
+The remaining useful gaps were advancing time through a running furnace across reloads, enabled batch chaining, full-batch waiting, a more broadly populated state and a longer sequence combining real actions with reloads. These were addressed without duplicating the existing validation matrix:
+
+| Coverage added | Behaviour protected |
+| --- | --- |
+| Broad populated-state round trips | Nonzero mining counters across all tiers, achievement statistics, every bonus entry, multiple cosmetic slots, locked/unlocked/claimed achievements, partial milestones, unknown data and all inventory/collection keys survive five persistence cycles. |
+| Mid-cycle furnace reload | Resources are reserved once; batch values/timestamp survive mode changes and stopping; no payout at 9,999 ms; one payout at 10,000 ms; later reloads cannot repeat it. |
+| Enabled furnace chaining | A completed 100-item batch pays once, reserves the remaining 50 items, and restores that new batch independently before its single completion. |
+| Full-batch waiting | 99 Stone survives idle reload unchanged; one real mining action permits a 100-item batch that survives another reload. |
+| Longer gameplay sequence | 100 deterministic mines across four ore tiers and Stone, machine purchases, furnace upgrade, Dropper production, manual smelting, achievement claim and milestone progress survive 20 autosave/reload cycles with full state comparisons. |
+| Existing rejected fixtures strengthened | Every fixture using assertRejected now also checks handled recovery, hidden/inert gameplay, exact original export text and blocked save/autosave writes. |
+| Browser furnace integration | Actual browser storage/reload restores active runtime processing, waits until completion and does not pay the completed batch again after reload. |
+
+### Determinism and execution
+
+The existing Node VM adapter now provides a controlled clock through now()/advance(ms); callbacks still run only through the existing tick helper. Each independent boot starts at 1700000000000 ms unless supplied a retained clock. The round-trip helper preserves the clock across reloads, calls the real autosave callback, compares LocalStorage with runtime state and compares the complete reloaded state. Random mining rolls are controlled only in tests. The browser smoke suite similarly controls Date.now and interval callbacks. No wall-clock sleeping, second framework or performance benchmark was added.
+
+Run the existing commands from the repository root:
+
+```text
+node --check game/game.js
+node --check game/ores.js
+node --check game/docs/tests/save-versioning.test.cjs
+node --check game/docs/tests/browser-smoke.cjs
+node --test game/docs/tests/save-versioning.test.cjs
+node game/docs/tests/browser-smoke.cjs
+```
+
+The browser command needs Playwright and a browser: use the existing TEFI_PLAYWRIGHT_PATH and TEFI_BROWSER_CHANNEL overrides when using an installed Edge (msedge). No dependencies were installed or replaced for this ticket.
+
+**Results: 222 Node tests passed, 0 failed**, including all 217 prior cases and five new behavioural cases. Syntax checks passed. The Edge smoke suite passed all ten reported scenarios with no unexpected console/page errors, including exact recovery download, reset cancellation/confirmation and successful storage retry. The Node suite runs in approximately three seconds locally; the 20-reload sequence takes well under one second.
+
+### Foundation status and limits
+
+V1-010 through V1-015 provide a stable, regression-tested foundation for the currently implemented persistence lifecycle and subsequent V1 development, subject to the documented limits below. This does not certify the entire game or V1 release readiness. New gameplay/schema changes still require their own migration and regression coverage.
+
+Known limits remain normal-gameplay storage write/quota handling, non-atomic cross-tab coordination, non-transactional intermediate writes and manual execution of tests. Supported recovery storage failures are covered; tests do not claim resilience to process interruption between arbitrary writes. No GitHub Actions workflow is present; automated PR execution remains V1-003 work. The fresh XP 0 versus absent legacy XP 100 inconsistency and UI-side stoneValue refresh remain unchanged.
+
+V1-015 is complete for review. Recommend **V1-003 — Automated Test Framework** next to automate the established suite; after that, the gameplay roadmap resumes with V1-020 progression review. Neither ticket was started.

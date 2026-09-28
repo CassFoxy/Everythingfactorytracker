@@ -32,6 +32,8 @@ const server = http.createServer((req, res) => {
                     sessionStorage.setItem("seeded", "yes");
                 }
                 Math.random = () => 0.5;
+                window.testNow = 1700000000000;
+                Date.now = () => window.testNow;
                 window.testIntervals = [];
                 window.setInterval = (callback, ms) => {
                     window.testIntervals.push({ callback, ms });
@@ -94,6 +96,43 @@ const server = http.createServer((req, res) => {
         assert.deepEqual(app.errors, []);
         await app.context.close();
         console.log("PASS Chromium: populated unversioned save and reload; no console errors.");
+
+        // Browser integration gap: restored furnace runtime, not only stored batch data.
+        const furnaceSave = { ...current, furnaceTier: 2, cash: 1000,
+            inventory: { ...current.inventory, stone: 3, amber: 2 } };
+        const furnace = await session(JSON.stringify(furnaceSave));
+        await furnace.page.evaluate(() => {
+            setAutoFurnaceMode("oresStone");
+            startAutoFurnace();
+            stopAutoFurnace();
+        });
+        const active = await furnace.page.evaluate(() => JSON.parse(JSON.stringify(save)));
+        assert.equal(active.inventory.stone, 0);
+        assert.equal(active.inventory.amber, 0);
+        assert.equal(active.autoFurnaceBatch.reduce((n, item) => n + item.amount, 0), 5);
+        await furnace.page.reload();
+        assert.deepEqual(await furnace.page.evaluate(() => JSON.parse(JSON.stringify(save))), active);
+        await furnace.page.evaluate(() => {
+            window.testNow = save.autoFurnaceStartTime + 9999;
+            testIntervals.find(t => t.ms === 100).callback();
+        });
+        assert.equal(await furnace.page.evaluate(() => save.cash), 1000);
+        await furnace.page.evaluate(() => {
+            window.testNow++;
+            testIntervals.find(t => t.ms === 100).callback();
+        });
+        const completed = await furnace.page.evaluate(() => JSON.parse(JSON.stringify(save)));
+        assert.equal(completed.cash, 1023);
+        assert.deepEqual(completed.autoFurnaceBatch, []);
+        await furnace.page.reload();
+        await furnace.page.evaluate(() => {
+            window.testNow += 100000;
+            testIntervals.find(t => t.ms === 100).callback();
+        });
+        assert.deepEqual(await furnace.page.evaluate(() => JSON.parse(JSON.stringify(save))), completed);
+        assert.deepEqual(furnace.errors, []);
+        await furnace.context.close();
+        console.log("PASS Chromium: active furnace reload, timed completion, single payout and completed reload.");
 
         for (const raw of ["{broken", JSON.stringify({ ...current, saveVersion: 2 }),
             JSON.stringify({ ...current, cash: -1 }),
