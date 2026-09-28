@@ -628,304 +628,82 @@ function readVersionedSave(serializedSave){
 
 }
 
-function initializeGameState(loadedSave){
-save = loadedSave || {
-saveVersion: SAVE_VERSION,
-cash: 100,
-
-factoryLevel: 1,
-factoryXP: 0,
-
-    droppers: 0,
-    adders: 0,
-    multipliers: 0,
-furnaceTier: 0,
-
-    totalOres: 0,
-    stoneOres: 0,
-
-    tier1Ores: 0,
-    tier2Ores: 0,
-    tier3Ores: 0,
-    tier4Ores: 0,
-
-lastOre: "None",
-lastOreValue: 0,
-    stoneValue: 1,
-
-inventory: createDefaultInventory(),
-oreCollection: createDefaultCollection(),
-
-factoryMilestones:
-    createDefaultMilestones(),
-
-achievementStats: {
-
-    totalOresMined: 0,
-
-    oresDiscovered: 0,
-
-    oresSmelted: 0
-
-},
-
-achievements: {},
-
-permanentBonuses:{
-
-    oreValue:0,
-
-    dropperSpeed:0,
-
-    adderPower:0,
-
-    multiplierPower:0,
-
-    duplicateChance:0,
-
-    furnaceCapacity:0,
-
-    factoryXP:0,
-
-    miningLuck:0
-
-},
-
-    cycleBonuses:{
-
-    oreValue:0,
-
-    dropperSpeed:0,
-
-    adderPower:0,
-
-    multiplierPower:0,
-
-    duplicateChance:0,
-
-    furnaceCapacity:0,
-
-    factoryXP:0,
-
-    miningLuck:0,
-
-    allLuck:0,
-
-    allIncome:0,
-
-    smeltSpeed:0
-
-},
-
-cosmetics:{
-
-    unlocked:{
-
-        default:true
-
-    },
-
-    equipped:{
-
-        dropper:"default",
-
-        adder:"default",
-
-        multiplier:"default",
-
-        furnace:"default"
-
+// Canonical current-schema state. Every call owns its nested objects and arrays.
+// Resource and milestone maps follow their existing catalogues.
+function createDefaultSave(){
+    function createBonuses(){
+        return {
+            oreValue: 0, dropperSpeed: 0, adderPower: 0, multiplierPower: 0,
+            duplicateChance: 0, furnaceCapacity: 0, factoryXP: 0, miningLuck: 0,
+            allLuck: 0, allIncome: 0, smeltSpeed: 0
+        };
     }
-
+    return {
+        saveVersion: SAVE_VERSION,
+        cash: 100,
+        factoryLevel: 1,
+        factoryXP: 0,
+        droppers: 0,
+        adders: 0,
+        multipliers: 0,
+        furnaceTier: 0,
+        totalOres: 0,
+        stoneOres: 0,
+        tier1Ores: 0,
+        tier2Ores: 0,
+        tier3Ores: 0,
+        tier4Ores: 0,
+        lastOre: "None",
+        lastOreValue: 0,
+        stoneValue: 1,
+        inventory: createDefaultInventory(),
+        oreCollection: createDefaultCollection(),
+        factoryMilestones: createDefaultMilestones(),
+        achievementStats: { totalOresMined: 0, oresDiscovered: 0, oresSmelted: 0 },
+        achievements: {},
+        permanentBonuses: createBonuses(),
+        cycleBonuses: createBonuses(),
+        cosmetics: {
+            unlocked: { default: true },
+            equipped: { dropper: "default", adder: "default", multiplier: "default", furnace: "default" }
+        },
+        autoFurnaceBatch: [],
+        autoFurnaceEnabled: true,
+        autoFurnaceStartTime: 0,
+        autoFurnaceMode: "oresStone",
+        autoFurnaceBatchMode: "available"
+    };
 }
 
-};
+// Internal post-validation step: never use defaults to repair invalid values.
+// Required cash/machine fields have already passed validateSaveData.
+function completeValidatedSave(validatedSave){
+    const completed = copySaveData(validatedSave);
+    const defaults = createDefaultSave();
+    // Preserve the established missing-XP fallback; changing opening XP is a separate ticket.
+    defaults.factoryXP = 100;
 
-save.factoryLevel ??= 1;
-          save.factoryXP ??= 100;
-
-save.totalOres ??= 0;
-          save.stoneOres ??= 0;
-
-save.tier1Ores ??= 0;
-save.tier2Ores ??= 0;
-save.tier3Ores ??= 0;
-save.tier4Ores ??= 0;
-
-save.lastOre ??= "None";
-save.lastOreValue ??= 0;
-save.stoneValue ??= 1;
-save.inventory ??= {};
-save.furnaceTier ??= 0;
-
-save.autoFurnaceBatch ??= [];
-save.autoFurnaceEnabled ??= true;
-save.autoFurnaceStartTime ??= 0;
-
-save.autoFurnaceMode ??= "oresStone";
-save.autoFurnaceBatchMode ??= "available";
-
-save.inventory.stone ??= 0;
-
-ORE_KEYS.forEach(key => {
-    save.inventory[key] ??= 0;
-});
-
-save.oreCollection ??= {};
-
-ORE_KEYS.forEach(key => {
-    save.oreCollection[key] ??= 0;
-});
-
-save.factoryMilestones ??=
-    createDefaultMilestones();
-
-save.achievementStats ??= {
-
-    totalOresMined: 0,
-
-    oresDiscovered: 0,
-
-    oresSmelted: 0
-
-};
-
-save.achievementStats.totalOresMined ??= 0;
-save.achievementStats.oresDiscovered ??= 0;
-save.achievementStats.oresSmelted ??= 0;
-
-save.achievements ??= {};
-Object.keys(
-    save.achievements
-).forEach(id => {
-
-    if(
-        typeof save.achievements[id] ===
-        "boolean"
-    ){
-
-        save.achievements[id] = {
-
-            unlocked:
-                save.achievements[id],
-
-            claimed: false
-
-        };
-
+    function fillMissing(target, source){
+        for(const [key, value] of Object.entries(source)){
+            if(!Object.prototype.hasOwnProperty.call(target, key)){
+                target[key] = copySaveData(value);
+            }else if(value !== null && typeof value === "object" && !Array.isArray(value)){
+                fillMissing(target[key], value);
+            }
+        }
     }
-
-});
-save.permanentBonuses ??= {
-
-    oreValue:0,
-
-    dropperSpeed:0,
-
-    adderPower:0,
-
-    multiplierPower:0,
-
-    duplicateChance:0,
-
-    furnaceCapacity:0,
-
-    factoryXP:0,
-
-    miningLuck:0
-
-};
-
-save.permanentBonuses.oreValue ??= 0;
-save.permanentBonuses.dropperSpeed ??= 0;
-save.permanentBonuses.adderPower ??= 0;
-save.permanentBonuses.multiplierPower ??= 0;
-save.permanentBonuses.duplicateChance ??= 0;
-save.permanentBonuses.furnaceCapacity ??= 0;
-save.permanentBonuses.factoryXP ??= 0;
-save.permanentBonuses.miningLuck ??= 0;
-save.permanentBonuses.allLuck ??= 0;
-save.permanentBonuses.allIncome ??= 0;
-save.permanentBonuses.smeltSpeed ??= 0;
-
-save.cycleBonuses ??= {
-
-    oreValue:0,
-
-    dropperSpeed:0,
-
-    adderPower:0,
-
-    multiplierPower:0,
-
-    duplicateChance:0,
-
-    furnaceCapacity:0,
-
-    factoryXP:0,
-
-    miningLuck:0,
-
-    allLuck:0,
-
-    allIncome:0,
-
-    smeltSpeed:0
-
-};
-
-
-save.cycleBonuses.oreValue ??= 0;
-save.cycleBonuses.dropperSpeed ??= 0;
-save.cycleBonuses.adderPower ??= 0;
-save.cycleBonuses.multiplierPower ??= 0;
-save.cycleBonuses.duplicateChance ??= 0;
-save.cycleBonuses.furnaceCapacity ??= 0;
-save.cycleBonuses.factoryXP ??= 0;
-save.cycleBonuses.miningLuck ??= 0;
-save.cycleBonuses.allLuck ??= 0;
-save.cycleBonuses.allIncome ??= 0;
-save.cycleBonuses.smeltSpeed ??= 0;
-
-save.cosmetics ??= {
-
-    unlocked:{
-
-        default:true
-
-    },
-
-    equipped:{
-
-        dropper:"default",
-
-        adder:"default",
-
-        multiplier:"default",
-
-        furnace:"default"
-
+    fillMissing(completed, defaults);
+    // Existing Boolean achievement compatibility, after validation and default completion.
+    for(const [id, progress] of Object.entries(completed.achievements)){
+        if(typeof progress === "boolean"){
+            completed.achievements[id] = { unlocked: progress, claimed: false };
+        }
     }
+    return completed;
+}
 
-};
-
-save.cosmetics.unlocked ??= {};
-save.cosmetics.equipped ??= {};
-
-save.cosmetics.unlocked.default ??= true;
-
-save.cosmetics.equipped.dropper ??= "default";
-save.cosmetics.equipped.adder ??= "default";
-save.cosmetics.equipped.multiplier ??= "default";
-save.cosmetics.equipped.furnace ??= "default";
-
-FACTORY_MILESTONES.forEach(level => {
-
-    save.factoryMilestones[level]
-        ??= false;
-
-});
-
+function initializeGameState(loadedSave){
+    save = loadedSave === null ? createDefaultSave() : completeValidatedSave(loadedSave);
 }
 
           let pendingSmelt = {
@@ -1118,9 +896,6 @@ function upgradeFurnace(){
 
     save.furnaceTier++;
 
-    save.autoFurnaceMode ??= "oresStone";
-    save.autoFurnaceBatchMode ??= "available";
-
     saveGame();
     updateUI();
 
@@ -1163,16 +938,14 @@ if(
 
 function getAutoFurnaceMode(){
 
-    return save.autoFurnaceMode ||
-        "oresStone";
+    return save.autoFurnaceMode;
 
 }
 
 
 function getAutoFurnaceBatchMode(){
 
-    return save.autoFurnaceBatchMode ||
-        "available";
+    return save.autoFurnaceBatchMode;
 
 }
 

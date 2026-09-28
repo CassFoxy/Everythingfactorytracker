@@ -1,4 +1,4 @@
-# Save schema version 1 — V1-010 through V1-013
+# Save schema version 1 — V1-010 through V1-014
 
 ## Contract
 
@@ -72,7 +72,7 @@ Validation runs on the parsed version-compatible candidate before any existing d
 
 Cash and the three machine counts are required on stored saves because the existing legacy loader has no missing-field defaults for them. Missing values are rejected, not replaced with fresh-game money or machines. Fresh saves still start with exactly the existing values.
 
-Other established optional fields may be absent; the unchanged default block then supplies them, including partial inventory/collection maps, milestone flags, bonus entries, cosmetics, furnace settings and achievement statistics. Explicit null, wrong types and non-finite numbers are invalid rather than treated as absence. This also catches NaN/Infinity serialised as JSON null. No strings/Booleans are coerced into numbers.
+Other established optional fields may be absent; canonical default completion supplies them, including partial inventory/collection maps, milestone flags, bonus entries, cosmetics, furnace settings and achievement statistics. Explicit null, wrong types and non-finite numbers are invalid rather than treated as absence. This also catches NaN/Infinity serialised as JSON null. No strings/Booleans are coerced into numbers.
 
 ### Enforced rules
 
@@ -105,7 +105,7 @@ Finite large progression values are not given new balance caps or a blanket safe
 
 Fresh XP remains 0, while absent legacy XP defaults to 100. Level/XP, totals/collection and achievement progress are not forcibly reconciled: current immediate saves can capture intermediate counters, and repairing them would exceed validation scope. Bonus sign/cap rules and cosmetic eligibility remain undefined; their type-safe scaffolding is preserved.
 
-Validation covers loading, not every live mutation or storage write. Transactional saves, normal-gameplay storage/quota errors, atomic cross-tab coordination, automatic backups and schema consolidation (V1-014) remain separate work. Migration and recovery are described below. A rejected save stops gameplay and displays recovery options; its original data stays intact.
+Validation covers loading, not every live mutation or storage write. Transactional saves, normal-gameplay storage/quota errors, atomic cross-tab coordination and automatic backups remain separate work. Migration, recovery and canonical default consolidation are described below. A rejected save stops gameplay and displays recovery options; its original data stays intact.
 
 ### V1-011 test results
 
@@ -187,5 +187,52 @@ No import/replacement flow or automatic repair is included. Manual import can be
 
 Normal gameplay quota/write-failure handling, atomic cross-tab coordination and transactional saves remain follow-ups. Explicit recovery actions avoid writes entirely; denied getItem/removeItem are handled here. Schema consolidation belongs to V1-014. The known fresh XP 0 versus missing legacy XP 100 inconsistency is unchanged.
 
-V1-013 is implemented and tested. Recommended next ticket: **V1-014 — Save Schema Consolidation**, after review; do not begin it automatically.
+V1-013 was reviewed and accepted. Its recovery contract remains unchanged by V1-014.
 
+## Canonical state and ownership — V1-014
+
+The current persisted shape remains Version 1. No fields were renamed, moved or removed, and no migration was added. The existing unversioned/0 -> 1 chain remains complete. Conceptual ownership below does not introduce extra nesting.
+
+createDefaultSave() is the authoritative constructor for complete fresh player state. Inventory/collection maps use the existing resource catalogue helpers; milestone keys use createDefaultMilestones. Every call returns independent objects and arrays, including separate permanent/cycle bonus maps. The same constructor now supplies missing optional defaults after loading. Furnace upgrades and mode getters no longer repeat initialization defaults.
+
+Loading remains parse -> adjacent migrations -> validation -> completeValidatedSave -> runtime initialization. completeValidatedSave is an internal helper for already-validated data: it copies its input, fills only missing own properties recursively, preserves present values and unknown data, and retains Boolean achievement conversion. Arrays are preserved as complete values, not merged by index. Invalid/null values are rejected before this helper; defaults cannot make required cash/machine fields optional.
+
+There is one deliberate compatibility exception: absent XP in an existing save still receives 100; fresh XP remains 0. This is explicit beside default completion, rather than an accidental second set of defaults. Fixing opening XP is outside this ticket.
+
+### Current persisted field ownership
+
+| Owner | Fields and meaning |
+| --- | --- |
+| Persistence | saveVersion; Version 1 tag. Unknown top-level data is retained through load and normal save. |
+| Economy | cash; available balance. |
+| Factory progression | factoryXP, factoryLevel; current progression snapshot. |
+| Machine ownership | droppers, adders, multipliers; owned counts. |
+| Inventory | inventory; stone plus all current ORE_KEYS, with missing counts defaulting to zero. |
+| Discovery | oreCollection; per-ore collection counts, distinct from spendable inventory. |
+| Statistics/mining | totalOres, stoneOres, tier1Ores through tier4Ores, lastOre, lastOreValue; existing counters and last-result display data. |
+| Achievements | achievements (known ID -> unlocked/claimed), achievementStats (totalOresMined, oresDiscovered, oresSmelted). Missing achievements remain an empty map; Boolean entries retain their compatibility conversion. |
+| Milestones | factoryMilestones; generated threshold -> claimed Boolean. |
+| Existing bonus scaffolding | permanentBonuses, cycleBonuses; oreValue, dropperSpeed, adderPower, multiplierPower, duplicateChance, furnaceCapacity, factoryXP, miningLuck, allLuck, allIncome, smeltSpeed. All already existed in initialized Version 1 state. No reward system is added. |
+| Cosmetics | cosmetics.unlocked and cosmetics.equipped; existing default skin and four machine slots. |
+| Furnace/automation | furnaceTier, autoFurnaceEnabled, autoFurnaceMode, autoFurnaceBatchMode, autoFurnaceStartTime, autoFurnaceBatch. Batch entries retain key, amount, value, name and emoji snapshots for reserved resources. |
+| Stone pricing cache | stoneValue; existing persisted value refreshed by updateUI from Adders. Retained for compatibility. |
+
+For exact defaults, see createDefaultSave in game.js. validateSaveData remains the authority for accepted types, IDs, required fields and constraints. A stored save may omit established optional fields; runtime state is completed from the constructor before gameplay starts. Normal saveGame serializes that state under the unchanged ef_incremental key. No separate serializer is needed while runtime and stored structures are identical.
+
+### Persisted versus derived/runtime values
+
+No existing field is removed. stoneValue is derivable but remains persisted; changing that contract or its UI-side refresh is unnecessary here. Factory Level and some statistics can overlap other data, but immediate saves may capture intermediate counters, so loading does not reconcile or reinterpret them. Collection, inventory and achievement statistics are not interchangeable.
+
+Auto Furnace processing status and its runtime mirror are restored from the saved batch/timestamp/enabled fields. Batch unit values are historical snapshots and must not be recalculated from today's upgrades. UI selections, pending dialogs, recovery snapshots, timer handles and gameStarted remain runtime-only. Existing cost/capacity/progress calculations continue to derive their values without new persisted fields.
+
+Future fields should be owned by their gameplay system, declared centrally when that system exists, validated, and accompanied by adjacent migrations whenever the persisted schema materially changes. No grid, settings, mutation, Rebirth or offline placeholders are introduced.
+
+### Verification and follow-up
+
+**217 Node tests passed, 0 failed:** all 207 V1-010 through V1-013 tests plus 10 consolidation tests. New cases cover canonical fresh state, nested object independence, every optional top-level default, every nested default leaf, immutable/deterministic completion, all legacy/current versions over repeated populated round trips, required-field protection and furnace mode preservation through upgrades.
+
+JavaScript syntax checks passed for both runtime scripts and both test scripts. The existing Edge smoke suite passed normal mining/purchases/furnaces/menus, save/reload, legacy saves, rejected saves, exact raw recovery download, confirmation/cancellation and storage retry. Every saved gameplay field matched accepted V1-013 after identical actions; no unexpected console/page errors occurred.
+
+Recovery UI, validation, migration and balance are unchanged. Known follow-ups remain opening-XP inconsistency, UI-owned stoneValue refresh, broader normal-gameplay storage write/quota handling and atomic cross-tab coordination. No design decision was needed for this bounded consolidation.
+
+V1-014 is implemented and tested. Recommended next ticket: **V1-015 — Save Regression Tests**, after review; do not begin it automatically.

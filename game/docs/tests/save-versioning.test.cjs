@@ -12,6 +12,132 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+test("canonical factory creates the complete fresh state and a valid round trip", () => {
+    const app = ready();
+    const defaults = JSON.parse(app.run("JSON.stringify(createDefaultSave())"));
+    assert.deepEqual(app.state(), defaults);
+    app.run("validateSaveData(createDefaultSave()); saveGame();");
+    assert.deepEqual(ready(app.stored()).state(), defaults);
+});
+
+test("canonical saves own every mutable nested value independently", () => {
+    const app = ready();
+    const before = app.state();
+    app.run(`
+        const isolated = createDefaultSave();
+        isolated.inventory.stone = 99;
+        isolated.oreCollection.diamond = 2;
+        isolated.factoryMilestones[10] = true;
+        isolated.achievementStats.oresSmelted = 10;
+        isolated.achievements.firstSwing = true;
+        isolated.permanentBonuses.oreValue = 7;
+        isolated.cycleBonuses.factoryXP = 9;
+        isolated.cosmetics.unlocked.default = false;
+        isolated.cosmetics.equipped.furnace = "test";
+        isolated.autoFurnaceBatch.push({ test: true });
+    `);
+    assert.deepEqual(JSON.parse(app.run("JSON.stringify(createDefaultSave())")), before);
+    assert.deepEqual(app.state(), before);
+    assert.equal(app.run("isolated.cycleBonuses.oreValue"), 0);
+});
+
+test("each missing optional top-level field uses canonical defaults with the preserved XP exception", () => {
+    const defaults = ready().state();
+    for (const key of Object.keys(defaults)) {
+        if (["saveVersion", "cash", "droppers", "adders", "multipliers"].includes(key)) continue;
+        const partial = structuredClone(defaults);
+        delete partial[key];
+        const expected = structuredClone(defaults);
+        if (key === "factoryXP") expected.factoryXP = 100;
+        assert.deepEqual(ready(JSON.stringify(partial)).state(), expected, key);
+    }
+});
+
+test("every missing nested default is restored without replacing its populated siblings", () => {
+    const defaults = ready().state();
+    const paths = [];
+    function leaves(value, prefix = []) {
+        for (const [key, child] of Object.entries(value)) {
+            const next = [...prefix, key];
+            if (child && typeof child === "object" && !Array.isArray(child)) leaves(child, next);
+            else if (next.length > 1) paths.push(next);
+        }
+    }
+    leaves(defaults);
+    for (const keys of paths) {
+        const partial = structuredClone(defaults);
+        partial.cash = 4321;
+        let parent = partial;
+        for (const key of keys.slice(0, -1)) parent = parent[key];
+        delete parent[keys.at(-1)];
+        assert.deepEqual(ready(JSON.stringify(partial)).state(), { ...defaults, cash: 4321 }, keys.join("."));
+    }
+});
+
+test("completion is deterministic and never mutates the validated input or retained unknown data", () => {
+    const app = ready();
+    app.run(`
+        const completionInput = readVersionedSave(JSON.stringify({
+            cash: 12, droppers: 0, adders: 0, multipliers: 0,
+            inventory: { stone: 4 }, achievements: { firstSwing: true },
+            extra: { list: [1, { kept: true }] }
+        }));
+        const inputBefore = JSON.stringify(completionInput);
+        const completedOne = completeValidatedSave(completionInput);
+        const completedTwo = completeValidatedSave(completionInput);
+    `);
+    assert.equal(app.run("JSON.stringify(completedOne)"), app.run("JSON.stringify(completedTwo)"));
+    app.run("completedOne.extra.list[1].kept = false; completedOne.inventory.stone = 9;");
+    assert.equal(app.run("JSON.stringify(completionInput)"), app.run("inputBefore"));
+    assert.equal(app.run("completedTwo.extra.list[1].kept"), true);
+    assert.equal(app.run("completedTwo.achievements.firstSwing.claimed"), false);
+});
+
+for (const version of [undefined, 0, 1]) {
+    test("consolidated defaults preserve all progress over repeated schema " + version + " loads", () => {
+        const data = legacyFixture();
+        if (version !== undefined) data.saveVersion = version;
+        let raw = JSON.stringify(data);
+        const expected = { ...data, saveVersion: 1 };
+        for (let round = 0; round < 3; round++) {
+            const app = ready(raw);
+            assert.deepEqual(app.state(), expected);
+            assert.equal(app.run("autoFurnaceState.processing"), true);
+            assert.equal(app.run("recoveryState.active"), false);
+            app.run("validateSaveData(save); saveGame();");
+            raw = app.stored();
+        }
+    });
+}
+
+test("required fields and invalid optional values still fail before canonical defaults", () => {
+    const defaults = ready().state();
+    for (const key of ["cash", "droppers", "adders", "multipliers"]) {
+        const data = { ...defaults };
+        delete data[key];
+        const raw = JSON.stringify(data);
+        const app = boot(raw);
+        assertRecovery(app, raw, "VALIDATION_ERROR");
+        assert.equal(app.run("getRecoveryRawSave()"), raw);
+    }
+    const raw = JSON.stringify({ ...defaults, inventory: null });
+    assertRecovery(boot(raw), raw, "VALIDATION_ERROR");
+});
+
+test("furnace upgrades preserve canonical and player-selected automation modes", () => {
+    for (const [mode, batchMode] of [["oresStone", "available"], ["stoneOnly", "full"]]) {
+        const data = ready().state();
+        Object.assign(data, { cash: 10000, autoFurnaceMode: mode, autoFurnaceBatchMode: batchMode });
+        const app = ready(JSON.stringify(data));
+        app.run("upgradeFurnace(); upgradeFurnace();");
+        assert.equal(app.state().furnaceTier, 2);
+        assert.equal(app.run("getAutoFurnaceMode()"), mode);
+        assert.equal(app.run("getAutoFurnaceBatchMode()"), batchMode);
+        app.run("saveGame()");
+        assert.deepEqual(ready(app.stored()).state(), app.state());
+    }
+});
+
 test("download failure leaves recovery data intact and shows a concise message", () => {
     const app = boot("{bad");
     app.run("exportRecoverySave()"); // Node adapter deliberately has no browser download API.
