@@ -12,6 +12,178 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+test("migration registry contains only real 0 -> 1; current production schema remains 1", () => {
+    const app = ready();
+    assert.equal(app.run("SAVE_VERSION"), 1);
+    assert.equal(app.run("Object.keys(SAVE_MIGRATIONS).join(',')"), "0");
+});
+
+for (const version of [undefined, 0, 1]) {
+    test("migration preserves all fields for " + (version === undefined ? "unversioned" : "version " + version), () => {
+        const data = legacyFixture();
+        if (version !== undefined) data.saveVersion = version;
+        const app = ready();
+        app.run("var migrationInput = " + JSON.stringify(data) + "; var migrationResult = migrateSaveData(migrationInput);");
+        assert.deepEqual(JSON.parse(app.run("JSON.stringify(migrationResult)")), { ...data, saveVersion: 1 });
+        assert.deepEqual(JSON.parse(app.run("JSON.stringify(migrationInput)")), data);
+        assert.equal(app.run("migrationResult !== migrationInput && migrationResult.inventory !== migrationInput.inventory"), true);
+        app.run("validateSaveData(migrationResult)");
+    });
+}
+
+test("fresh load skips migration and current load skips registry transforms", () => {
+    for (const raw of [null, JSON.stringify({ ...legacyFixture(), saveVersion: 1 })]) {
+        const app = boot(raw, 'SAVE_MIGRATIONS[0] = () => { throw new Error("must not run"); };');
+        assert.equal(app.error, undefined);
+        assert.equal(app.state().saveVersion, 1);
+        assert.equal(app.writes.length, 0);
+    }
+});
+
+test("artificial chain runs each adjacent step in order, independently of registry insertion order", () => {
+    const app = ready();
+    app.run(`
+        var calls = [];
+        var sourceData = { saveVersion: 0, nested: { values: [5] }, retained: "yes" };
+        var chain = {
+            2: data => { calls.push(2); data.nested.values.push(8); return { ...data, saveVersion: 3 }; },
+            0: data => { calls.push(0); data.nested.values.push(6); return { ...data, saveVersion: 1 }; },
+            1: data => { calls.push(1); data.nested.values.push(7); return { ...data, saveVersion: 2 }; }
+        };
+        var firstResult = migrateSaveData(sourceData, 3, chain);
+        var firstCalls = calls.slice();
+        calls = [];
+        var secondResult = migrateSaveData(sourceData, 3, chain);
+    `);
+    assert.deepEqual(JSON.parse(app.run("JSON.stringify(firstCalls)")), [0, 1, 2]);
+    assert.deepEqual(JSON.parse(app.run("JSON.stringify(calls)")), [0, 1, 2]);
+    assert.deepEqual(JSON.parse(app.run("JSON.stringify(firstResult)")),
+        { saveVersion: 3, nested: { values: [5, 6, 7, 8] }, retained: "yes" });
+    assert.equal(app.run("JSON.stringify(firstResult) === JSON.stringify(secondResult)"), true);
+    assert.deepEqual(JSON.parse(app.run("JSON.stringify(sourceData)")),
+        { saveVersion: 0, nested: { values: [5] }, retained: "yes" });
+    assert.equal(app.run("SAVE_VERSION"), 1);
+});
+
+test("chain starts at the stored version and never reruns earlier steps", () => {
+    const app = ready();
+    assert.equal(app.run(`migrateSaveData({ saveVersion: 1 }, 2, {
+        0: () => { throw new Error("already migrated"); },
+        1: data => ({ ...data, saveVersion: 2 })
+    }).saveVersion`), 2);
+});
+
+test("missing intermediate path fails instead of skipping ahead", () => {
+    const app = ready();
+    app.run("var laterCalled = false;");
+    assert.throws(() => app.run(`migrateSaveData({ saveVersion: 0 }, 3, {
+        0: data => ({ ...data, saveVersion: 1 }),
+        2: data => { laterCalled = true; return { ...data, saveVersion: 3 }; }
+    })`), /Missing save migration 1 -> 2/);
+    assert.equal(app.run("laterCalled"), false);
+});
+
+for (const output of ["null", "[]", "undefined", "7", "{}", "{ saveVersion: 0 }",
+    "{ saveVersion: 2 }", '{ saveVersion: "1" }', 'Object.create({ saveVersion: 1 })']) {
+    test("reject migration step with wrong result: " + output, () => {
+        const app = ready();
+        assert.throws(() => app.run("migrateSaveData({ saveVersion: 0 }, 1, { 0: () => (" + output + ") })"),
+            /migration 0 -> 1 must return an object with saveVersion 1/);
+    });
+}
+
+test("failed later step leaves the original nested source intact", () => {
+    const app = ready();
+    app.run("var original = { saveVersion: 0, inventory: { stone: 4 } };");
+    assert.throws(() => app.run(`migrateSaveData(original, 2, {
+        0: data => { data.inventory.stone = 99; return { ...data, saveVersion: 1 }; },
+        1: data => { data.inventory.stone = 0; throw new Error("test failure"); }
+    })`), /migration 1 -> 2 failed: test failure/);
+    assert.equal(app.run("original.inventory.stone"), 4);
+    assert.equal(app.run("original.saveVersion"), 0);
+});
+
+for (const [label, setup, diagnostic] of [
+    ["missing step", "delete SAVE_MIGRATIONS[0];", /Missing save migration 0 -> 1/],
+    ["non-function step", "SAVE_MIGRATIONS[0] = null;", /Missing save migration 0 -> 1/],
+    ["exception", 'SAVE_MIGRATIONS[0] = data => { data.inventory.stone = 0; throw new Error("fixture failure"); };', /migration 0 -> 1 failed: fixture failure/],
+    ["skipped version", "SAVE_MIGRATIONS[0] = data => ({ ...data, saveVersion: 2 });", /must return an object with saveVersion 1/],
+    ["invalid migrated fields", "SAVE_MIGRATIONS[0] = data => ({ ...data, saveVersion: 1, cash: -1 });", /Invalid save: cash/]
+]) {
+    test("startup failure preserves raw bytes and blocks timers: " + label, () => {
+        const raw = "\n  " + JSON.stringify(legacyFixture(), null, 2) + "\n";
+        const app = boot(raw, setup);
+        assert.match(app.error?.message || "", diagnostic);
+        assert.equal(app.stored(), raw);
+        assert.equal(app.writes.length, 0);
+        assert.equal(app.intervals.length, 0);
+        assert.equal(app.elements.get("mineButton").onclick, undefined);
+    });
+}
+
+test("migration occurs before validation, then existing defaults and Boolean conversion apply", () => {
+    const data = { cash: 5, droppers: 0, adders: 0, multipliers: 0, achievements: { firstSwing: true } };
+    const app = boot(JSON.stringify(data), `
+        var loadOrder = [];
+        const actualMigration = SAVE_MIGRATIONS[0];
+        SAVE_MIGRATIONS[0] = data => { loadOrder.push("migrate"); return actualMigration(data); };
+        const actualValidation = validateSaveData;
+        validateSaveData = data => {
+            loadOrder.push("validate");
+            if(data.saveVersion !== 1 || "factoryXP" in data || data.achievements.firstSwing !== true)
+                throw new Error("incorrect pipeline order");
+            actualValidation(data);
+        };
+    `);
+    assert.equal(app.error, undefined);
+    assert.deepEqual(JSON.parse(app.run("JSON.stringify(loadOrder)")), ["migrate", "validate"]);
+    assert.equal(app.state().factoryXP, 100);
+    assert.deepEqual(app.state().achievements.firstSwing, { unlocked: true, claimed: false });
+    assert.equal(app.writes.length, 0);
+});
+
+test("migration copying preserves unknown data, own __proto__ keys and non-finite values for validation", () => {
+    const app = ready();
+    app.run(`
+        var source = JSON.parse('{"saveVersion":0,"__proto__":{"keep":true},"unknown":{"nested":[null,false,{"n":7}]}}');
+        var result = migrateSaveData(source);
+        result.unknown.nested[2].n = 8;
+        result.__proto__.keep = false;
+    `);
+    assert.equal(app.run("source.unknown.nested[2].n"), 7);
+    assert.equal(app.run("source.__proto__.keep"), true);
+    assert.equal(app.run("Object.prototype.keep"), undefined);
+    assert.equal(app.run("migrateSaveData({ saveVersion: 0, cash: Infinity }).cash"), Infinity);
+    assert.throws(() => app.run("validateSaveData(migrateSaveData({ saveVersion: 0, cash: Infinity }))"), /cash/);
+});
+
+test("invalid/future versions are rejected before any migration executes", () => {
+    const app = ready();
+    app.run("var ranMigration = false; var testRegistry = { 0: data => { ranMigration = true; return data; } };");
+    for (const version of ["2", "-1", "1.5", '"1"', "null", "NaN", "Infinity"]) {
+        assert.throws(() => app.run("migrateSaveData({ saveVersion: " + version + " }, 1, testRegistry)"),
+            /saveVersion|newer game version/);
+    }
+    assert.equal(app.run("ranMigration"), false);
+    assert.throws(() => app.run("migrateSaveData({ saveVersion: 1 }, 0, testRegistry)"), /newer game version/);
+});
+
+test("inherited registry entries cannot supply a required migration", () => {
+    const app = ready();
+    assert.throws(() => app.run(`migrateSaveData({ saveVersion: 0 }, 1,
+        Object.create({ 0: data => ({ ...data, saveVersion: 1 }) }))`), /Missing save migration/);
+});
+
+test("production migration is deterministic, preserves invalid fields and never repairs corruption", () => {
+    const app = ready();
+    app.run('var corruptSource = { saveVersion: 0, cash: -5, inventory: null };');
+    assert.equal(app.run("JSON.stringify(migrateSaveData(corruptSource)) === JSON.stringify(migrateSaveData(corruptSource))"), true);
+    assert.equal(app.run("migrateSaveData(corruptSource).cash"), -5);
+    assert.equal(app.run("migrateSaveData(corruptSource).inventory"), null);
+    assert.throws(() => app.run("validateSaveData(migrateSaveData(corruptSource))"), /cash/);
+});
+
+
 function assertRejected(raw, expectedPath) {
     const app = boot(raw);
     assert.match(app.error?.message || "", /Invalid save|saveVersion|newer game version/);
@@ -231,7 +403,7 @@ test("every existing resource and legacy Boolean achievement remains accepted", 
 
 
 // Small DOM adapter for state regression tests; browser checks are separate.
-function boot(raw = null) {
+function boot(raw = null, beforeLoad = "") {
     const elements = new Map();
     function element() {
         const el = {
@@ -277,7 +449,11 @@ function boot(raw = null) {
     run("Math.random = () => 0.5;");
     vm.runInContext(ores, context, { filename: "ores.js" });
     let error;
-    try { vm.runInContext(game, context, { filename: "game.js" }); }
+    // Optional test-only fault injection after declarations, before startup.
+    const marker = "let save = readVersionedSave(";
+    assert.ok(game.includes(marker));
+    const source = beforeLoad ? game.replace(marker, beforeLoad + "\n" + marker) : game;
+    try { vm.runInContext(source, context, { filename: "game.js" }); }
     catch (caught) { error = caught; }
     return {
         run, error, writes, intervals, elements,

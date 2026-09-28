@@ -1,4 +1,4 @@
-# Save schema version 1 — V1-010 and V1-011
+# Save schema version 1 — V1-010, V1-011 and V1-012
 
 ## Contract
 
@@ -14,7 +14,7 @@ Schema versions are non-negative safe integers independent of game, Bible and de
 - Reads do not immediately write. Existing saves/autosaves persist the tag using the unchanged storage key and cadence. Unknown fields are retained.
 - Active furnace batch, timestamp, modes and stopped/enabled state remain in their original fields. No offline simulation is added.
 
-`readVersionedSave` has no DOM/storage side effects. It now calls `validateSaveData` before returning a stored state. The V1-011 field contract below supplements the original version checks.
+`readVersionedSave` has no DOM/storage side effects. It parses JSON, calls `migrateSaveData`, then calls `validateSaveData` before returning a stored state. The V1-011 and V1-012 contracts below supplement the original version checks.
 
 ## Compatibility and limits
 
@@ -105,7 +105,7 @@ Finite large progression values are not given new balance caps or a blanket safe
 
 Fresh XP remains 0, while absent legacy XP defaults to 100. Level/XP, totals/collection and achievement progress are not forcibly reconciled: current immediate saves can capture intermediate counters, and repairing them would exceed validation scope. Bonus sign/cap rules and cosmetic eligibility remain undefined; their type-safe scaffolding is preserved.
 
-This ticket validates loading, not every live mutation or storage write. Transactional saves, storage/quota errors, concurrent tabs, migration infrastructure (V1-012), recovery UI/backups (V1-013), and schema consolidation (V1-014) remain separate work. A rejected save still stops startup and reports a console error; its original data stays intact.
+Validation covers loading, not every live mutation or storage write. Transactional saves, storage/quota errors, concurrent tabs, recovery UI/backups (V1-013), and schema consolidation (V1-014) remain separate work. Migration infrastructure is described below. A rejected save still stops startup and reports a console error; its original data stays intact.
 
 ### V1-011 test results
 
@@ -113,5 +113,44 @@ This ticket validates loading, not every live mutation or storage write. Transac
 
 Syntax checks passed for both game scripts and both existing test scripts. The existing Edge browser smoke runner passed normal gameplay/menus, save/reload, legacy saves, malformed JSON, future versions, negative cash, wrongly typed inventory counts and a null furnace batch. Rejected cases had their expected startup error and no timers. The normal gameplay snapshot matched accepted V1-010 across all saved fields.
 
-V1-011 is implemented and tested. Recommended next ticket: **V1-012 — Save Migration**. Do not begin it until review.
+V1-011 was reviewed and accepted. Its validation rules remain unchanged by V1-012.
+
+## Ordered save migrations — V1-012
+
+The production schema remains **saveVersion 1**. Loading now follows:
+
+```text
+Read LocalStorage → parse JSON → identify version → migrate each step
+→ validate current-schema state → apply established defaults → start gameplay
+```
+
+### Registry and step contract
+
+`SAVE_MIGRATIONS` is keyed by source version. The only production entry is `0`, which returns the existing data plus `saveVersion: 1`. Unversioned input is identified as legacy 0. No Version 2 schema or future gameplay fields are introduced.
+
+`migrateSaveData(data, targetVersion = SAVE_VERSION, migrations = SAVE_MIGRATIONS)` advances in a loop. At each version N it requires an own registry entry N that is a function, calls it, and requires a returned object whose own saveVersion is exactly N + 1. Missing steps, thrown exceptions, invalid results, skipped versions and downgrades fail with a diagnostic naming the affected step. Invalid/future input versions are rejected before any step runs.
+
+The optional target/registry arguments allow test-only artificial chains without changing production configuration. Normal loading always uses the production defaults. Current-version saves run no registry functions.
+
+Each migration must be synchronous and deterministic, with no storage, DOM, timer, random or clock side effects. It should preserve unknown fields unless an approved schema transformation explicitly changes them. New real schemas must add the next adjacent step and tests before increasing SAVE_VERSION; older entries remain to support the entire chain.
+
+### Data ownership, validation and failure
+
+The runner recursively copies parsed JSON data before running steps, including nested objects and arrays. Even an in-place migration, or a later step that throws, cannot mutate the caller's original parsed object through the provided argument. Own property names such as __proto__ remain data properties. The copy does not use stringify/parse, which would turn non-finite numbers into null before validation.
+
+This helper is for parsed JSON trees, not arbitrary cyclic objects or browser objects. Future migration authors remain responsible for avoiding external side effects and for preserving fields their transformation does not own.
+
+Migration performs schema transformations, not corruption repair. After reaching the target, `readVersionedSave` separately calls the unchanged V1-011 validator. Existing optional defaults and Boolean achievement conversion then run exactly as before, including for already-versioned saves. Missing/invalid fields are not silently repaired by a migration.
+
+No migration or validation writes to LocalStorage during loading. Failed loads abort before gameplay handlers/timers and preserve the original stored bytes. Successful migrated data is persisted only by the existing normal save/autosave paths.
+
+### V1-012 test results
+
+- **186 Node tests passed, 0 failed**: all 158 existing cases plus 28 migration cases in the same test harness.
+- New tests cover unversioned/0/1 compatibility, exact data preservation, unknown nested fields, source isolation, current/fresh no-transform paths, deterministic results, multiple adjacent test-only steps, missing intermediate steps, invalid step outputs, thrown errors, version rejection, pipeline ordering and post-migration validation.
+- Test-only startup fault injection verifies original bytes, no writes, no handlers and no timers after migration or validation failure. Repeated save/load, active furnace batches and established defaults remain covered by the existing regressions.
+- Syntax checks passed for game.js, ores.js and both existing test scripts.
+- The unchanged Edge browser smoke suite passed normal gameplay, menus, save/reload, legacy loading and expected corrupted/future-save rejection. Saved gameplay state matched accepted V1-011 after identical actions, with no unexpected console/page errors.
+
+V1-012 is implemented and tested. The starting-XP inconsistency and existing validation boundaries are unchanged. Storage failures, concurrent tabs, recovery UI/backups and later schema consolidation remain separate work. Recommended next ticket: **V1-013 — Corrupted Save Recovery**, after review.
 

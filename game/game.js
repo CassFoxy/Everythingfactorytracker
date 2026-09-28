@@ -395,38 +395,82 @@ function validateSaveData(data){
 }
 
 
-function readVersionedSave(serializedSave){
+// Each key is the source version. A step must return the next version only.
+const SAVE_MIGRATIONS = {
+    0: data => ({ ...data, saveVersion: 1 })
+};
 
-    if(serializedSave === null)
-        return null;
+// Parsed saves contain only JSON values. Unlike stringify/parse, this preserves
+// non-finite parsed numbers for the validator to reject, rather than coercing them.
+function copySaveData(value){
+    if(value === null || typeof value !== "object") return value;
+    if(Array.isArray(value)) return value.map(copySaveData);
+    return Object.fromEntries(
+        Object.entries(value).map(([key, child]) => [key, copySaveData(child)])
+    );
+}
 
-    const data = JSON.parse(serializedSave);
+function migrateSaveData(data, targetVersion = SAVE_VERSION, migrations = SAVE_MIGRATIONS){
 
-    if(
-        data === null ||
-        typeof data !== "object" ||
-        Array.isArray(data)
-    ){
+    if(data === null || typeof data !== "object" || Array.isArray(data)){
         throw new Error("Invalid save: expected a player-state object. Stored data was not changed.");
     }
 
-    const version = Object.prototype.hasOwnProperty.call(data, "saveVersion")
+    let version = Object.prototype.hasOwnProperty.call(data, "saveVersion")
         ? data.saveVersion
         : 0;
 
     if(!Number.isSafeInteger(version) || version < 0){
         throw new Error("Invalid saveVersion. Stored data was not changed.");
     }
-
-    if(version > SAVE_VERSION){
+    if(!Number.isSafeInteger(targetVersion) || targetVersion < 0){
+        throw new Error("Invalid migration target version. Stored data was not changed.");
+    }
+    if(version > targetVersion){
         throw new Error("This save requires a newer game version. Stored data was not changed.");
     }
 
-    // Keep every existing field. Existing missing-field defaults run below.
-    // Future schema changes must add explicit migrations, not just bump this tag.
-    const versionedData = { ...data, saveVersion: SAVE_VERSION };
-    validateSaveData(versionedData);
-    return versionedData;
+    // Even an in-place migration must not mutate the caller's parsed object.
+    let migrated = copySaveData(data);
+    while(version < targetVersion){
+        const nextVersion = version + 1;
+        const step = Object.prototype.hasOwnProperty.call(migrations, version)
+            ? migrations[version]
+            : undefined;
+        if(typeof step !== "function"){
+            throw new Error("Missing save migration " + version + " -> " + nextVersion +
+                ". Stored data was not changed.");
+        }
+
+        let result;
+        try{
+            result = step(migrated);
+        }catch(error){
+            throw new Error("Save migration " + version + " -> " + nextVersion +
+                " failed: " + (error instanceof Error ? error.message : String(error)) +
+                ". Stored data was not changed.");
+        }
+        if(result === null || typeof result !== "object" || Array.isArray(result) ||
+            !Object.prototype.hasOwnProperty.call(result, "saveVersion") ||
+            result.saveVersion !== nextVersion){
+            throw new Error("Save migration " + version + " -> " + nextVersion +
+                " must return an object with saveVersion " + nextVersion +
+                ". Stored data was not changed.");
+        }
+        migrated = result;
+        version = nextVersion;
+    }
+    return migrated;
+}
+
+function readVersionedSave(serializedSave){
+
+    if(serializedSave === null)
+        return null;
+
+    const migrated = migrateSaveData(JSON.parse(serializedSave));
+    validateSaveData(migrated);
+    return migrated;
 
 }
 
