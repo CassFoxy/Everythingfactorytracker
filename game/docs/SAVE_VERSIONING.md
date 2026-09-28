@@ -280,6 +280,33 @@ The browser command needs Playwright and a browser: use the existing TEFI_PLAYWR
 
 V1-010 through V1-015 provide a stable, regression-tested foundation for the currently implemented persistence lifecycle and subsequent V1 development, subject to the documented limits below. This does not certify the entire game or V1 release readiness. New gameplay/schema changes still require their own migration and regression coverage.
 
-Known limits remain normal-gameplay storage write/quota handling, non-atomic cross-tab coordination, non-transactional intermediate writes and manual execution of tests. Supported recovery storage failures are covered; tests do not claim resilience to process interruption between arbitrary writes. No GitHub Actions workflow is present; automated PR execution remains V1-003 work. The fresh XP 0 versus absent legacy XP 100 inconsistency and UI-side stoneValue refresh remain unchanged.
+Known limits remain normal-gameplay storage write/quota handling, non-atomic cross-tab coordination and non-transactional intermediate writes. Supported recovery storage failures are covered; tests do not claim resilience to process interruption between arbitrary writes. Automated execution is configured by V1-003 below. The fresh XP 0 versus absent legacy XP 100 inconsistency and UI-side stoneValue refresh remain unchanged.
 
-V1-015 is complete for review. Recommend **V1-003 — Automated Test Framework** next to automate the established suite; after that, the gameplay roadmap resumes with V1-020 progression review. Neither ticket was started.
+V1-015 was reviewed and accepted. The gameplay roadmap resumes with V1-020 progression review after the automation ticket below.
+
+## Automated execution — V1-003
+
+The root package.json provides the same commands locally and in GitHub Actions. The only direct development dependency is pinned Playwright 1.62.1; package-lock.json records the dependency tree. No gameplay code or test assertions changed.
+
+From the repository root, with Node 24 LTS and npm installed:
+
+```sh
+npm ci --ignore-scripts --no-audit --no-fund
+npm test
+npx --no-install playwright install --with-deps --only-shell chromium
+npm run test:browser
+```
+
+npm test runs the four JavaScript syntax checks followed by the full 222-case Node suite. Individual commands are npm run test:syntax and npm run test:node. Browser installation is a one-time prerequisite per Playwright/browser revision. Linux needs the system dependencies installed by --with-deps. On Windows/macOS, --with-deps may be omitted. The browser tests use a temporary loopback server and controlled clocks/randomness; they do not contact production services.
+
+Local Edge remains supported: set TEFI_BROWSER_CHANNEL=msedge and run npm run test:browser with Edge installed. TEFI_PLAYWRIGHT_PATH remains an optional existing override; ordinary installations resolve the locked local dependency. CI uses neither override and runs Chromium headless shell.
+
+.github/workflows/tests.yml defines **TEFI Tests**, with one **Syntax, Node and Chromium** check on Ubuntu 24.04 / Node 24 LTS. It triggers for pull requests targeting main and pushes to main, including draft PRs. Branch pushes do not separately trigger duplicate PR jobs; a newer run cancels a superseded run for the same PR/ref. No path filters can leave the check indefinitely pending. Jobs have a 15-minute timeout.
+
+Steps separately report dependency installation, syntax checks, Node tests, Chromium installation and browser smoke tests. Nonzero exits fail the job; no assertions are weakened or failures ignored. Actions are pinned to commit SHAs, permissions are contents: read, and checkout does not persist credentials. There are no secrets, deployments, releases, repository writes or automatic merges. No dependency/browser cache is added for this small dependency tree.
+
+Node 24 follows the [Node LTS release schedule](https://nodejs.org/en/about/previous-releases). Chromium installation follows [Playwright's CI guidance](https://playwright.dev/docs/ci) and [headless-shell installation guidance](https://playwright.dev/docs/browsers). Installation needs npm/browser-download network access; test execution itself does not.
+
+The check name **Syntax, Node and Chromium** can be made required in branch protection separately. Branch protection is unchanged. Workflow configuration alone does not prevent merging a failing PR.
+
+Local verification and actual GitHub-hosted results are reported separately on the V1-003 PR. V1-020 — Fresh Save Progression Review is the next gameplay ticket; it is not started here.
