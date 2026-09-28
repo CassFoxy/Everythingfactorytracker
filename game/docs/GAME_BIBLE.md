@@ -12,17 +12,19 @@
 >
 > **Framework Version:** 1.0.0
 >
+> **Development Bible Version:** 1.0.1
+>
 > **Game Version:** 0.1.0 Alpha
 >
 > **Specification Version:** 1.0.0
 >
-> **Repository:** *To Be Added*
+> **Repository:** [CassFoxy/Everythingfactorytracker](https://github.com/CassFoxy/Everythingfactorytracker)
 >
-> **Primary Branch:** *To Be Added*
+> **Primary Branch:** `main`
 >
 > **Maintained By:** Project Development Team
 >
-> **Last Updated:** *To Be Updated Automatically*
+> **Last Updated:** 2026-09-28
 >
 > **Document Type:** Engineering Specification & Development Handbook
 
@@ -268,6 +270,116 @@ Entire document.
 | 🔵 | Under Review |
 | 🟢 | Complete |
 | 🔴 | Deprecated / Replaced |
+
+---
+
+# Implementation Status Review — 2026-09-28
+
+This review records what is present in the current HTML/CSS/JavaScript reference implementation. As specified in [game/AGENTS.md](../AGENTS.md), the Roblox Luau port follows completion and testing of the web V1.0.
+
+**Reviewed branch:** `main` at [`c7fc8f8`](https://github.com/CassFoxy/Everythingfactorytracker/commit/c7fc8f820144030b0846dce80d55eaca3bc8a6e3).
+
+**Evidence:**
+
+- [`game.js`](https://github.com/CassFoxy/Everythingfactorytracker/blob/c7fc8f820144030b0846dce80d55eaca3bc8a6e3/game/game.js) — blob `ba05b67aff9d9f76aef17ae66a3035b492368817`.
+- [`index.html`](https://github.com/CassFoxy/Everythingfactorytracker/blob/c7fc8f820144030b0846dce80d55eaca3bc8a6e3/game/index.html) — blob `52e4d8e50e42d5c462852d5c67643a5095a23cdc`.
+- [`ores.js`](https://github.com/CassFoxy/Everythingfactorytracker/blob/c7fc8f820144030b0846dce80d55eaca3bc8a6e3/game/ores.js) — blob `ac7bd8ba4ee6f09f87abd2ce6b4801f993abcc10`.
+- [`style.css`](https://github.com/CassFoxy/Everythingfactorytracker/blob/c7fc8f820144030b0846dce80d55eaca3bc8a6e3/game/style.css) — blob `7b29d45826849e96e540b3395a1209f4f8cc83b9`.
+
+All four source files were reviewed alongside the complete Development Bible. Statuses are based on source inspection; this documentation review did not execute the game, perform balance simulations or certify release readiness.
+
+## Implementation Status Definitions
+
+| Status | Meaning |
+|--------|---------|
+| 🟢 Completed | The explicitly named feature has an end-to-end implementation in the current web code, including its player interaction or automatic execution path. This is an implementation assessment, not a claim of defect-free operation or completed launch testing. |
+| 🟠 In Progress | A system has implemented components or code scaffolding, but identified behaviour, integration or reliability work remains. |
+| ⚪ Not Started | No implementation of the named behaviour exists. A specification, comment, placeholder reward, unused save field or unrelated reset does not implement a playable system. |
+
+Implementation status and documentation status are independent. The existing documentation lifecycle continues to describe specification maturity. A detailed design may describe a system whose implementation is Not Started; a working feature may have an unfinished catalogue entry.
+
+The component table below credits the existing web features independently. Chapter-level implementation statuses assess the broader scope described in that chapter. For example, basic inventory is Completed, while the full Inventory System is In Progress because capacity and organisation are absent. Likewise, Dropper/Adder/Multiplier effects are Completed without implying that placed buildings or conveyors exist.
+
+Planned examples and future-expansion lists are not automatically V1.0 requirements. Sections 1.7 and 1.8 retain responsibility for release scope. This review records discrepancies without approving new mechanics, changing formulas or replacing the intended design.
+
+## Current Implementation Register
+
+| Feature or system | Implementation status | Bible reference | Code evidence | Implemented scope or remaining work |
+|-------------------|-----------------------|-----------------|---------------|------------------------------------|
+| Manual mining — current button interaction | 🟢 Completed | 3.3 | `mineOre()`; `mineButton` | Awards Stone or one ore, inventory, XP, manual-mining statistics and first-discovery feedback. World nodes and mining audiovisual effects are separate planned work. |
+| Base resources and four-tier ore rolls | 🟢 Completed | 3.4; 4.1 | `ORES`, `STONE`, tier arrays; `mineOre()` | Stone plus 20 ores. Tier probabilities are 1/25, 1/1,000, 1/50,000 and 1/250,000; each tier then selects one of five ores uniformly. All ores are available from the start. |
+| Basic stacked inventory | 🟢 Completed | 3.5 | `createDefaultInventory()`; `save.inventory`; `updateInventoryTooltip()` | Stores quantities for Stone and all ores, displays stack values and removes items during smelting. Capacity, sorting and variants are not included in this completed scope. |
+| Cash earning and spending | 🟢 Completed | 3.6 | `save.cash`; `confirmSmelt()`; `finishAutoFurnaceCycle()`; purchase handlers | Smelting awards Cash and purchases deduct it. Additional currencies and income bonuses are not implemented. |
+| Manual smelting | 🟢 Completed | 3.6; 3.8 | `buildFurnaceMenu()`; `prepareSmelt()`; `confirmSmelt()` | 25%, 50% and 100% stack selection, capped by furnace capacity, with confirmation and Cash/XP awards. Manual smelting is blocked while an automatic batch is processing. |
+| Dropper production | 🟢 Completed | 3.8 | `getDropperCost()`; `produceStone()`; one-second interval | Each owned Dropper produces one Stone per tick. Ownership is a counter; no placed building or conveyor is involved. |
+| Adder value effect | 🟢 Completed | 3.8 | `getAdderCost()`; `updateUI()`; smelting value paths | Stone value is `1 + adders`. Applies to Stone from either source when selected for smelting; it does not increase ore values. |
+| Multiplier duplication effect | 🟢 Completed | 3.8 | `getMultiplierCost()`; `produceStone()` | Each automatically produced Stone gets one duplication check at `multipliers * 0.001`. Manual mining is unaffected; the current code can award at most one extra Stone per check. |
+| Three-tier furnace upgrades | 🟢 Completed | 3.8; 4.3 | `FURNACES`; `upgradeFurnace()` | Starter, Basic and Auto Furnace capacities are 10, 50 and 100; upgrade costs are 500 and 2,500 Cash. |
+| Auto Furnace batch processing and controls | 🟢 Completed | 3.10 | `getAutoFurnaceBatch()`; cycle functions; `updateAutoFurnaceUI()` | Ten-second batches, highest-value ores first, optional Stone filler, three resource modes, available/full batch modes, live batch/time/value displays, and stop-after-current-batch behaviour. |
+| Active Auto Furnace batch persistence | 🟢 Completed | 3.10; 3.22 | `save.autoFurnaceBatch`; `save.autoFurnaceStartTime`; initialisation | Restores reserved items and the original timestamp. An elapsed saved batch can finish after loading. It does not simulate missed Dropper ticks or repeated offline batches. |
+| Current purchase transactions | 🟢 Completed | 3.7 | `buyDropper`, `buyAdder`, `buyMultiplier`; `upgradeFurnace()` | Cash affordability checks, cost scaling, ownership updates and furnace progression are implemented. Generalised shop rules and failure feedback are separate unfinished work. |
+| Ore discovery and basic Collection Book | 🟢 Completed | 3.12; 3.16 | `save.oreCollection`; `updateOreDisplay()`; `showDiscoveryPopup()` | Tracks cumulative acquisitions of 20 ores independently of spendable inventory; reveals unknown entries and displays discovered count. Stone is not a collection entry. |
+| Base Factory XP awards | 🟢 Completed | 3.13 | `addFactoryXP()`; mining, production and smelting paths | Manual mining grants resource XP; produced Stone and duplicate Stone grant 1 XP each; smelting grants 1 XP per item. Bonus multipliers are not applied. |
+| Factory Level milestones — tracking and menu | 🟢 Completed | 3.14 | `generateMilestones()`; `checkFactoryMilestones()`; `buildMilestonesMenu()` | Records 113 level thresholds through level 10,000 and shows locked/unlocked entries and completion count. Multi-unlock notification delivery remains unfinished. |
+| Achievement condition and claim-state handling | 🟢 Completed | 3.15 | `ACHIEVEMENTS`; `checkAchievements()`; `unlockAchievement()`; `claimAchievement()` | Six achievements, statistic/level conditions, saved unlocked/claimed states, progress bars and claim ordering. Claiming currently changes state only. |
+| Current resource statistics | 🟢 Completed | 3.19 | `save.totalOres`; Stone/tier counters; `achievementStats`; statistics modal | Tracks generated resources, last manually mined resource/value, manual actions, unique ore discoveries and items smelted. Broader lifetime metrics are separate work. |
+| Core browser saving and autosave | 🟢 Completed | 3.22 | `saveGame()`; initial load; five-second save interval | Stores the save object under `ef_incremental`, restores normal saves and fills many missing fields. This does not certify malformed-save recovery. |
+| Legacy achievement-save conversion | 🟢 Completed | 3.22 | Boolean conversion during save initialisation | Converts old Boolean achievement entries to unlocked/claimed objects. There is no general versioned migration system. |
+| Save reset | 🟢 Completed | 3.22 | `resetSave()` | Asks for confirmation, removes the local save and reloads. This is a development reset, not rebirth. |
+| Dashboard, modals and basic feedback | 🟢 Completed | 3.20 | `index.html`; modal functions; `style.css` | Existing game cards, inventory/collection/statistics/furnace/achievement/milestone views, XP bar, tooltips, discovery popup and achievement toast have code and UI. |
+| Early resource-to-upgrade gameplay loop | 🟠 In Progress | 3.2 | Mining, furnace and purchase paths | The repeatable earning/upgrading loop exists. The full progression journey, factory layout and rebirth stages remain unfinished. |
+| Shop organisation and progression rules | 🟠 In Progress | 3.7 | Purchase handlers; `updateUI()` | Dashboard purchases exist and Adder/Multiplier cards appear at levels 2/5. Requirements are not centrally defined; handlers check Cash but do not independently enforce those level gates. |
+| Shared production-building framework | 🟠 In Progress | 3.8 | Ownership counters and `FURNACES` | Four building effects exist. Per-building instances, positions, connections and a common building lifecycle are absent. |
+| Automation across the full factory design | 🟠 In Progress | 3.10 | One-second production loop; 100 ms furnace polling | Dropper-to-inventory-to-Auto-Furnace automation exists. Connected transport and multi-stage production networks are not started. |
+| Factory Level calculation and display | 🟠 In Progress | 3.13 | `getXPForLevel()`; `updateFactoryLevel()`; XP-bar rendering | Level calculation, progress display and two UI unlocks exist. New saves start at 0 XP while Level 1's baseline is 100, producing a negative calculated initial bar width; level-bonus integration is absent. |
+| Complete achievement reward flow | 🟠 In Progress | 3.15 | `ACHIEVEMENTS.reward`; `claimAchievement()` | Unlocking and claiming are implemented, but rewards use `type: null`, `value: 0`; the menu displays `???` and no reward is granted. |
+| Permanent/cycle bonus infrastructure | 🟠 In Progress | 3.13; 3.15; 3.17 | `permanentBonuses`; `cycleBonuses`; multiplier helpers | Saved fields and calculation helpers exist. They do not provide an active reward/bonus system; production, luck, income, XP, capacity and speed integration remains absent. |
+| Full inventory and collection presentation | 🟠 In Progress | 3.5; 3.16 | Fixed resource inventory and collection views | Basic views work. Inventory capacity/sorting, collection percentages/category summaries and variant tracking are absent. |
+| Expanded player statistics | 🟠 In Progress | 3.19 | Current counters and statistics modal | Core resource counters exist; earnings, play time, session/personal-best breakdowns and rebirth history are absent. |
+| Notification coordination | 🟠 In Progress | 3.21 | `pendingMilestone`; `pendingAchievement`; popup/toast functions | Three notification types exist. A single pending slot per type can lose individual notices when several unlock together; no priority or queue exists. |
+| Save validation and compatibility | 🟠 In Progress | 3.22 | Initial `JSON.parse()`; nullish defaults; achievement conversion | Basic compatibility exists. No schema version, corrupt-save recovery or storage-error handling is present. |
+| Large-number presentation | 🟠 In Progress | 3.20 | Formatting helpers; `LARGE_NUMBER_SUFFIXES` | Ordinary values, suffixes and Cash tooltips exist. The intended beyond-last-suffix scientific fallback is bypassed because a suffix remains selected; formatting does not extend JavaScript numeric precision. |
+| Complete launch interface and onboarding | 🟠 In Progress | 2.1–2.11; 3.20 | Dashboard and modal controls | Existing controls support the prototype. Settings, remaining feature screens, onboarding and accessibility/device verification remain unfinished. |
+| Cosmetic infrastructure | 🟠 In Progress | 1.8; 4.4 | `save.cosmetics` | Default unlock/equipment fields exist only; no cosmetic selection, earning or appearance application exists. Extensive cosmetics remain outside V1.0 scope. |
+| Conveyors and resource routing | ⚪ Not Started | 1.7; 3.8–3.10 | No runtime implementation | No conveyor entities, movement or input/output routing. |
+| Factory layout and building placement | ⚪ Not Started | 3.9 | No runtime implementation | No factory coordinates, placement, rotation, collisions, removal or relocation. The CSS card grid is interface layout only. |
+| Factory expansion and construction capacity | ⚪ Not Started | 3.11 | No runtime implementation | Buying more counters is implemented; purchasing construction space or build capacity is not. |
+| Mutations and resource variants | ⚪ Not Started | 1.7; 4.1 | No runtime implementation | No variant data, generation, effects, inventory representation or collection tracking. A furnace comment mentioning mutations is not an implementation. |
+| Rebirth gameplay | ⚪ Not Started | 3.17 | No runtime implementation | No unlock, confirmation, reset/retention rules, reward calculation, rebirth count or shop. Bonus save fields do not implement rebirth. |
+| Offline progression simulation | ⚪ Not Started | 3.18 | No runtime implementation | No last-session timestamp, elapsed-time production calculation, cap or return summary. Active furnace batch recovery is listed separately as completed. |
+| Permanent achievement reward granting | ⚪ Not Started | 1.7; 3.15 | Placeholder reward objects only | No concrete rewards or grant/application logic; claim-state handling already exists. |
+| Settings interface and persistence | ⚪ Not Started | 1.7; 3.20 | No runtime implementation | No player settings controls or settings model. |
+| Inventory limits and storage upgrades | ⚪ Not Started | 3.5 | No runtime implementation | No enforced capacity, capacity display, full-inventory behaviour or storage upgrades. |
+| Additional playable currencies | ⚪ Not Started | 4.2 | No runtime implementation | Cash is implemented; Gems, Stardust and Ancient Shards have no balances, earning/spending logic or UI. Catalogue names do not establish additional launch requirements. |
+| Gameplay audio and world production animation | ⚪ Not Started | 2.1–2.11 | No runtime implementation | No sound playback, mining/world animation or moving factory resources. Existing CSS progress and toast effects are implemented separately. |
+| Automated gameplay test suite | ⚪ Not Started | Volume V; Volume VI | No test files in the inspected game tree | No calculation, save, rebirth or economy tests. A roadmap checkbox is not evidence of implemented tests. |
+
+## Design and Documentation Discrepancies
+
+These observations record the current code and identify reconciliation work. They do not authorise gameplay changes.
+
+- **Platform:** Section 1.2 describes current Roblox development; `game/AGENTS.md` and the code establish the web game as the current reference implementation and the Luau port as later work.
+- **Resource availability:** Section 3.12 describes progression-gated resources, while section 4.1 and `mineOre()` make every base ore available from the beginning. Base discovery is implemented; progression-gated ore unlocks are not.
+- **Rarity terminology:** The listed 1-in-N probabilities apply to selecting a tier. Each of five ores then has an equal chance within that tier, so individual ore probabilities are 1/125, 1/5,000, 1/250,000 and 1/1,250,000 respectively. The `rarity` field stores the tier denominator. Stone is available from the start but is not guaranteed on a manual roll.
+- **Stone collection:** Stone is produced by both mining and Droppers and tracked in inventory/statistics. The Collection Book contains only the 20 ores. Section 4.1's Stone collection-completion statement does not match the code.
+- **Achievement wording:** First Swing checks the manual-action counter and can unlock on a non-Stone result; First Smelt counts smelted items including Stone. Their labels are narrower than their implemented conditions.
+- **Milestone/reward scope:** Level milestone recognition and achievement claiming already exist. Milestones grant no rewards, and achievement claims currently grant none. This does not make the recognition systems Not Started.
+- **Starting XP:** New saves use 0 XP; missing-XP compatibility defaults use 100. The level is clamped to at least 1, but the progress-bar calculation subtracts a 100 XP baseline without clamping the lower bound.
+- **Number formatting:** Display suffixes do not remove JavaScript numeric limits. In `formatLargeNumber()`, a selected suffix prevents the stated beyond-Centillion fallback from running for sufficiently large finite values.
+- **Roadmap drift:** `game/V1_ROADMAP.md` leaves Adders, Multipliers, furnace progression, milestones and achievements unchecked despite existing implementations. It was inspected for context and remains unchanged; this register records current code evidence.
+- **Specification gaps:** Mutation, rebirth reward/reset rules, the first end-game, and the division between the web factory and later spatial/Roblox presentation still need sufficiently precise design decisions. Existing examples do not supply those missing rules.
+
+## Documentation and Release Verification
+
+Volumes I–III contain substantial prose, but their existing review/acceptance states must not be upgraded solely because text exists. Volume IV sections 4.2–4.13 contain catalogue outlines rather than complete entries. Volumes V and VI and the appendices are predominantly reserved headings. An unwritten Save System chapter does not mean browser saving is absent.
+
+No automated test files exist in the inspected `game/` tree. Balance, browser/device behaviour, save recovery and full new-save-to-end-game acceptance have not been certified by this review. These are verification tasks, not reasons to erase credit for implemented mechanics.
+
+## Status Review History
+
+| Bible revision | Date | Summary |
+|----------------|------|---------|
+| 1.0.1 | 2026-09-28 | Reviewed the complete Bible against the four runtime files; added implementation evidence and Completed/In Progress/Not Started statuses, separated specification maturity, and recorded unresolved discrepancies. Gameplay code, formulas and release scope were not changed. |
 
 ---
 
@@ -851,16 +963,16 @@ Upon completing this volume the reader should understand:
 
 # Volume Structure
 
-| Section | Status | Purpose |
-|---------|--------|---------|
-| **1.1 Game Vision** | ⚪ | Defines the long-term vision and identity of the game. |
-| **1.2 Project Overview** | ⚪ | Provides a concise overview of the entire project. |
-| **1.3 Design Philosophy** | ⚪ | Defines the principles used when designing gameplay systems. |
-| **1.4 Development Philosophy** | ⚪ | Defines the principles used while developing the project. |
-| **1.5 Player Experience Goals** | ⚪ | Describes how the player should feel throughout progression. |
-| **1.6 Documentation Standards** | ⚪ | References the documentation standards established within the framework. |
-| **1.7 Project Scope** | ⚪ | Defines the intended scope of Version 1.0. |
-| **1.8 Out of Scope Features** | ⚪ | Lists features intentionally excluded from Version 1.0. |
+| Section | Documentation status | Purpose |
+|---------|----------------------|---------|
+| **1.1 Game Vision** | 🟠 In Development | Defines the long-term vision and identity of the game. |
+| **1.2 Project Overview** | 🟠 In Development | Provides a concise overview of the entire project. |
+| **1.3 Design Philosophy** | 🟠 In Development | Defines the principles used when designing gameplay systems. |
+| **1.4 Development Philosophy** | 🟠 In Development | Defines the principles used while developing the project. |
+| **1.5 Player Experience Goals** | 🟠 In Development | Describes how the player should feel throughout progression. |
+| **1.6 Documentation Standards** | 🟠 In Development | References the documentation standards established within the framework. |
+| **1.7 Project Scope** | 🟠 In Development | Defines the intended scope of Version 1.0. |
+| **1.8 Out of Scope Features** | 🟠 In Development | Lists features intentionally excluded from Version 1.0. |
 
 ---
 
@@ -897,7 +1009,7 @@ Volume I shall be considered complete once:
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL1-001
 >
@@ -1118,7 +1230,7 @@ The ultimate goal is to create a game that remains enjoyable not because players
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL1-002
 >
@@ -1361,7 +1473,7 @@ Every gameplay system documented throughout this Development Bible should contri
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL1-003
 >
@@ -1630,7 +1742,7 @@ These principles should guide every future design decision made throughout the l
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL1-004
 >
@@ -1844,7 +1956,7 @@ The project should remain enjoyable to develop, straightforward to maintain and 
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL1-005
 >
@@ -2098,7 +2210,7 @@ The player journey should remain engaging from the first click to the most advan
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL1-006
 >
@@ -2255,7 +2367,7 @@ Every contributor should treat documentation as an essential part of development
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL1-007
 >
@@ -2517,7 +2629,7 @@ Future updates should build upon the foundations established within this release
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL1-008
 >
@@ -2787,19 +2899,19 @@ Upon completing this volume the reader should understand:
 
 # Volume Structure
 
-| Section | Status | Purpose |
-|---------|--------|---------|
-| **2.1 First Launch** | ⚪ | Documents the player's very first interaction with the game. |
-| **2.2 First Resource** | ⚪ | Covers the first manual gathering of Stone and introduction to resource collection. |
-| **2.3 First Sale** | ⚪ | Introduces the economy, selling resources and earning the first currency. |
-| **2.4 First Upgrade** | ⚪ | Covers the player's first permanent progression upgrade and introduces progression philosophy. |
-| **2.5 First Automation** | ⚪ | Documents unlocking and understanding the first automated factory components. |
-| **2.6 First Factory Expansion** | ⚪ | Covers expanding the factory and introducing larger-scale production. |
-| **2.7 First Optimisation** | ⚪ | Documents when players begin experimenting with layouts, efficiency and strategy. |
-| **2.8 First Discovery** | ⚪ | Introduces discovering new ores, mechanics and hidden progression. |
-| **2.9 First Long-Term Goal** | ⚪ | Covers achievements, collections, milestones and other persistent objectives. |
-| **2.10 First Rebirth** | ⚪ | Documents the player's first prestige experience and permanent progression reset. |
-| **2.11 Long-Term Progression** | ⚪ | Defines the intended experience after all core mechanics have been introduced. |
+| Section | Documentation status | Implementation status | Purpose |
+|---------|----------------------|-----------------------|---------|
+| **2.1 First Launch** | 🟠 In Development | 🟠 In Progress | Documents the player's very first interaction with the game. |
+| **2.2 First Resource** | 🟠 In Development | 🟠 In Progress | Covers the first manual gathering of Stone and introduction to resource collection. |
+| **2.3 First Sale** | 🟠 In Development | 🟠 In Progress | Introduces the economy, selling resources and earning the first currency. |
+| **2.4 First Upgrade** | 🟠 In Development | 🟠 In Progress | Covers the player's first permanent progression upgrade and introduces progression philosophy. |
+| **2.5 First Automation** | 🟠 In Development | 🟠 In Progress | Documents unlocking and understanding the first automated factory components. |
+| **2.6 First Factory Expansion** | 🟠 In Development | ⚪ Not Started | Covers expanding the factory and introducing larger-scale production. |
+| **2.7 First Optimisation** | 🟠 In Development | 🟠 In Progress | Documents when players begin experimenting with layouts, efficiency and strategy. |
+| **2.8 First Discovery** | 🟠 In Development | 🟠 In Progress | Introduces discovering new ores, mechanics and hidden progression. |
+| **2.9 First Long-Term Goal** | 🟠 In Development | 🟠 In Progress | Covers achievements, collections, milestones and other persistent objectives. |
+| **2.10 First Rebirth** | 🟠 In Development | ⚪ Not Started | Documents the player's first prestige experience and permanent progression reset. |
+| **2.11 Long-Term Progression** | 🟠 In Development | 🟠 In Progress | Defines the intended experience after all core mechanics have been introduced. |
 
 ---
 
@@ -2909,9 +3021,15 @@ By the end of this act, every major gameplay system introduced in Version 1.0 sh
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-001
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** The dashboard, new-save defaults and browser load path exist. Guided objectives, a world view, audio and the complete first-launch experience are absent.
 >
 > **Player Milestone:** First Launch
 >
@@ -3078,6 +3196,7 @@ At this point, progression moves into **2.2 First Resource**, where the player l
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial First Launch specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -3085,9 +3204,15 @@ At this point, progression moves into **2.2 First Resource**, where the player l
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-002
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Manual mining immediately awards resources and updates inventory/XP. The first roll is not guaranteed to be Stone; node interaction, animation and sound are not implemented.
 >
 > **Player Milestone:** First Resource
 >
@@ -3276,6 +3401,7 @@ The answer is introduced in **2.3 First Sale**, where the player learns that col
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial First Resource specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -3283,9 +3409,15 @@ The answer is introduced in **2.3 First Sale**, where the player learns that col
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-003
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Manual furnace selection and confirmation already convert resources to Cash. A dedicated selling point and richer sale feedback are absent; the starting Cash also permits a purchase before any sale.
 >
 > **Player Milestone:** First Sale
 >
@@ -3482,6 +3614,7 @@ This curiosity leads directly into **2.4 First Upgrade**, where the player exper
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial First Sale specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -3489,9 +3622,15 @@ This curiosity leads directly into **2.4 First Upgrade**, where the player exper
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-004
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Dropper, Adder, Multiplier and furnace purchase effects exist. The introductory purchase journey and explicit failure/affordability feedback remain unfinished.
 >
 > **Player Milestone:** First Upgrade
 >
@@ -3698,6 +3837,7 @@ The player now enters **Act II — Building the Factory**, beginning with **2.5 
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial First Upgrade specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -3711,9 +3851,15 @@ The player now enters **Act II — Building the Factory**, beginning with **2.5 
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-005
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Dropper production and Auto Furnace operation are implemented. The placed-building and visible resource-flow experience described below is not implemented.
 >
 > **Player Milestone:** First Automation
 >
@@ -3944,6 +4090,7 @@ This transition marks the beginning of **2.6 First Factory Expansion**, where th
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial First Automation specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -3951,9 +4098,15 @@ This transition marks the beginning of **2.6 First Factory Expansion**, where th
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-006
+>
+> **Implementation Status:** ⚪ Not Started
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Additional machines can be purchased as ownership counters, but there is no construction space, placement or spatial factory-expansion milestone.
 >
 > **Player Milestone:** First Factory Expansion
 >
@@ -4166,6 +4319,7 @@ This marks the beginning of **2.7 First Optimisation**, where the player's focus
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial First Factory Expansion specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -4173,9 +4327,15 @@ This marks the beginning of **2.7 First Optimisation**, where the player's focus
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-007
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Upgrade spending and Auto Furnace resource/batch modes provide choices. Layout-based optimisation and visible production networks are absent.
 >
 > **Player Milestone:** First Optimisation
 >
@@ -4388,6 +4548,7 @@ This curiosity introduces **2.8 First Discovery**, where the player realises tha
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial First Optimisation specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -4395,9 +4556,15 @@ This curiosity introduces **2.8 First Discovery**, where the player realises tha
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-008
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** First ore discoveries reveal Collection Book entries and display a popup. The broader discovery journey remains unfinished; the modal currently interrupts interaction rather than providing the non-interrupting feedback described below.
 >
 > **Player Milestone:** First Discovery
 >
@@ -4615,6 +4782,7 @@ This change in mindset begins **Act III — Mastery & Long-Term Progression**, s
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial First Discovery specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -4628,9 +4796,15 @@ This change in mindset begins **Act III — Mastery & Long-Term Progression**, s
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-009
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Collection goals, level milestones and six achievements exist. Achievement rewards are placeholders; rebirth preparation and the full long-term progression path are absent.
 >
 > **Player Milestone:** First Long-Term Goal
 >
@@ -4838,15 +5012,22 @@ This question introduces **2.10 First Rebirth**, where the player experiences th
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial First Long-Term Goal specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 ---
 
 ## 2.10 First Rebirth
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-010
+>
+> **Implementation Status:** ⚪ Not Started
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** There is no rebirth eligibility, confirmation, reset or reward flow. The development save-reset button is not rebirth.
 >
 > **Player Milestone:** First Rebirth
 >
@@ -5067,15 +5248,22 @@ This begins **2.11 Long-Term Progression**, where the player's journey becomes s
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial First Rebirth specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 ## 2.11 Long-Term Progression
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL2-011
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Repeated production, upgrades, collection and level milestones already support ongoing play. The full cycle involving expansion, rebirth and permanent growth has not been implemented.
 >
 > **Player Milestone:** Long-Term Progression
 >
@@ -5315,6 +5503,7 @@ The reader should now continue to **Volume III – Gameplay Specification**, whe
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Long-Term Progression specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -5322,7 +5511,7 @@ The reader should now continue to **Volume III – Gameplay Specification**, whe
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Volume ID:** VOL3
 >
@@ -5416,6 +5605,36 @@ Topics include:
 
 ---
 
+# Implementation Coverage by Chapter
+
+The chapter statuses below cover the broader designs. Completed current components are itemised in the Implementation Status Review above and in each chapter's implementation note.
+
+| Chapter | Implementation status |
+|---------|-----------------------|
+| 3.2 Core Gameplay Loop | 🟠 In Progress |
+| 3.3 Manual Mining System | 🟠 In Progress |
+| 3.4 Resource System | 🟢 Completed |
+| 3.5 Inventory System | 🟠 In Progress |
+| 3.6 Economy System | 🟠 In Progress |
+| 3.7 Shop System | 🟠 In Progress |
+| 3.8 Production Building System | 🟠 In Progress |
+| 3.9 Factory Layout System | ⚪ Not Started |
+| 3.10 Automation System | 🟠 In Progress |
+| 3.11 Factory Expansion System | ⚪ Not Started |
+| 3.12 Resource Progression System | 🟠 In Progress |
+| 3.13 Factory Level System | 🟠 In Progress |
+| 3.14 Milestone System | 🟠 In Progress |
+| 3.15 Achievement System | 🟠 In Progress |
+| 3.16 Collection Log System | 🟠 In Progress |
+| 3.17 Rebirth System | ⚪ Not Started |
+| 3.18 Offline Progression System | ⚪ Not Started |
+| 3.19 Player Statistics System | 🟠 In Progress |
+| 3.20 User Interface Behaviour | 🟠 In Progress |
+| 3.21 Notification System | 🟠 In Progress |
+| 3.22 Saving & Loading Behaviour | 🟠 In Progress |
+
+---
+
 # Planned Chapters
 
 ## Introduction
@@ -5424,7 +5643,7 @@ Topics include:
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.1
 
@@ -5575,9 +5794,15 @@ Volume III is considered complete when:
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.2
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Mining, inventory, manual/automatic smelting, Cash, upgrades, XP, levels and discovery form an implemented loop. Factory networks, expansion and rebirth are absent.
 
 ---
 
@@ -5877,6 +6102,7 @@ This approach maintains a cohesive gameplay experience while allowing the game t
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial gameplay loop specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -5886,9 +6112,15 @@ This approach maintains a cohesive gameplay experience while allowing the game t
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.3
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Completed component: button-based manual mining via `mineOre()`, including resource awards, XP, counters and discoveries. The full chapter also describes mineable nodes, interaction validation and audiovisual feedback that do not exist in the web code.
 
 ---
 
@@ -6088,14 +6320,21 @@ Automation should always feel like the logical evolution of manual mining rather
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Manual Mining System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.4 Resource System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.4
+>
+> **Implementation Status:** 🟢 Completed
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Scope: the current base-resource model and four-tier ore selection in `ores.js` and `mineOre()`. Stone and 20 ores have implemented acquisition, storage and smelting paths. This status excludes planned variants, manufactured resources and future generic processing properties; those do not currently exist.
 
 ---
 
@@ -6376,14 +6615,21 @@ Maintaining this separation improves consistency, reduces duplication and simpli
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Resource System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.5 Inventory System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.5
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Completed component: quantity-based inventory for Stone and all 20 ores, consumption through smelting, save persistence and value tooltips. The chapter's capacity and organisation features are not started; variant metadata is absent.
 
 ---
 
@@ -6623,14 +6869,21 @@ Specific inventory content and balancing values are maintained within Volume IV.
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Inventory System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.6 Economy System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.6
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Completed components: Cash balance, resource sale through manual/automatic smelting and purchase deductions. Economic-history tracking, additional currencies and general income bonuses are not implemented. Future currency examples are not automatically V1.0 requirements.
 
 ---
 
@@ -6872,14 +7125,21 @@ Separating economic behaviour from economic content ensures that new currencies 
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Economy System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.7 Shop System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.7
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Existing dashboard cards implement purchases, escalating costs and affordability checks. Adder and Multiplier cards appear at levels 2 and 5; purchase handlers themselves only check Cash. Central purchase definitions, categorised browsing and failure explanations remain unfinished.
 
 ---
 
@@ -7113,6 +7373,7 @@ Specific shop content is maintained within **Volume IV – Reference Library**, 
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Shop System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -7122,9 +7383,15 @@ Specific shop content is maintained within **Volume IV – Reference Library**, 
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.8
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Completed components: counter-based Droppers, Adders, Multipliers and three furnace tiers. `produceStone()`, Stone value updates and furnace functions provide their effects. Shared building instances, placement and transport connections are not implemented. These existing effects must not be treated as missing buildings.
 
 ---
 
@@ -7401,14 +7668,21 @@ Maintaining this separation allows new production buildings to be introduced wit
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Production Building System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.9 Factory Layout System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.9
+>
+> **Implementation Status:** ⚪ Not Started
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** The runtime has no placed-building records, coordinates, rotation, collisions, relocation or connection graph. The HTML/CSS dashboard grid does not implement factory layout.
 
 ---
 
@@ -7619,14 +7893,21 @@ Specific building definitions are maintained within **Volume IV – Building Cat
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Factory Layout System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.10 Automation System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.10
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Completed components: one-second Dropper ticks and configurable ten-second Auto Furnace batches, including start/stop controls, highest-value selection, reserved inventory, live progress and saved-batch recovery. Connected production networks and multi-stage routing remain absent.
 
 ---
 
@@ -7855,14 +8136,21 @@ Individual buildings and their unique automation capabilities are documented wit
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Automation System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.11 Factory Expansion System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.11
+>
+> **Implementation Status:** ⚪ Not Started
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** No construction-area purchase, factory region or build-capacity model exists. Higher Dropper ownership and furnace capacity upgrades are implemented separately and do not provide the spatial expansion described in this chapter.
 
 ---
 
@@ -8068,6 +8356,7 @@ Implementation details and balancing values are maintained within **Volume IV �
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Factory Expansion System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -8077,9 +8366,15 @@ Implementation details and balancing values are maintained within **Volume IV �
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.12
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Completed component: rarity-based discovery of all 20 ores from the start, as specified in section 4.1 and implemented in `mineOre()`. The progression-gated availability statements below conflict with section 4.1 and the code. They remain an unresolved design/documentation discrepancy, not an instruction to add ore locks.
 
 ---
 
@@ -8307,14 +8602,21 @@ Specific resources, progression data and balancing values are maintained within 
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Resource Progression System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.13 Factory Level System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.13
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** XP awards, quadratic level calculation, level display, progress bar and Adder/Multiplier card unlocks are implemented. The initial 0 XP save disagrees with the level-1 bar baseline of 100 XP. Bonus helpers are not applied to gameplay, so this chapter is not marked fully completed.
 
 ---
 
@@ -8524,14 +8826,21 @@ Implementation details are maintained within Volume IV and supporting balancing 
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Factory Level System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.14 Milestone System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.14
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Completed component: 113 saved Factory Level milestone flags, locked/unlocked menu and completed count. A single `pendingMilestone` slot can overwrite earlier notices when several thresholds are crossed together. Milestone rewards or extra categories are not implemented; examples in this chapter are not automatically mandatory additions.
 
 ---
 
@@ -8717,14 +9026,21 @@ Individual milestones and balancing data are maintained within **Volume IV – M
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Milestone System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.15 Achievement System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.15
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Six achievements already have condition checking, saved unlock/claim state, progress UI, ordering and toast feedback. All reward definitions are empty and `claimAchievement()` only marks the claim. Permanent reward granting is not started; the achievement system itself is already implemented in part.
 
 ---
 
@@ -8934,14 +9250,21 @@ Specific achievements and their implementation details are maintained within **V
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Achievement System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.16 Collection Log System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.16
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Completed component: the 20-ore Collection Book, first-discovery reveal, cumulative collection counts, total discovered count and save persistence. Stone is not tracked as a collection entry. Completion percentages, category summaries and variant tracking are absent; optional future collection categories remain future work.
 
 ---
 
@@ -9152,14 +9475,21 @@ Specific collection categories and entries are maintained within **Volume IV –
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Collection Log System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.17 Rebirth System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.17
+>
+> **Implementation Status:** ⚪ Not Started
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** No playable rebirth flow, eligibility rule, selective reset, permanent reward or rebirth history exists. `permanentBonuses` and `cycleBonuses` are shared scaffolding only; `resetSave()` deletes the whole save and is not rebirth.
 
 ---
 
@@ -9383,14 +9713,21 @@ Implementation details and rebirth-specific content are maintained within **Volu
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Rebirth System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.18 Offline Progression System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.18
+>
+> **Implementation Status:** ⚪ Not Started
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** There is no offline session-duration calculation, production simulation, limit or return summary. An already-started Auto Furnace batch can finish after reload using its saved timestamp; missed Dropper ticks and repeated offline batches are not simulated.
 
 ---
 
@@ -9587,6 +9924,7 @@ Implementation details are maintained within Volume IV and the game's balancing 
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Offline Progression System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -9596,9 +9934,15 @@ Implementation details are maintained within Volume IV and the game's balancing 
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.19
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Generated-resource totals, Stone/tier totals, last manual result, manual action count, unique discoveries and items smelted are recorded. Dropper output contributes to resource totals but not the manual-mining achievement counter. Earnings, play time and rebirth statistics are absent.
 
 ---
 
@@ -9813,14 +10157,21 @@ Specific tracked statistics are maintained within **Volume IV – Statistics Cat
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Player Statistics System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.20 User Interface Behaviour
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.20
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Cards, modal screens, XP bar, inventory value tooltips, furnace controls and feedback styling are implemented. Settings, future-system screens, keyboard/focus handling and full device/accessibility validation are unfinished. Large-number formatting exists but its beyond-last-suffix fallback is not reached as intended.
 
 ---
 
@@ -10052,14 +10403,21 @@ Specific interface designs, screen layouts and visual assets are maintained sepa
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial User Interface Behaviour specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.21 Notification System
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.21
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Discovery and milestone modals plus a seven-second achievement toast are implemented. Single pending slots and shared toast timing do not provide reliable queued delivery for simultaneous events; priority handling and offline/rebirth notifications are absent.
 
 ---
 
@@ -10279,14 +10637,21 @@ Notification content, presentation assets and implementation details are maintai
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Notification System specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.22 Saving & Loading Behaviour
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL3-3.22
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Normal browser load/save, five-second autosave, several immediate saves, missing-field defaults, Boolean achievement conversion, active furnace batch restoration and reset exist. Parsing/storage errors are unhandled and no explicit save schema version exists. Recovery and compatibility validation remain unfinished.
 
 ---
 
@@ -10513,6 +10878,7 @@ Technical implementation and save data structures are maintained within the proj
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Saving & Loading Behaviour specification created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
@@ -10584,7 +10950,7 @@ A developer unfamiliar with the project should be capable of implementing the co
 
 > [!IMPORTANT]
 >
-> **Status:** 🟠 In Development
+> **Documentation Status:** 🟠 In Development
 >
 > **Section ID:** VOL4-4.0
 
@@ -10733,9 +11099,15 @@ Additional notes regarding maintenance of Volume IV.
 
 > [!IMPORTANT]
 >
-> **Status:** 🟢 Implemented
+> **Documentation Status:** 🟠 In Progress — resource data is populated; rarity wording and Stone collection details need reconciliation.
 >
 > **Section ID:** VOL4-4.1
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Completed component: Stone/20-ore data, tier lists, base values and XP. The catalogue still misstates Stone collection behaviour and presents tier rarity as though it were each individual ore's probability. These discrepancies require reconciliation before the entire reference can be marked completed.
 
 ---
 
@@ -11042,10 +11414,19 @@ Future versions of this catalogue may include:
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Resource Catalogue created. |
+| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 ---
 
 ## 4.2 Currency Catalogue
+
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Cash earning, spending, display and persistence are completed. Gems, Stardust and Ancient Shards have no runtime implementation. Catalogue names alone do not define launch requirements.
 
 ### Purpose
 
@@ -11084,6 +11465,14 @@ Future Currencies
 # Part II — Buildings
 
 ## 4.3 Production Building Catalogue
+
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Counter-based Droppers, Adders, Multipliers and Starter/Basic/Auto Furnaces are implemented. Conveyors, placeable building instances and storage buildings are not started.
 
 ### Purpose
 
@@ -11130,6 +11519,14 @@ Future Buildings
 
 ## 4.4 Upgrade Catalogue
 
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Current purchases and furnace tier upgrades have real effects. Permanent/cycle bonus and cosmetic fields are scaffolding; conveyor, mining and general bonus upgrades have no playable implementation.
+
 ### Purpose
 
 Documents every permanent upgrade.
@@ -11172,6 +11569,14 @@ Future Upgrades
 
 ## 4.5 Factory Level Reference
 
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** XP awards, the level formula, display and level-2/5 card unlocks exist. Initial XP-bar behaviour and unused bonus helpers prevent a complete status.
+
 ### Purpose
 
 Documents every Factory Level.
@@ -11197,6 +11602,14 @@ Factory Levels
 ---
 
 ## 4.6 Milestone Catalogue
+
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** 113 Factory Level milestone flags and their menu are implemented. Multiple-unlock notification handling is incomplete; no reward implementation exists.
 
 ### Purpose
 
@@ -11224,6 +11637,14 @@ Gameplay Milestones
 ---
 
 ## 4.7 Achievement Catalogue
+
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Six achievements and unlock/claim-state handling exist. Reward definitions and granting are unfinished.
 
 ### Purpose
 
@@ -11254,6 +11675,14 @@ Achievements
 
 ## 4.8 Collection Catalogue
 
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** The basic 20-ore Collection Book is completed. Percentage/category completion summaries and mutation/variant tracking are absent.
+
 ### Purpose
 
 Documents every Collection Log entry.
@@ -11283,6 +11712,14 @@ Collection Entries
 # Part IV — Supporting Content
 
 ## 4.9 Statistics Catalogue
+
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Resource, tier, manual mining, discovery and smelting counters exist. Buildings placed, play time, lifetime earnings and highest factory value have no tracking implementation.
 
 ### Purpose
 
@@ -11320,6 +11757,14 @@ Future Statistics
 
 ## 4.10 Notification Reference
 
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Discovery, milestone and achievement feedback exist. Queued delivery, priority handling and dedicated level/offline notifications are absent.
+
 ### Purpose
 
 Documents every gameplay notification.
@@ -11355,6 +11800,14 @@ Future Notifications
 ---
 
 ## 4.11 Interface Reference
+
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** The dashboard, existing modal screens and purchase cards exist. A spatial factory view and settings are not started; the broader shop interface is incomplete.
 
 ### Purpose
 
@@ -11396,6 +11849,14 @@ Future Interfaces
 
 ## 4.12 Gameplay Constants
 
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Ore values, furnace tiers, production/smelt/save intervals, starting values and purchase constants exist in the code. A unified balance catalogue is unfinished; walk speed and spatial factory limits are not implemented.
+
 ### Purpose
 
 Documents global balancing values.
@@ -11431,6 +11892,14 @@ Future Constants
 ---
 
 ## 4.13 Formula Reference
+
+> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
+>
+> **Implementation Status:** 🟠 In Progress
+>
+> **Status Reviewed:** 2026-09-28
+>
+> **Implementation Review:** Resource probabilities, Cash transactions, upgrade costs, XP/levels and production calculations exist. Bonus formula helpers are unused, and rebirth/offline formulas have no runtime implementation.
 
 ### Purpose
 
@@ -11476,6 +11945,7 @@ Future Formulae
 | Version | Summary |
 |----------|---------|
 | 1.0.0 | Initial Volume IV structure created. |
+| 1.0.1 | 2026-09-28: Added implementation statuses to catalogue outlines; resource-reference discrepancies recorded without altering balance data. |
 
 ---
 
@@ -11612,6 +12082,8 @@ The Master Index shall be maintained throughout the lifetime of the project.
 ---
 
 # Framework Completion Status
+
+The table below refers only to the existence of the document framework and reserved headings. It does not mark gameplay, detailed specifications, testing or launch readiness as completed.
 
 | Area | Status |
 |--------|--------|
