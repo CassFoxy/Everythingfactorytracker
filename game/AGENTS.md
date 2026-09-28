@@ -652,6 +652,8 @@ At the end of implementation work, provide a concise report using the following 
 
 ---
 
+For subsequent tickets, do not repeat the full repository or V1 roadmap audit unless explicitly requested. Read only the documentation and source files relevant to the current ticket and its direct dependencies. Reuse existing test infrastructure and documentation wherever possible. Keep reports concise and avoid creating new documentation files unless the ticket introduces a new technical contract or design that requires one.
+
 # Final Rule
 
 The objective is not to implement Version 1.0 as quickly as possible.
