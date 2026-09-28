@@ -47,9 +47,14 @@ const server = http.createServer((req, res) => {
             await page.goto(url);
             return { context, page, errors };
         }
-        async function normalLoop() {
+        async function normalLoop(legacyBaseline = false) {
             const app = await session(null);
             const { page } = app;
+            // Older baseline scripts predate the gated game wrapper.
+            if (legacyBaseline) await page.evaluate(() => {
+                document.getElementById("gameRoot").hidden = false;
+                document.getElementById("gameRoot").inert = false;
+            });
             await page.locator("#mineButton").click();
             await page.locator("#buyDropper").click();
             await page.evaluate(() => testIntervals.find(t => t.ms === 1000).callback());
@@ -97,15 +102,81 @@ const server = http.createServer((req, res) => {
             const rejected = await session(raw);
             assert.equal(await rejected.page.evaluate(() => localStorage.getItem("ef_incremental")), raw);
             assert.equal(await rejected.page.evaluate(() => testIntervals.length), 0);
-            assert.equal(rejected.errors.length, 1);
-            console.log("PASS Chromium: rejected save retained, no timers; expected error: " + rejected.errors[0]);
+            assert.equal(await rejected.page.locator("#saveRecovery").isVisible(), true);
+            assert.equal(await rejected.page.locator("#gameRoot").isVisible(), false);
+            assert.equal(await rejected.page.locator("#gameRoot").evaluate(el => el.inert), true);
+            await rejected.page.locator("#retrySaveLoad").click();
+            assert.equal(await rejected.page.evaluate(() => localStorage.getItem("ef_incremental")), raw);
+            assert.equal(await rejected.page.evaluate(() => testIntervals.length), 0);
+            assert.deepEqual(rejected.errors, []);
+            console.log("PASS Chromium: recovery shown, gameplay blocked, retry preserves save; no console errors.");
             await rejected.context.close();
         }
+
+        const rawExport = '\r\n  {broken 🪨 <script>alert(1)</script>}\t\r\n';
+        const recovering = await session(rawExport);
+        const downloadEvent = recovering.page.waitForEvent("download");
+        await recovering.page.locator("#exportRawSave").click();
+        const download = await downloadEvent;
+        const stream = await download.createReadStream();
+        const chunks = [];
+        for await (const chunk of stream) chunks.push(chunk);
+        assert.equal(Buffer.concat(chunks).toString("utf8"), rawExport);
+        assert.equal(await recovering.page.evaluate(() => localStorage.getItem("ef_incremental")), rawExport);
+        recovering.page.once("dialog", dialog => dialog.dismiss());
+        await recovering.page.locator("#resetRecoverySave").click();
+        assert.equal(await recovering.page.evaluate(() => localStorage.getItem("ef_incremental")), rawExport);
+        assert.equal(await recovering.page.locator("#saveRecovery").isVisible(), true);
+        if (process.env.TEFI_RECOVERY_SCREENSHOT) {
+            await recovering.page.screenshot({ path: process.env.TEFI_RECOVERY_SCREENSHOT, fullPage: true });
+        }
+        recovering.page.once("dialog", async dialog => {
+            assert.match(dialog.message(), /removes.*progress.*Download/s);
+            await dialog.accept();
+        });
+        await recovering.page.locator("#resetRecoverySave").click();
+        assert.equal(await recovering.page.locator("#saveRecovery").isVisible(), false);
+        assert.equal(await recovering.page.locator("#mineButton").isVisible(), true);
+        assert.equal(await recovering.page.evaluate(() => save.saveVersion), 1);
+        assert.equal(await recovering.page.evaluate(() => save.cash), 100);
+        assert.equal(await recovering.page.evaluate(() => localStorage.getItem("ef_incremental")), null);
+        await recovering.page.evaluate(() => testIntervals.find(t => t.ms === 5000).callback());
+        await recovering.page.reload();
+        assert.equal(await recovering.page.evaluate(() => save.saveVersion), 1);
+        assert.deepEqual(recovering.errors, []);
+        await recovering.context.close();
+        console.log("PASS Chromium: exact raw download, reset cancellation/confirmation, fresh save and reload.");
+
+        // Simulate temporary read access loss without changing the saved bytes.
+        const storageContext = await browser.newContext();
+        await storageContext.addInitScript(raw => {
+            localStorage.setItem("ef_incremental", raw);
+            window.testReadBlocked = true;
+            const getItem = Storage.prototype.getItem;
+            Storage.prototype.getItem = function(key) {
+                if (window.testReadBlocked && key === "ef_incremental") throw new Error("test storage denial");
+                return getItem.call(this, key);
+            };
+        }, JSON.stringify(legacy));
+        const storagePage = await storageContext.newPage();
+        const storageErrors = [];
+        storagePage.on("pageerror", error => storageErrors.push(error.message));
+        await storagePage.goto(url);
+        assert.equal(await storagePage.locator("#saveRecovery").isVisible(), true);
+        assert.equal(await storagePage.locator("#exportRawSave").isDisabled(), true);
+        assert.equal(await storagePage.locator("#resetRecoverySave").isDisabled(), true);
+        await storagePage.evaluate(() => { window.testReadBlocked = false; });
+        await storagePage.locator("#retrySaveLoad").click();
+        assert.equal(await storagePage.locator("#saveRecovery").isVisible(), false);
+        assert.equal(await storagePage.evaluate(() => save.cash), legacy.cash);
+        assert.deepEqual(storageErrors, []);
+        await storageContext.close();
+        console.log("PASS Chromium: storage read failure and successful retry.");
 
         // Optional before/after check against the audited source, with identical actions.
         if (process.env.TEFI_BASELINE_GAME) {
             files.set("/game.js", fs.readFileSync(process.env.TEFI_BASELINE_GAME));
-            const baseline = await normalLoop();
+            const baseline = await normalLoop(true);
             const { saveVersion, ...rest } = current;
             const { saveVersion: baselineVersion, ...baselineRest } = baseline;
             assert.deepEqual(rest, baselineRest);

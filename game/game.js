@@ -186,6 +186,145 @@ function createDefaultMilestones(){
 // Save schema versions are independent of game and design versions.
 // Version 0 is the existing unversioned format; version 1 only adds this tag.
 const SAVE_VERSION = 1;
+const SAVE_KEY = "ef_incremental";
+let save;
+let gameStarted = false;
+const recoveryState = { active: false, hasRaw: false, raw: null, error: null };
+
+function saveLoadError(code, message, cause){
+    const error = new Error(message);
+    error.code = code;
+    error.cause = cause;
+    return error;
+}
+
+function showSaveRecovery(error){
+    recoveryState.active = true;
+    recoveryState.error = error;
+    document.getElementById("gameRoot").hidden = true;
+    document.getElementById("gameRoot").inert = true;
+    document.getElementById("saveRecovery").hidden = false;
+
+    const reasons = {
+        PARSE_ERROR: "The saved text could not be read.",
+        VERSION_ERROR: "This save version is not supported by this game.",
+        MIGRATION_ERROR: "The save could not be upgraded safely.",
+        VALIDATION_ERROR: "The save contains missing or invalid data.",
+        STORAGE_READ_ERROR: "Browser storage could not be accessed.",
+        STORAGE_REMOVE_ERROR: "The browser could not remove the save. It has not been reset.",
+        STORAGE_CHANGED: "The stored save has changed. Export this copy, then reload the page to use the latest save.",
+        LOAD_ERROR: "The save could not be loaded safely."
+    };
+    document.getElementById("recoveryReason").textContent =
+        reasons[error.code] || reasons.LOAD_ERROR;
+    document.getElementById("recoveryPreserved").textContent = recoveryState.hasRaw
+        ? "Your original save has been preserved. Gameplay and autosave are stopped."
+        : "No save data has been changed. Retry when browser storage is available.";
+    const canExport = recoveryState.hasRaw && recoveryState.raw !== null;
+    document.getElementById("exportRawSave").disabled = !canExport;
+    document.getElementById("resetRecoverySave").disabled = !recoveryState.hasRaw;
+    document.getElementById("recoveryStatus").textContent = "";
+    document.getElementById("recoveryTitle").focus();
+}
+
+function readRecoveryStorage(){
+    try{
+        return localStorage.getItem(SAVE_KEY);
+    }catch(error){
+        throw saveLoadError("STORAGE_READ_ERROR", "Unable to read browser storage.", error);
+    }
+}
+
+function checkPreservedSave(){
+    const raw = readRecoveryStorage();
+    if(recoveryState.hasRaw && raw !== recoveryState.raw){
+        throw saveLoadError("STORAGE_CHANGED", "Stored save changed during recovery.");
+    }
+    return raw;
+}
+
+function attemptSaveLoad(){
+    if(gameStarted) return true;
+    let loaded;
+    try{
+        const raw = checkPreservedSave();
+        if(!recoveryState.hasRaw){
+            recoveryState.raw = raw;
+            recoveryState.hasRaw = true;
+        }
+        loaded = readVersionedSave(recoveryState.raw);
+    }catch(error){
+        showSaveRecovery(error?.code ? error : saveLoadError("LOAD_ERROR", "Save loading failed.", error));
+        return false;
+    }
+
+    return startLoadedGame(loaded);
+}
+
+function startLoadedGame(loaded){
+    if(gameStarted) return true;
+    // Only successful loading or a confirmed reset may activate the game.
+    initializeGameState(loaded);
+    restoreAutoFurnace();
+    updateUI();
+    recoveryState.active = false;
+    recoveryState.error = null;
+    gameStarted = true;
+    document.getElementById("saveRecovery").hidden = true;
+    document.getElementById("gameRoot").hidden = false;
+    document.getElementById("gameRoot").inert = false;
+    startGameplay();
+    return true;
+}
+
+function getRecoveryRawSave(){
+    return recoveryState.hasRaw ? recoveryState.raw : null;
+}
+
+function exportRecoverySave(){
+    const raw = getRecoveryRawSave();
+    if(!recoveryState.active || raw === null) return;
+    let url;
+    try{
+        url = URL.createObjectURL(new Blob([raw], { type: "text/plain;charset=utf-8" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "tefi-original-save.txt";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        // Allow the browser to begin the download before releasing its URL.
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        document.getElementById("recoveryStatus").textContent =
+            "Download requested. Keep the file before choosing Start fresh.";
+    }catch(error){
+        if(url) URL.revokeObjectURL(url);
+        document.getElementById("recoveryStatus").textContent =
+            "The download could not start. Your save is unchanged. Please try again.";
+    }
+}
+
+function resetRecoverySave(){
+    if(!recoveryState.active || !recoveryState.hasRaw) return false;
+    if(!confirm("Start fresh? This removes your stored save and all its progress. Download the original save first. Continue?")){
+        return false;
+    }
+    try{
+        // Recheck after confirmation: another tab may have saved in the meantime.
+        checkPreservedSave();
+        try{
+            localStorage.removeItem(SAVE_KEY);
+        }catch(error){
+            throw saveLoadError("STORAGE_REMOVE_ERROR", "Unable to remove browser save.", error);
+        }
+    }catch(error){
+        showSaveRecovery(error);
+        return false;
+    }
+    return startLoadedGame(null);
+}
+
+
 
 // Definitions must be available before validating a stored furnace tier/batch.
 const FURNACES = [
@@ -214,7 +353,7 @@ const FURNACES = [
 function validateSaveData(data){
 
     function invalid(path, requirement){
-        throw new Error("Invalid save: " + path + " " + requirement + ". Stored data was not changed.");
+        throw saveLoadError("VALIDATION_ERROR", "Invalid save: " + path + " " + requirement + ". Stored data was not changed.");
     }
 
     const owns = (object, key) =>
@@ -413,7 +552,7 @@ function copySaveData(value){
 function migrateSaveData(data, targetVersion = SAVE_VERSION, migrations = SAVE_MIGRATIONS){
 
     if(data === null || typeof data !== "object" || Array.isArray(data)){
-        throw new Error("Invalid save: expected a player-state object. Stored data was not changed.");
+        throw saveLoadError("VALIDATION_ERROR", "Invalid save: expected a player-state object. Stored data was not changed.");
     }
 
     let version = Object.prototype.hasOwnProperty.call(data, "saveVersion")
@@ -421,13 +560,13 @@ function migrateSaveData(data, targetVersion = SAVE_VERSION, migrations = SAVE_M
         : 0;
 
     if(!Number.isSafeInteger(version) || version < 0){
-        throw new Error("Invalid saveVersion. Stored data was not changed.");
+        throw saveLoadError("VERSION_ERROR", "Invalid saveVersion. Stored data was not changed.");
     }
     if(!Number.isSafeInteger(targetVersion) || targetVersion < 0){
-        throw new Error("Invalid migration target version. Stored data was not changed.");
+        throw saveLoadError("MIGRATION_ERROR", "Invalid migration target version. Stored data was not changed.");
     }
     if(version > targetVersion){
-        throw new Error("This save requires a newer game version. Stored data was not changed.");
+        throw saveLoadError("VERSION_ERROR", "This save requires a newer game version. Stored data was not changed.");
     }
 
     // Even an in-place migration must not mutate the caller's parsed object.
@@ -438,7 +577,7 @@ function migrateSaveData(data, targetVersion = SAVE_VERSION, migrations = SAVE_M
             ? migrations[version]
             : undefined;
         if(typeof step !== "function"){
-            throw new Error("Missing save migration " + version + " -> " + nextVersion +
+            throw saveLoadError("MIGRATION_ERROR", "Missing save migration " + version + " -> " + nextVersion +
                 ". Stored data was not changed.");
         }
 
@@ -446,14 +585,14 @@ function migrateSaveData(data, targetVersion = SAVE_VERSION, migrations = SAVE_M
         try{
             result = step(migrated);
         }catch(error){
-            throw new Error("Save migration " + version + " -> " + nextVersion +
+            throw saveLoadError("MIGRATION_ERROR", "Save migration " + version + " -> " + nextVersion +
                 " failed: " + (error instanceof Error ? error.message : String(error)) +
                 ". Stored data was not changed.");
         }
         if(result === null || typeof result !== "object" || Array.isArray(result) ||
             !Object.prototype.hasOwnProperty.call(result, "saveVersion") ||
             result.saveVersion !== nextVersion){
-            throw new Error("Save migration " + version + " -> " + nextVersion +
+            throw saveLoadError("MIGRATION_ERROR", "Save migration " + version + " -> " + nextVersion +
                 " must return an object with saveVersion " + nextVersion +
                 ". Stored data was not changed.");
         }
@@ -468,15 +607,29 @@ function readVersionedSave(serializedSave){
     if(serializedSave === null)
         return null;
 
-    const migrated = migrateSaveData(JSON.parse(serializedSave));
-    validateSaveData(migrated);
+    let parsed;
+    try{
+        parsed = JSON.parse(serializedSave);
+    }catch(error){
+        throw saveLoadError("PARSE_ERROR", "Invalid save JSON. Stored data was not changed.", error);
+    }
+    let migrated;
+    try{
+        migrated = migrateSaveData(parsed);
+    }catch(error){
+        throw error?.code ? error : saveLoadError("MIGRATION_ERROR", "Save migration failed. Stored data was not changed.", error);
+    }
+    try{
+        validateSaveData(migrated);
+    }catch(error){
+        throw error?.code ? error : saveLoadError("VALIDATION_ERROR", "Save validation failed. Stored data was not changed.", error);
+    }
     return migrated;
 
 }
 
-let save = readVersionedSave(
-    localStorage.getItem("ef_incremental")
-) || {
+function initializeGameState(loadedSave){
+save = loadedSave || {
 saveVersion: SAVE_VERSION,
 cash: 100,
 
@@ -773,6 +926,8 @@ FACTORY_MILESTONES.forEach(level => {
 
 });
 
+}
+
           let pendingSmelt = {
 
     key: "",
@@ -930,6 +1085,7 @@ function claimAchievement(id){
 }
 
 function saveGame(){
+        if(!gameStarted || recoveryState.active) return;
         localStorage.setItem(
             "ef_incremental",
             JSON.stringify(save)
@@ -978,6 +1134,7 @@ let autoFurnaceState = {
     startTime: 0,
     batch: []
 };
+function restoreAutoFurnace(){
 autoFurnaceState.enabled =
     save.autoFurnaceEnabled;
 if(
@@ -1000,6 +1157,7 @@ if(
 
     }
 
+}
 }
 
 
@@ -2706,6 +2864,7 @@ if(
 
 }
 
+function startGameplay(){
 document.getElementById("mineButton")
 .onclick = function(){
 
@@ -2793,6 +2952,7 @@ setInterval(function(){
 
 
 setInterval(saveGame, 5000);
+}
           
 function formatNumber(num, decimals = 2){
 
@@ -4081,6 +4241,10 @@ function showAchievementPopup(
 }
 
 function resetSave(){
+    if(recoveryState.active){
+        resetRecoverySave();
+        return;
+    }
 
     if(
         !confirm(
@@ -4098,4 +4262,7 @@ function resetSave(){
 
 }
 
-    updateUI();
+document.getElementById("exportRawSave").onclick = exportRecoverySave;
+document.getElementById("retrySaveLoad").onclick = attemptSaveLoad;
+document.getElementById("resetRecoverySave").onclick = resetRecoverySave;
+attemptSaveLoad();
