@@ -1,5 +1,10 @@
 # Save schema version 1 — V1-010 through V1-015
 
+## Planned V2 boundary — documentation synchronization, 2026-10-06
+
+The active save version remains **1**. This file documents the accepted running V1 contract, including legacy field names and defaults; those are not the new gameplay design. [Bible 3.22 / Reference I](GAME_BIBLE.md#reference-i-save-version-2-migration) specifies the future adjacent 1→2 migration and canonical machine instances. Roadmap V1-016–018 covers field contracts, conversion/compensation, validation and recovery regressions. Unsupported above-cap reconstruction is DESIGN REQUIRED before shipping that migration. No migration or opening default changes are activated by documentation synchronization.
+
+
 ## Contract
 
 Storage key remains `ef_incremental`. The save remains the same player-state object, with one additive top-level field: `saveVersion: 1`.
