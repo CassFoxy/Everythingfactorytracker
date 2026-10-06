@@ -12,11 +12,11 @@
 >
 > **Framework Version:** 1.0.0
 >
-> **Development Bible Version:** 1.0.1
+> **Development Bible Version:** 1.0.2
 >
 > **Game Version:** 0.1.0 Alpha
 >
-> **Specification Version:** 1.0.0
+> **Specification Version:** 1.1.0
 >
 > **Repository:** [CassFoxy/Everythingfactorytracker](https://github.com/CassFoxy/Everythingfactorytracker)
 >
@@ -24,9 +24,141 @@
 >
 > **Maintained By:** Project Development Team
 >
-> **Last Updated:** 2026-09-28
+> **Last Updated:** 2026-10-06
 >
 > **Document Type:** Engineering Specification & Development Handbook
+
+---
+
+# Current specification and implementation boundary
+
+This revision synchronizes the owner-approved [6 October handoff](TEFI_Consolidated_Development_Specification.md). Its earlier “Bible updates pending approval” note is historical: synchronization is now authorized. The handoff is retained unchanged for provenance; this Bible is the canonical gameplay specification and the [roadmap](../V1_ROADMAP.md) is the implementation sequence. Follow [AGENTS.md](../AGENTS.md) first. For this synchronization the approved handoff supersedes conflicting older Bible, roadmap and prototype wording.
+
+**Defined** means approved design, not implemented. **Recommended** remains a proposal. **Open** means DESIGN REQUIRED. **Deferred** excludes active implementation in the current phase. These states are independent of implementation status. Newly specified mechanics below are future requirements; this documentation change does not make their acceptance checks pass.
+
+The reviewed V1-003 and V1-010–015 testing/persistence foundation is accepted; V1-020 review is accepted. Production still uses save schema **1**, counter-based legacy machines and the old opening. The planned instance schema is **2**; neither it nor the new balance is activated by this revision. The dated prototype register below is historical evidence only.
+
+Canonical player-facing names are **Miner**, **Polisher**, **Refiner**. Dropper/Adder/Multiplier names are retained only in explicitly historical or migration descriptions; do not rename production fields in a documentation ticket.
+
+## Canonical navigation
+
+| Area | Canonical chapter / exact reference |
+|---|---|
+| Opening and disclosure | 2.1–2.5; 3.20 |
+| Manual mining, Pickaxes and separate manual Luck | 3.3 / Reference A |
+| Resources and materials | 3.4; 4.1 |
+| Normal Shop and Cash rounding | 3.7 / Reference J; 3.8 / Reference E |
+| Miner, Polisher, Refiner and Furnace | 3.8 / References B–E |
+| XP; Milestones; Achievements | 3.13–3.15 / Reference G |
+| Rebirth and permanent perks | 3.17 / Reference H reset matrix; Reference J perks |
+| Statistics and challenges | 3.19 / Reference H; 3.23 / Reference F |
+| Current persistence and planned V2 | 3.22 / Reference I; SAVE_VERSIONING.md |
+| Unresolved, recommended and deferred | Reference K below |
+| Future implementation acceptance | Reference L below; roadmap ticket mappings |
+
+### Units and calculation conventions
+
+- Cash and Stardust are different currencies. Global Cash price rounding does not apply to Stardust costs.
+- Cost level L means the level being purchased, starting at 1. An upgrade's effect uses the owned level, starting at 0.
+- T is a machine's resulting target tier; k is crafted Pickaxe tier, with Default at k=0.
+- Formula probabilities use fractions: 25% = 0.25. Display percentages may be rounded.
+- Keep Pickaxe Power and probability weights at full calculation precision. Resource, material and Gem Dust quantities are integers.
+- For positive values, round means normal half-up rounding unless an explicit floor or ceil is specified.
+- Compute each price independently from its original formula, apply eligible discount, then the specified Cash rounding. Never multiply a previous rounded purchase price.
+- V1 maxima: 5 Miners, 3 Polishers, 1 Refiner and 1 permanent placed Furnace; Miner tier 25, Polisher/Refiner tier 10, Furnace tier 20; ore tiers T1–T4.
+- The only Stone probability floor is the automated Miner floor of 25%.
+
+## Reference K Open recommended and deferred decisions
+
+### Open definitions
+
+1. **Destroyed-ore challenge wording:** The principal rule is successful surviving passes only. The supplied exception about an already-completed destruction event could imply an additional path to progress. The last review recommended: count a pass only when its ore survives; a destruction event awards no progress. That final editorial clarification has not been explicitly accepted separately.
+2. **Legacy reconstruction beyond current caps:** Specify the approved legacy-equivalent purchase and upgrade schedule for unsupported old tiers and overflow Polisher slots. Current tables end at the new caps; compensation cannot be invented from unavailable prices.
+3. **Whole-item challenge targets and claim precision:** Target quantities must be integers, but the exact friendly-rounding procedure is not supplied. Cash/XP claim fractions likewise need the existing currency precision policy or an explicit rule; use exact fractions to calculate, not truncated display percentages.
+4. **Stone and Ore Value:** Earlier wording says Ore Value affects ores. It does not explicitly decide whether the Stone resource receives that modifier.
+5. **Rebirth Furnace Capacity:** An early mention exists without a final perk definition. Confirm whether it remains required or is superseded by the 50×tier capacity progression.
+
+These entries isolate unresolved definitions rather than silently creating new game balance. They do not prevent work on separately authorized systems whose behavior is fully defined.
+
+### Recommended values pending canon approval
+
+- Material Factory XP: Wood 5, Scrap 15, Metal 50.
+- Factory Purchase Discount price curve: 250,000 × 2^(L−1), total 255,750,000 Stardust.
+
+### Deferred systems
+
+- Machine Inscriptions and all active effects/costs/caps; placeholders remain 1×.
+- New ore tiers T5–T10 and their values/rarities/unlock rows.
+- Miner tiers above 25 and future machine types requiring absent systems.
+- Additional Achievement entries and detailed reward balancing.
+- Milestone reward types, amounts and balancing.
+
+The threshold structure and existing Achievement infrastructure are not deferred merely because their rewards are.
+
+### Other unresolved dependencies retained from the roadmap
+
+The handoff does not settle starting grid dimensions, placement/removal versus resale, conveyor movement/routing/congestion, expansion prices, inventory capacity, mutations, offline simulation, remaining Factory Level unlock/reward tables, or settings. These remain DESIGN REQUIRED where needed; no generic example in older prose is approval. Deferred reward catalogues are not current-phase release gates. Resolve only the decisions required by the next bounded ticket.
+
+Two compatibility/lifecycle details also need explicit resolution when their tickets are scoped: how retained legacy Milestone flags/claims map to the new 250 thresholds without losing progress; and what happens to a Refiner's reserved active inputs when it is sold. The handoff defines retention/refund principles but not these exact edge-case mappings. Do not choose a new gameplay outcome merely to finish migration or resale.
+
+### Decision 19 — Machine Inscriptions
+
+- **Which machines can be inscribed:** Deferred for the current phase. No active Inscription purchasing or bonuses are required. All Inscription multipliers are 1.
+
+- **Which stats can be inscribed on Miners:** Deferred planning direction: Ore Luck and output.
+
+- **Which stats can be inscribed on Polishers:** Deferred planning direction: capacity and polished value.
+
+- **Which stats can be inscribed on Refiner:** Deferred planning direction: capacity and Dust yield.
+
+- **Which stats can be inscribed on Furnace:** Deferred planning direction: capacity and sale value.
+
+- **Gem Dust cost per Inscription level:** Deferred; no approved Gem Dust price catalogue.
+
+- **Cost scaling:** Deferred; no approved cost curve.
+
+- **Maximum levels:** Deferred; no approved level limits.
+
+- **Caps:** Deferred. Any future system must respect ore locks, Refine 15, machine counts and established speed/probability caps.
+
+- **Do Inscriptions survive Rebirth:** Deferred ownership plan: permanent slot records would survive Rebirth. Do not implement this merely because the placeholder multiplier exists.
+
+- **Do Inscriptions survive selling a machine:** Deferred ownership plan: slot records would survive resale.
+
+- **Are Inscriptions tied to the individual machine or globally unlocked:** Deferred planning direction: persistent machine slots rather than a global bonus. Exact catalogue/lifecycle remains future work.
+
+## Reference L Acceptance checks for future development
+
+These consolidate the original progression tests with the later owner decisions. This handoff does not claim that tests have run or passed.
+
+1. Fresh state has $0, Level 0 / 0 XP, Default Pickaxe and one free Miner slot.
+2. First manual click produces Stone with no material substitution; later clicks use accessible manual weights.
+3. First Furnace sale grants Cash and removes the sold resources once.
+4. Unlock Miner requires Mining Power I; buying the unlock and buying the Miner are separate transactions.
+5. Miner ownership begins automation; each entity's tier, Ore Luck, interval, investment and state are independent.
+6. Miner limits/slot prices and persistent purchased access are enforced; T4 cannot appear before Miner 6 even with extreme Luck.
+7. Automated probability rows total 1 and Stone remains ≥0.25; manual probabilities have no artificial Stone floor.
+8. Shop/manual, automated Overall Luck and automated Ore Luck affect only their stated rolls.
+9. Mining Power fractional output is unbiased; material chance is once per click and materials cannot duplicate.
+10. Power retains precision through ×1.75 tiers; Pickaxe Luck uses additive 2.5 per crafted tier.
+11. One click consumes one durability; break/equip tie rules are deterministic.
+12. Durability uses floored hundred-unit maxima; upgrades preserve damage on usable copies and never revive broken copies.
+13. Repairs are broken-only, use ceil(95% recipe), and restore the current maximum; require all ingredients atomically.
+14. Polisher rejects Stone/repolishing, processes partial batches and uses slot prices independently of tier upgrade costs.
+15. Refiner input/count/value/roll order, Dust retention on destruction, 15-pass cap and integer expected Dust yield are respected.
+16. Furnace capacity/value/exponential speed and manual/automatic tier gates use the final formulas.
+17. All purchases calculate from original formulas; discount precedes eligible Cash rounding; local Ore Luck gets no discount.
+18. Resale refunds half actual qualifying Cash paid, rounded down; preserved tiers and permanent perks do not create refundable Cash.
+19. Rebirth computes Stardust before resetting Cash, preserves actual XP/Level/Pickaxes/materials/slots and applies the reset matrix.
+20. Daily and Weekly sets use 3/7 counts, exact per-set reward fractions, claim-time snapshots and no payout inflation of qualifying earnings.
+21. Challenge generation uses current capabilities, 30-click manual fallback, safety margin, no duplicate objectives and Refiner survival-adjusted output.
+22. Scheduled resets expire all unclaimed objectives; Rebirth itself retains objective state.
+23. Weekly Stardust has exactly one eligible extra-reward objective, requires a previous Rebirth at generation, floors reward with 100 minimum, and receives no Stardust Gain multiplier.
+24. All 250 Milestones are unique and increasing, final threshold 10,000; claims and earned flags remain permanent.
+25. V0/V1 migration to V2 preserves supported progress, applies deterministic conversion/compensation once and never re-runs on V2 reload.
+26. Active reservations, cycles and payouts save/reload without loss, double production, duplicate timers or cross-machine state contamination.
+27. Invalid/unsupported saves preserve original data for recovery rather than starting a fresh save silently.
+28. A complete opening-to-upgrade-to-save/reload scenario follows the final progression order.
 
 ---
 
@@ -273,7 +405,12 @@ Entire document.
 
 ---
 
-# Implementation Status Review — 2026-09-28
+> **Historical/migration evidence only.** The following snapshot predates accepted persistence/CI work and the 6 October design. Old machine names, probabilities, costs, XP defaults and missing-test statements below are not active design rules or a current audit. Use the canonical chapters and roadmap above.
+
+<details>
+<summary>Expand the dated prototype evidence and discrepancy record</summary>
+
+# Historical prototype register — 2026-09-28
 
 This review records what is present in the current HTML/CSS/JavaScript reference implementation. As specified in [game/AGENTS.md](../AGENTS.md), the Roblox Luau port follows completion and testing of the web V1.0.
 
@@ -302,7 +439,7 @@ The component table below credits the existing web features independently. Chapt
 
 Planned examples and future-expansion lists are not automatically V1.0 requirements. Sections 1.7 and 1.8 retain responsibility for release scope. This review records discrepancies without approving new mechanics, changing formulas or replacing the intended design.
 
-## Current Implementation Register
+## Historical Implementation Register
 
 | Feature or system | Implementation status | Bible reference | Code evidence | Implemented scope or remaining work |
 |-------------------|-----------------------|-----------------|---------------|------------------------------------|
@@ -382,6 +519,9 @@ No automated test files exist in the inspected `game/` tree. Balance, browser/de
 | 1.0.1 | 2026-09-28 | Reviewed the complete Bible against the four runtime files; added implementation evidence and Completed/In Progress/Not Started statuses, separated specification maturity, and recorded unresolved discrepancies. Gameplay code, formulas and release scope were not changed. |
 
 ---
+
+
+</details>
 
 # Documentation Quality Standard
 
@@ -1254,7 +1394,7 @@ The purpose of this section is to ensure that any contributor can quickly unders
 
 # Overview
 
-Everything Factory Incremental is a progression-based factory building and incremental game developed on the Roblox platform.
+Everything Factory Incremental is a progression-based factory building and incremental game developed first as an HTML/CSS/JavaScript web reference, with a later Roblox Luau port.
 
 The player begins with almost nothing and gradually builds an increasingly efficient production factory through exploration, optimisation and automation.
 
@@ -2415,7 +2555,7 @@ Version 1.0 should successfully achieve the following objectives.
 
 # Gameplay Systems Included
 
-The following gameplay systems are considered part of the Version 1.0 release.
+The following are the broad V1 system areas. Defined rules and the current-phase exclusions in Reference K take precedence over this older scope outline. Detailed Achievement/Milestone rewards are Deferred; Daily/Weekly challenges in 3.23 are now included. Unspecified mutation/offline/grid/settings behavior still needs design.
 
 ## Core Gameplay
 
@@ -2431,11 +2571,11 @@ The following gameplay systems are considered part of the Version 1.0 release.
 
 ## Factory Systems
 
-- Droppers
+- Miners
 - Conveyors
 - Furnaces
-- Adders
-- Multipliers
+- Polishers
+- Refiners
 
 ---
 
@@ -2484,7 +2624,7 @@ Version 1.0 should provide:
 - Reliable autosaving.
 - Expandable architecture.
 - Modular gameplay systems.
-- Good performance on Roblox-supported devices.
+- Good performance on supported web devices, with later Luau portability.
 - Consistent balancing.
 - Maintainable code structure.
 - Comprehensive documentation.
@@ -2693,9 +2833,9 @@ Examples include:
 - Limited-time events.
 - Battle Passes.
 - Seasonal progression.
-- Timed challenges.
+- Limited-time event challenges (the Defined Daily/Weekly system in 3.23 is included).
 
-Version 1.0 should remain focused on permanent progression rather than temporary content.
+Version 1.0 excludes seasonal/live-event systems; the Defined Daily/Weekly progression challenges in 3.23 are an explicit exception to this older exclusion.
 
 ---
 
@@ -2834,6 +2974,10 @@ A smaller, polished release is preferred over a larger but unfinished experience
 ---
 
 # Volume II - Player Journey
+
+> Volume overview status tables below are retained September planning snapshots. Use the current chapter contract and roadmap for current design/implementation status; Defined design never implies implementation completion.
+
+
 
 > [!IMPORTANT]
 >
@@ -3017,1080 +3161,39 @@ By the end of this act, every major gameplay system introduced in Version 1.0 sh
 
 ---
 
-## 2.1 First Launch
+# 2.1 First Launch
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL2-001
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** The dashboard, new-save defaults and browser load path exist. Guided objectives, a world view, audio and the complete first-launch experience are absent.
->
-> **Player Milestone:** First Launch
->
-> **Prerequisite:** None
->
-> **Next Milestone:** First Resource
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
 
----
-
-# Purpose
-
-This section defines the player's first experience when launching Everything Factory Incremental.
-
-The first launch is responsible for creating a positive first impression, introducing the game's visual identity and encouraging the player to begin interacting with the world.
-
-No complex gameplay systems should be introduced during this stage.
-
-Instead, the objective is to establish curiosity and confidence.
-
----
-
-# Design Philosophy
-
-The first launch should answer three questions for the player as quickly as possible.
-
-- What is this game?
-- What am I supposed to do?
-- Why should I keep playing?
-
-The player should never feel confused immediately after joining.
-
-Instead, they should feel encouraged to explore.
-
----
-
-# Intended Player Experience
-
-The player should experience:
-
-- Curiosity.
-- Excitement.
-- Comfort.
-- Confidence.
-
-The player should immediately understand that the game is approachable while also sensing that there is significantly more depth waiting to be discovered.
-
----
-
-# First Impression Goals
-
-The opening experience should communicate:
-
-- The visual style of the game.
-- The atmosphere of the world.
-- The quality of the user interface.
-- The polish of the gameplay.
-- The responsiveness of player controls.
-
-The player should feel that they are entering a carefully designed world rather than an unfinished project.
-
----
-
-# Initial World Design
-
-Upon spawning, the player should immediately see:
-
-- Their starting factory area.
-- The first resource node.
-- A clear route towards interaction.
-- A clean and uncluttered environment.
-- Visual hints towards future expansion.
-
-The world should feel larger than the player's current capabilities.
-
-This encourages curiosity without overwhelming the player.
-
----
-
-# User Interface
-
-Only essential interface elements should be visible during the first launch.
-
-Examples include:
-
-- Cash.
-- Inventory.
-- Experience.
-- Factory Level.
-- Basic objective.
-
-Advanced systems should remain hidden until they become relevant.
-
-The interface should gradually expand alongside progression.
-
----
-
-# Player Guidance
-
-The game should naturally encourage the player towards interacting with the first resource.
-
-Guidance should rely upon environmental design wherever possible.
-
-Examples include:
-
-- Camera positioning.
-- Object placement.
-- Lighting.
-- Visual emphasis.
-- Simple objective prompts.
-
-Lengthy tutorials should be avoided.
-
-Players should learn primarily through interaction.
-
----
-
-# Audio & Presentation
-
-The first launch should establish the identity of Everything Factory Incremental.
-
-Considerations include:
-
-- Ambient music.
-- User interface sounds.
-- Mining sound effects.
-- Interaction feedback.
-- Visual animations.
-
-Every interaction should feel responsive.
-
----
-
-# Success Criteria
-
-The first launch has achieved its objective if the player:
-
-- Understands where they are.
-- Understands what to interact with.
-- Feels comfortable exploring.
-- Successfully begins interacting with the world.
-- Looks forward to discovering additional mechanics.
-
----
-
-# Transition
-
-The completion of this milestone occurs when the player successfully begins interacting with their first resource.
-
-At this point, progression moves into **2.2 First Resource**, where the player learns the fundamental gameplay mechanic of gathering materials.
-
----
-
-# Related Sections
-
-- Volume I – Project Foundation
-- 1.5 Player Experience Goals
-- 2.2 First Resource
-- Volume III – Core Gameplay Systems
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial First Launch specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
-
----
-
-## 2.2 First Resource
-
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL2-002
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Manual mining immediately awards resources and updates inventory/XP. The first roll is not guaranteed to be Stone; node interaction, animation and sound are not implemented.
->
-> **Player Milestone:** First Resource
->
-> **Prerequisite:** First Launch
->
-> **Next Milestone:** First Sale
-
----
-
-# Purpose
-
-This milestone introduces the player to the first interactive gameplay mechanic within Everything Factory Incremental.
-
-The player gathers their first resource, Stone, establishing the fundamental gameplay loop that every future progression system will build upon.
-
-This interaction should immediately communicate that player actions produce tangible rewards.
-
----
-
-# Design Philosophy
-
-The first resource serves as the player's introduction to progression.
-
-Although gathering Stone appears simple, it establishes several important concepts that remain relevant throughout the entire game.
-
-These concepts include:
-
-- Interaction produces resources.
-- Resources have value.
-- Resources contribute towards progression.
-- Every action moves the player forward.
-
-This milestone should feel satisfying despite its simplicity.
-
----
-
-# Intended Player Experience
-
-The player should experience:
-
-- Curiosity.
-- Satisfaction.
-- Immediate feedback.
-- A sense of accomplishment.
-
-The player should understand that interacting with the world always results in meaningful progress.
-
----
-
-# System Overview
-
-Stone represents the first obtainable resource within Everything Factory Incremental.
-
-It is intentionally common and easy to collect.
-
-Although Stone has relatively low value compared with later resources, it establishes mechanics that will later apply to every ore and collectible item within the game.
-
-Stone is designed to teach gameplay rather than provide significant wealth.
-
----
-
-# Gameplay Flow
-
-The intended sequence is:
-
-```text
-Player approaches Stone
-
-↓
-
-Player interacts
-
-↓
-
-Mining animation begins
-
-↓
-
-Stone collected
-
-↓
-
-Inventory updates
-
-↓
-
-Player receives visual and audio feedback
-
-↓
-
-Player notices increasing inventory
-
-↓
-
-Player begins asking:
-
-"What do I do with this?"
-```
-
-This final question naturally transitions the player into the next milestone.
-
----
-
-# User Interface Behaviour
-
-During this milestone the player should become familiar with:
-
-- Inventory count increasing.
-- Resource notifications.
-- Collection feedback.
-- Experience gained (if applicable).
-- Progress indicators.
-
-Only the information required for this milestone should be visible.
-
-The interface should avoid unnecessary complexity.
-
----
-
-# Audio & Visual Feedback
-
-Collecting the first Stone should feel rewarding.
-
-Feedback should include:
-
-- Mining sound effects.
-- Collection sound.
-- Visual particle effects.
-- Inventory animation.
-- Resource popup.
-- Subtle screen feedback where appropriate.
-
-Every interaction should reinforce that progress has been made.
-
----
-
-# Educational Purpose
-
-Without presenting explicit tutorials, the player should naturally learn that:
-
-- Resources can be gathered.
-- Gathering resources is straightforward.
-- The inventory stores collected materials.
-- Collected materials will become useful.
-
-The game should encourage learning through interaction rather than instruction.
-
----
-
-# Success Criteria
-
-This milestone has achieved its objective if the player:
-
-- Successfully collects Stone.
-- Understands that resources can be gathered.
-- Notices the inventory updating.
-- Understands that progression has begun.
-- Wants to discover the purpose of the collected resources.
-
----
-
-# Transition
-
-At the completion of this milestone the player has collected resources but has not yet received a reward for doing so.
-
-The natural question becomes:
-
-> "How do I turn these resources into progress?"
-
-The answer is introduced in **2.3 First Sale**, where the player learns that collected resources can be exchanged for currency, unlocking the economic progression that drives the early game.
-
----
-
-# Related Sections
-
-- 2.1 First Launch
-- 2.3 First Sale
-- Volume III – Resource System
-- Volume III – Stone
-- Volume III – Inventory
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial First Resource specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
-
----
-
-## 2.3 First Sale
-
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL2-003
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Manual furnace selection and confirmation already convert resources to Cash. A dedicated selling point and richer sale feedback are absent; the starting Cash also permits a purchase before any sale.
->
-> **Player Milestone:** First Sale
->
-> **Prerequisite:** First Resource
->
-> **Next Milestone:** First Upgrade
-
----
-
-# Purpose
-
-This milestone introduces the player to the in-game economy by allowing them to exchange their first collected resources for currency.
-
-It establishes one of the most important progression concepts within Everything Factory Incremental:
-
-> Collected resources have value.
-
-The player should immediately understand that gathering resources directly contributes towards future progression.
-
----
-
-# Design Philosophy
-
-The first sale exists to connect effort with reward.
-
-Until this point the player has gathered resources but has not yet experienced meaningful progression.
-
-Selling resources transforms collected items into purchasing power, introducing the economic loop that drives the remainder of the game.
-
-This interaction should feel rewarding without requiring explanation.
-
----
-
-# Intended Player Experience
-
-The player should experience:
-
-- Satisfaction.
-- Achievement.
-- Motivation.
-- Curiosity.
-
-The player should begin asking:
-
-- "What can I buy now?"
-- "How can I earn currency faster?"
-- "What happens if I keep collecting resources?"
-
-These questions naturally encourage continued progression.
-
----
-
-# System Overview
-
-The selling system introduces the concept that gathered resources contribute towards permanent progression.
-
-The player learns that:
-
-- Resources are valuable.
-- Currency is earned through gameplay.
-- Currency enables progression.
-- Gathering resources has a meaningful purpose.
-
-The first sale marks the moment where the complete gameplay loop begins to take shape.
-
----
-
-# Gameplay Flow
-
-The intended sequence is:
-
-```text
-Player gathers Stone
-
-↓
-
-Player reaches the selling point
-
-↓
-
-Player sells collected resources
-
-↓
-
-Currency increases
-
-↓
-
-Selling feedback is displayed
-
-↓
-
-Player notices they can now afford new upgrades
-
-↓
-
-Player begins exploring available purchases
-```
-
-The sale should feel immediate and rewarding.
-
-Waiting should never interrupt the player's first experience with the economy.
-
----
-
-# User Interface Behaviour
-
-During this milestone the player should become familiar with:
-
-- Current currency.
-- Currency increases.
-- Selling interface.
-- Resource totals.
-- Basic purchasing information.
-
-The player should always understand:
-
-- What they sold.
-- What they received.
-- Their new balance.
-
-Feedback should be clear, immediate and satisfying.
-
----
-
-# Audio & Visual Feedback
-
-Selling resources should provide positive reinforcement.
-
-Examples include:
-
-- Currency increase animation.
-- Coin sound effect.
-- Resource removal animation.
-- Currency popup.
-- UI highlights.
-
-The player should immediately recognise that progression has occurred.
-
----
-
-# Developer Intent
-
-The purpose of this milestone is to establish trust in the game's progression system.
-
-The player should quickly understand that every action has a tangible reward.
-
-The selling mechanic is intentionally introduced before any major upgrades so that players appreciate the relationship between gathering resources, earning currency and unlocking new opportunities.
-
-This milestone also creates anticipation for the next stage of progression, where currency can be invested rather than simply collected.
-
----
-
-# Success Criteria
-
-This milestone has achieved its objective if the player:
-
-- Successfully sells resources.
-- Understands that resources generate currency.
-- Recognises that currency enables progression.
-- Begins looking for ways to improve earnings.
-- Wants to purchase their first upgrade.
-
----
-
-# Transition
-
-After earning currency for the first time, the player's attention naturally shifts towards spending it.
-
-Rather than asking:
-
-> "How do I make money?"
-
-The player now asks:
-
-> "What should I buy first?"
-
-This curiosity leads directly into **2.4 First Upgrade**, where the player experiences their first permanent improvement and begins to understand that every investment strengthens their future progression.
-
----
-
-# Related Sections
-
-- 2.2 First Resource
-- 2.4 First Upgrade
-- Volume III – Selling System
-- Volume III – Currency System
-- Volume III – Economy
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial First Sale specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
-
----
-
-## 2.4 First Upgrade
-
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL2-004
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Dropper, Adder, Multiplier and furnace purchase effects exist. The introductory purchase journey and explicit failure/affordability feedback remain unfinished.
->
-> **Player Milestone:** First Upgrade
->
-> **Prerequisite:** First Sale
->
-> **Next Milestone:** First Automation
-
----
-
-# Purpose
-
-This milestone introduces the player to permanent progression through their first meaningful purchase.
-
-For the first time, the player exchanges earned currency for a lasting improvement that increases future efficiency.
-
-This establishes one of the most important concepts within Everything Factory Incremental:
-
-> Investing resources today creates greater rewards tomorrow.
-
-This milestone transforms progression from simple resource gathering into long-term decision making.
-
----
-
-# Design Philosophy
-
-The first upgrade is intentionally designed to create excitement for future progression.
-
-Rather than simply increasing a statistic, the purchase should demonstrate that the player's decisions permanently improve their factory and future gameplay.
-
-The player should immediately notice the benefit of their investment.
-
-Every future upgrade builds upon this same philosophy.
-
----
-
-# Intended Player Experience
-
-The player should experience:
-
-- Satisfaction.
-- Ownership.
-- Progress.
-- Anticipation.
-
-The player should feel that they have taken the first meaningful step towards building something much larger than their starting factory.
-
-The upgrade should encourage the player to immediately begin working towards their next purchase.
-
----
-
-# System Overview
-
-The first upgrade introduces several important progression concepts.
-
-The player learns that:
-
-- Currency has long-term value.
-- Purchases permanently improve progression.
-- Different upgrades will eventually require meaningful decisions.
-- Progress is no longer temporary.
-
-This milestone establishes the foundation for every future upgrade system within the game.
-
----
-
-# Gameplay Flow
-
-The intended sequence is:
-
-```text
-Player earns currency
-
-↓
-
-Player opens the upgrade interface
-
-↓
-
-Player reviews available upgrades
-
-↓
-
-Player purchases their first upgrade
-
-↓
-
-The upgrade immediately takes effect
-
-↓
-
-The player notices improved efficiency
-
-↓
-
-The player begins planning their next purchase
-```
-
-The improvement should be obvious enough that the player immediately recognises the value of investing in upgrades.
-
----
-
-# User Interface Behaviour
-
-The player should become familiar with:
-
-- Upgrade categories.
-- Upgrade descriptions.
-- Purchase buttons.
-- Cost displays.
-- Upgrade levels.
-- Affordability indicators.
-
-The interface should clearly communicate:
-
-- What the upgrade does.
-- What it costs.
-- Whether it has been purchased.
-- How progression has changed.
-
-The purchasing experience should feel quick, intuitive and rewarding.
-
----
-
-# Audio & Visual Feedback
-
-Purchasing an upgrade should feel like a meaningful achievement.
-
-Examples include:
-
-- Purchase sound effects.
-- Upgrade animations.
-- Visual confirmation.
-- Updated progression indicators.
-- Immediate gameplay feedback.
-
-The player should never question whether the purchase was successful.
-
----
-
-# Developer Intent
-
-This milestone exists to teach investment rather than spending.
-
-The player should understand that currency is not simply collected—it is transformed into permanent progress.
-
-The first upgrade should deliberately create a positive feedback loop:
-
-- Gather resources.
-- Earn currency.
-- Invest in upgrades.
-- Progress faster.
-- Unlock new possibilities.
-
-This loop becomes the foundation for the remainder of the game.
-
-The player's first purchase should also create anticipation for larger and more exciting upgrades later in progression.
-
----
-
-# Success Criteria
-
-This milestone has achieved its objective if the player:
+Fresh saves start with $0, Factory Level 0, 0 Factory XP and the infinite-durability Default Pickaxe. The first-ever manual mining action guarantees Stone and cannot substitute a crafting material. Subsequent actions use the normal accessible manual pool.
 
-- Purchases their first upgrade.
-- Understands that upgrades provide permanent progression.
-- Notices an immediate improvement.
-- Feels motivated to purchase additional upgrades.
-- Begins planning future progression.
+Opening sequence: first Stone → first Starter Furnace sale → Mining Power I → Unlock Miner → buy first Miner → automatic production. Mining Power I is required before the shop unlock, which is separate from buying a Miner. The Starter Furnace is the selling system; no separate direct-sale mechanic is required.
 
----
-
-# Transition
-
-At this point the player understands the complete manual progression loop.
-
-They can:
-
-- Gather resources.
-- Sell resources.
-- Purchase upgrades.
-
-The next milestone introduces the first major evolution of gameplay.
-
-Rather than performing every action manually, the player unlocks automation for the first time.
-
-This transition represents one of the largest shifts in the player's journey and marks the beginning of factory management.
-
-The player now enters **Act II — Building the Factory**, beginning with **2.5 First Automation**.
-
----
-
-# Related Sections
-
-- 2.3 First Sale
-- 2.5 First Automation
-- Volume III – Upgrade System
-- Volume III – Shop System
-- Volume III – Progression Systems
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial First Upgrade specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
-
----
-
-# Act II — Building the Factory
-
-> *The player transitions from manually gathering resources to designing, expanding and optimising an increasingly capable automated factory.*
-
----
-
-## 2.5 First Automation
-
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL2-005
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Dropper production and Auto Furnace operation are implemented. The placed-building and visible resource-flow experience described below is not implemented.
->
-> **Player Milestone:** First Automation
->
-> **Prerequisite:** First Upgrade
->
-> **Next Milestone:** First Factory Expansion
-
----
-
-# Purpose
-
-This milestone introduces the player to automation for the first time.
-
-Automation represents the largest shift in gameplay since the beginning of the game.
-
-Until this point, every resource has required direct player interaction.
-
-From this milestone onwards, the factory itself begins contributing towards progression.
-
-The player's role begins transitioning from manually gathering resources to designing, expanding and improving an increasingly efficient production system.
-
----
-
-# Design Philosophy
-
-Automation should feel transformative.
-
-The player's first automated machine should not simply reduce clicking.
-
-Instead, it should fundamentally change how the player thinks about progression.
-
-From this point onwards, the player should begin asking questions such as:
-
-- How can I make this faster?
-- How can I build a better factory?
-- What should I automate next?
-- How can I improve efficiency?
-
-Automation should introduce a new layer of gameplay rather than replacing existing gameplay.
-
----
-
-# Intended Player Experience
-
-The player should experience:
-
-- Excitement.
-- Empowerment.
-- Curiosity.
-- Creativity.
-- Satisfaction.
-
-This milestone should create the feeling that the player is now building something much larger than themselves.
-
-The factory should begin to feel alive.
-
----
-
-# System Overview
-
-Automation introduces the first factory components capable of producing resources independently.
-
-The player begins interacting with production systems rather than performing every task manually.
-
-This milestone establishes the foundation for every future factory mechanic including:
-
-- Production chains.
-- Resource flow.
-- Factory layouts.
-- Building placement.
-- Efficiency improvements.
-- Future automation systems.
-
-Automation should complement manual gameplay rather than immediately replacing it.
+The Furnace, Upgrade Shop, Collection and Statistics are visible from the start. Miner purchase/unlock access appears in the Upgrade Shop with applicable requirements. Achievements are revealed after the first Achievement unlocks; Milestones after the first completed Rebirth. Track milestone progress before reveal. Pickaxes and resources share an inventory screen with appropriate tabs; crafting has its own screen. Raw, Polished and Refined resources use separate tabs.
 
 ---
 
-# Gameplay Flow
+# 2.2 First Resource
 
-The intended sequence is:
+The first-ever manual action guarantees Stone and cannot substitute a material. Default Pickaxe is infinite. Later actions use accessible manual weights; this guarantee is not a permanent Stone-only phase. See 3.3 for exact quantity, accessibility and material rules.
 
-```text
-Player unlocks automation
-
-↓
-
-Player purchases their first automated building
-
-↓
-
-Player places the building
-
-↓
-
-The building begins operating
-
-↓
-
-Resources are produced automatically
-
-↓
-
-The player observes the production process
-
-↓
-
-The player begins experimenting with factory layouts
-
-↓
-
-The player wants to expand production
-```
-
-The first automated production cycle should be immediately visible.
-
-The player should never wonder whether the machine is working.
-
----
-
-# User Interface Behaviour
-
-The player should become familiar with:
-
-- Building placement.
-- Production indicators.
-- Machine status.
-- Resource flow.
-- Factory interaction.
-- Automation controls.
-
-The interface should communicate that automation is simple to understand while leaving room for increasing complexity later in the game.
-
----
-
-# Audio & Visual Feedback
-
-Automation should feel satisfying to watch.
-
-Examples include:
-
-- Machine operating sounds.
-- Conveyor movement.
-- Resource animations.
-- Building activation effects.
-- Production indicators.
-- Continuous movement throughout the factory.
-
-The factory should appear active even when the player is not interacting directly.
-
-Movement creates the impression that the factory is constantly working.
-
----
-
-# Educational Purpose
-
-This milestone should naturally teach the player that:
-
-- Machines can perform work independently.
-- Factory layout influences production.
-- Automation increases efficiency.
-- Building placement matters.
-- Production can continue while the player focuses elsewhere.
-
-The player should begin thinking like a factory designer rather than simply a resource collector.
-
----
-
-# Developer Intent
-
-This milestone represents the point where Everything Factory Incremental establishes its unique identity.
-
-The objective is not to remove manual gameplay.
-
-Instead, the objective is to shift the player's role.
-
-Before automation, the player performs the work.
-
-After automation, the player improves the systems that perform the work.
-
-This change in perspective is fundamental to the long-term design of the game.
-
-Every future production system, upgrade and optimisation mechanic builds upon this milestone.
-
-If the player finishes this milestone feeling excited to redesign and improve their factory, then it has achieved its purpose.
-
----
-
-# Success Criteria
-
-This milestone has achieved its objective if the player:
-
-- Successfully unlocks automation.
-- Places their first automated building.
-- Understands that machines can produce resources independently.
-- Watches automated production with interest.
-- Begins considering factory layout.
-- Wants to expand their production capabilities.
-
 ---
-
-# Transition
-
-The player has now experienced the first stage of automation.
-
-The natural next question becomes:
-
-> "How much bigger can I make this?"
 
-Rather than focusing on a single automated machine, the player begins thinking about expanding their entire production line.
+# 2.3 First Sale
 
-This transition marks the beginning of **2.6 First Factory Expansion**, where the player starts building a larger, more capable and increasingly efficient factory.
+The Starter Furnace is the selling system. The first sale consumes its reserved resources and pays Cash exactly once. There is no separate direct-sale mechanic to build. Starter tier is free, manually activated, with the capacity/value/time formulas in Reference E.
 
 ---
 
-# Related Sections
+# 2.4 First Upgrade
 
-- 2.4 First Upgrade
-- 2.6 First Factory Expansion
-- Volume III – Factory System
-- Volume III – Droppers
-- Volume III – Conveyors
-- Volume III – Automation
+Mining Power I is the required opening upgrade, raw Cash price $250. Unlock Miner costs $100 afterward and is a separate transaction from buying the $100 Tier 1 Miner. Enforce the Mining Power prerequisite in purchase logic, not only visibility. See 3.7.
 
 ---
 
-# Revision History
+# 2.5 First Automation
 
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial First Automation specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
+The opening order is: fresh $0 / Level 0 / XP 0 → guaranteed first Stone → Starter Furnace sale → Mining Power I → Unlock Miner ($100) → separately purchase Tier 1 Miner ($100 before eligible discount) → first automatic production. The first Miner slot is free. A shop unlock alone produces nothing. Miner ownership begins production; automatic Furnace activation starts at Furnace Tier 3, not at fresh start. See References B/E and roadmap V1-021–025.
 
 ---
 
@@ -4106,7 +3209,7 @@ This transition marks the beginning of **2.6 First Factory Expansion**, where th
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** Additional machines can be purchased as ownership counters, but there is no construction space, placement or spatial factory-expansion milestone.
+> **Historical prototype review (2026-09-28; not current acceptance):** Additional machines can be purchased as ownership counters, but there is no construction space, placement or spatial factory-expansion milestone.
 >
 > **Player Milestone:** First Factory Expansion
 >
@@ -4335,7 +3438,7 @@ This marks the beginning of **2.7 First Optimisation**, where the player's focus
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** Upgrade spending and Auto Furnace resource/batch modes provide choices. Layout-based optimisation and visible production networks are absent.
+> **Historical prototype review (2026-09-28; not current acceptance):** Upgrade spending and Auto Furnace resource/batch modes provide choices. Layout-based optimisation and visible production networks are absent.
 >
 > **Player Milestone:** First Optimisation
 >
@@ -4564,7 +3667,7 @@ This curiosity introduces **2.8 First Discovery**, where the player realises tha
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** First ore discoveries reveal Collection Book entries and display a popup. The broader discovery journey remains unfinished; the modal currently interrupts interaction rather than providing the non-interrupting feedback described below.
+> **Historical prototype review (2026-09-28; not current acceptance):** First ore discoveries reveal Collection Book entries and display a popup. The broader discovery journey remains unfinished; the modal currently interrupts interaction rather than providing the non-interrupting feedback described below.
 >
 > **Player Milestone:** First Discovery
 >
@@ -4804,7 +3907,7 @@ This change in mindset begins **Act III — Mastery & Long-Term Progression**, s
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** Collection goals, level milestones and six achievements exist. Achievement rewards are placeholders; rebirth preparation and the full long-term progression path are absent.
+> **Historical prototype review (2026-09-28; not current acceptance):** Collection goals, level milestones and six achievements exist. Achievement rewards are placeholders; rebirth preparation and the full long-term progression path are absent.
 >
 > **Player Milestone:** First Long-Term Goal
 >
@@ -5017,6 +4120,8 @@ This question introduces **2.10 First Rebirth**, where the player experiences th
 
 ## 2.10 First Rebirth
 
+> The exact eligibility, payout, reset/retention matrix and permanent perks are now Defined in 3.17. Generic examples below are illustrative only; XP, Pickaxes and materials are retained.
+
 > [!IMPORTANT]
 >
 > **Documentation Status:** 🟠 In Development
@@ -5027,7 +4132,7 @@ This question introduces **2.10 First Rebirth**, where the player experiences th
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** There is no rebirth eligibility, confirmation, reset or reward flow. The development save-reset button is not rebirth.
+> **Historical prototype review (2026-09-28; not current acceptance):** There is no rebirth eligibility, confirmation, reset or reward flow. The development save-reset button is not rebirth.
 >
 > **Player Milestone:** First Rebirth
 >
@@ -5114,11 +4219,11 @@ Player decides to rebirth
 
 ↓
 
-Factory progression resets
+Payout is calculated from current Cash before reset
 
 ↓
 
-Permanent progression is awarded
+Only the Reference H reset fields are cleared; retained progress stays intact
 
 ↓
 
@@ -5263,7 +4368,7 @@ This begins **2.11 Long-Term Progression**, where the player's journey becomes s
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** Repeated production, upgrades, collection and level milestones already support ongoing play. The full cycle involving expansion, rebirth and permanent growth has not been implemented.
+> **Historical prototype review (2026-09-28; not current acceptance):** Repeated production, upgrades, collection and level milestones already support ongoing play. The full cycle involving expansion, rebirth and permanent growth has not been implemented.
 >
 > **Player Milestone:** Long-Term Progression
 >
@@ -5508,6 +4613,10 @@ The reader should now continue to **Volume III – Gameplay Specification**, whe
 ---
 
 # Volume III - Gameplay Specification
+
+> Volume overview status tables below are retained September planning snapshots. Use the current chapter contract and roadmap for current design/implementation status; Defined design never implies implementation completion.
+
+
 
 > [!IMPORTANT]
 >
@@ -5802,7 +4911,7 @@ Volume III is considered complete when:
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** Mining, inventory, manual/automatic smelting, Cash, upgrades, XP, levels and discovery form an implemented loop. Factory networks, expansion and rebirth are absent.
+> **Historical prototype review (2026-09-28; not current acceptance):** Mining, inventory, manual/automatic smelting, Cash, upgrades, XP, levels and discovery form an implemented loop. Factory networks, expansion and rebirth are absent.
 
 ---
 
@@ -6110,1565 +5219,606 @@ This approach maintains a cohesive gameplay experience while allowing the game t
 
 # 3.3 Manual Mining System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.3
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Completed component: button-based manual mining via `mineOre()`, including resource awards, XP, counters and discoveries. The full chapter also describes mineable nodes, interaction validation and audiovisual feedback that do not exist in the web code.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+### Decision 2 — Mining Power
+
+- **Exact effect per level:** +2 raw power units per shop level, equivalent to +0.5 expected resources per manual click. Maximum level is 75.
+
+- **Confirm whether it stays the same effect for all 50 levels:** Yes. The increase is unchanged across all 75 levels. Retained Cash pricing is RawCost(L) = 250 × 1.38^(L−1).
+
+- **Exact Mining Power formula:** TotalMiningPower = 0.25 × (EquippedPickaxePower + 2 × ShopMiningPowerLevel). Award floor(TotalMiningPower), plus one additional base resource with probability equal to its fractional part.
+
+- **Confirm how Shop Mining Power combines with Pickaxe Power:** Add the equipped Pickaxe's full-precision raw power and the shop contribution before multiplying by 0.25. Use one shop Mining Power stat. Mining Duplication is applied afterward to each eligible resource.
+
+### Decision 3 — Mining Luck
+
+- **Exact luck increase per level:** +5% of base manual Luck per level; this adds 0.05 to the multiplier, not five percentage points to an ore's drop chance.
+
+- **Exact Shop Mining Luck multiplier formula:** ShopMiningLuck = 1 + 0.05 × Level. Maximum 150 levels gives 8.5×. Raw Cash cost to buy level L = 100 × 1.20^(L−1). The earlier 500-level draft is superseded.
+
+- **Confirm how it combines with Pickaxe Luck:** FinalManualLuck = ShopMiningLuck × EquippedPickaxeLuck. This affects both accessible manual ore-tier selection and within-tier selection. It does not affect automated Miners.
+
+### Decision 4 — Pickaxe progression
+
+- **Exact number of Pickaxe tiers:** Eight crafted Pickaxe tiers plus the permanent Default Pickaxe, which is Tier 0.
+
+- **Exact Pickaxe names/order:** Default → Amber → Malachite → Citrine → Aquamarine → Spinel → Emerald → Onyx → Diamond.
+
+- **Exact ore tier unlocked by each Pickaxe:** Default: Stone/T1/T2. Amber: adds T3. Malachite: adds T4. Remaining V1 Pickaxes improve power, Luck and durability without adding a V1 ore tier.
+
+- **Exact crafting recipe for each Pickaxe:** Each crafted Pickaxe requires 32 of its named ore plus its fixed material ingredient. The complete recipes and repair quantities are in Reference A.
+
+- **Confirm whether every Pickaxe requires 32 total ores or 32 of each required ore:** 32 total ores per craft. The adopted recipes each use one named ore, so each requires 32 of that ore.
+
+- **Exact amount of crafting material required:** Amber 8 Wood; Malachite 16 Wood; Citrine 32 Wood; Aquamarine 12 Scrap; Spinel 24 Scrap; Emerald 48 Scrap; Onyx 16 Metal; Diamond 32 Metal. These replace the old 18–48 generic range.
+
+- **Exact source of the separate crafting material:** Manual mining performs one 15% material roll per click, after choosing the resource and base quantity. On success, replace one base resource with one material. Conditional material selection: Wood 60%, Scrap 30%, Metal 10%. Materials cannot be duplicated. The first guaranteed Stone is exempt.
+
+- **Exact Pickaxe Power for each tier:** PickaxePower(k) = 4 × 1.75^k, where k = 0…8. Preserve full precision internally; display may round to two decimals. Reference A lists the exact values.
+
+- **Exact Pickaxe Luck for each tier:** PickaxeLuck(k) = 1 + 2.5k. Default 1×; Amber 3.5×; Malachite 6×; Citrine 8.5×; Aquamarine 11×; Spinel 13.5×; Emerald 16×; Onyx 18.5×; Diamond 21×. It is additive, not repeated ×2.5 scaling.
+
+- **Exact Pickaxe durability for each tier:** Default is infinite. Crafted tier k has base durability 500k. RoundedMax = floor((500k × (1 + 0.05 × DurabilityLevel))/100) × 100. The permanent durability perk has 100 levels. One manual click consumes one hit, regardless of output.
+
+- **What happens when a Pickaxe reaches 0 durability:** The copy remains in inventory, broken with 0 durability. Equip the highest-tier usable owned copy; ties use greatest remaining durability, then most recently manually equipped copy, then oldest inventory ID. Auto-equipping does not update the last-manually-equipped record.
+
+- **Can Pickaxes be repaired:** Only broken Pickaxes can be repaired. Each ingredient costs ceil(OriginalCraftRequirement × 0.95). A repair restores the current upgraded rounded maximum. Partially damaged Pickaxes cannot be repaired.
+
+- **Can multiple Pickaxes be owned:** Yes. Save separate copies with their tier, remaining durability, broken state and equipment history. Only one is equipped.
+
+- **Can old Pickaxes be re-equipped:** Yes, if the owned copy is not broken. Default is the final fallback.
+
+### Decision 5 — Manual mining ore availability
+
+- **Exact rule for which ore tiers each Pickaxe can access:** Ore tier r is accessible when r ≤ PickaxeTier + 2; cap at T4 for V1. Set locked weights to 0 before Luck adjustment and normalization.
+
+- **Confirm whether the “Pickaxe 2 tiers before ore tier” rule is final:** Yes. Tier 0 Default reaches T2, crafted Tier 1 reaches T3, and crafted Tier 2 reaches T4.
+
+- **Confirm what the default Pickaxe can mine:** Stone, T1 and T2, except that the first-ever fresh-save click guarantees Stone.
+
+- **Confirm whether Luck can ever bypass Pickaxe ore locks:** No. A locked tier always has zero probability, regardless of Luck.
+
+## Reference A Pickaxe catalogue and manual mining
+
+### Complete recipes and stats
+
+Power values below are the exact stored mathematical values; the UI may show two decimals. Base durability excludes the permanent durability perk. Repair materials are calculated with ceil(recipe × 0.95); every repair also requires 31 of the named ore. Repairs are available only when broken.
+
+| k | Pickaxe | Craft ore | Craft material | Exact raw power | Luck | Base hits | Repair material | Highest V1 ore tier |
+|---:|---|---|---|---:|---:|---:|---|---|
+| 0 | Default | Free | None | 4 | 1× | Infinite | N/A | T2 |
+| 1 | Amber | 32 Amber | 8 Wood | 7 | 3.5× | 500 | 8 Wood | T3 |
+| 2 | Malachite | 32 Malachite | 16 Wood | 12.25 | 6× | 1000 | 16 Wood | T4 |
+| 3 | Citrine | 32 Citrine | 32 Wood | 21.4375 | 8.5× | 1500 | 31 Wood | T4 |
+| 4 | Aquamarine | 32 Aquamarine | 12 Scrap | 37.515625 | 11× | 2000 | 12 Scrap | T4 |
+| 5 | Spinel | 32 Spinel | 24 Scrap | 65.65234375 | 13.5× | 2500 | 23 Scrap | T4 |
+| 6 | Emerald | 32 Emerald | 48 Scrap | 114.8916015625 | 16× | 3000 | 46 Scrap | T4 |
+| 7 | Onyx | 32 Onyx | 16 Metal | 201.060302734375 | 18.5× | 3500 | 16 Metal | T4 |
+| 8 | Diamond | 32 Diamond | 32 Metal | 351.85552978515625 | 21× | 4000 | 31 Metal | T4 |
+
+### Permanent durability upgrade
+
+Defined maximum 100 levels, effect +5% of base maximum per level, for a maximum 6× base durability before rounding. StardustCost(L) = round(1,000 × 1.10^(L−1)); total 137,796,124 Stardust.
+
+RawMax = BaseDurability × (1 + 0.05 × DurabilityLevel).  
+RoundedMax = floor(RawMax/100) × 100.
+
+RoundedMax is the actual usable maximum. Some early levels have no immediate effect on weaker Pickaxes: Amber's maximum remains 500 at perk levels 1–3 and becomes 600 at level 4.
+
+When a usable copy's maximum increases, add NewRoundedMax−OldRoundedMax to its remaining durability. This preserves damage already taken. A broken copy remains at 0, regardless of the maximum increase. Repair restores its current RoundedMax. Rebirth keeps the perk and all remaining/broken states.
+
+### Material generation and awards
+
+A click rolls one base resource type, then calculates the integer base quantity by probabilistic rounding of TotalMiningPower. Perform one 15% material substitution roll for the click; on success replace exactly one base resource with one material. Conditional material probabilities are Wood 60%, Scrap 30%, Metal 10%, giving overall per-click chances 9%, 4.5% and 1.5%.
+
+After substitution, independently duplicate each remaining mineable resource at the Mining Duplication chance. Do not duplicate materials. One click consumes one durability regardless of ore amount, duplicated copies or material substitution.
+
+Latest recommended material XP before applicable normal gameplay XP modifiers: Wood 5, Scrap 15, Metal 50 per material. These numbers retain their recommended status pending canon approval. Materials count toward Total Resources Gathered and their own counters, not ore-specific counters.
+
+### Manual tier and ore selection
+
+FinalManualLuck = (1 + 0.05 × ShopMiningLuckLevel) × (1 + 2.5k).
+
+Max Shop Mining Luck = 8.5×; Diamond gives 21×, so maximum from these two sources is 178.5×. Mining Luck resets on Rebirth; the crafted Pickaxe remains.
+
+Base manual weights:
+
+| Bucket | Base weight | Manual Luck exponent |
+|---|---:|---:|
+| Stone | 239,744 | 0.00 |
+| T1 | 10,000 | 0.35 |
+| T2 | 250 | 0.70 |
+| T3 | 5 | 1.05 |
+| T4 | 1 | 1.40 |
+
+Set inaccessible bucket weights to 0. Adjust each available weight by FinalManualLuck^exponent, then divide by the sum of available adjusted weights. Do not clamp manual Stone chance.
+
+When all tiers are accessible at 1× Luck, probabilities are Stone 95.8976%, T1 4%, T2 0.1%, T3 0.002%, T4 0.0004%. When tiers are locked, normalization changes the available probabilities.
+
+After choosing a non-Stone tier, lock that tier. Its five ores use BaseOreWeight(i)=0.65^(i−1), with Luck exponent 0.1×(i−1), i=1…5 ordered from cheapest to most expensive. Multiply by FinalManualLuck^exponent, then normalize within that tier. Rebirth Ore Luck and local Miner Ore Luck are not used in manual mining.
+
+Order: select Pickaxe-accessible pool → calculate manual Luck → roll tier → roll ore within the locked tier → resolve Mining Power quantity → perform one material substitution roll → duplicate remaining resources independently → award output and statistics.
 
 ---
-
-# Purpose
-
-The Manual Mining System serves as the player's first method of resource acquisition.
-
-It introduces the fundamental interaction between the player and the game world while establishing the core gameplay loop that all future automation systems will expand upon.
-
-Manual Mining exists primarily as a learning and progression mechanic rather than a permanent method of resource production.
-
----
-
-# Responsibilities
-
-The Manual Mining System is responsible for:
-
-- Allowing players to manually acquire resources.
-- Validating mining interactions.
-- Awarding resources following successful mining.
-- Providing player feedback during mining.
-- Introducing the player to resource acquisition.
-
-The Manual Mining System is not responsible for:
-
-- Defining individual resources.
-- Managing inventory storage.
-- Assigning economic value.
-- Processing resources.
-- Factory automation.
-
----
-
-# Overview
-
-At the beginning of a new game, manual mining is the only available method of obtaining resources.
-
-The player actively mines resource nodes through direct interaction, receiving resources that can later be processed, sold or used for progression.
-
-As the factory develops, manual mining gradually becomes supplementary rather than essential.
-
-Although automation eventually replaces manual production, manual mining remains available throughout the game.
-
----
-
-# Design Intent
-
-The Manual Mining System is designed to:
-
-- Teach the player how resources are acquired.
-- Introduce the relationship between effort and reward.
-- Familiarise the player with the game's controls.
-- Provide meaningful interaction before automation is unlocked.
-- Encourage players to transition naturally towards automated production.
-
-Manual mining should feel rewarding during the opening stages of the game while becoming increasingly inefficient compared to factory automation.
-
-The player should naturally want to automate production rather than feeling forced to do so.
-
----
-
-# Gameplay Rules
-
-The Manual Mining System should follow these principles:
-
-- Mining requires direct player interaction.
-- Mining always produces valid resources.
-- Resource acquisition should be immediate and clearly communicated.
-- Mining actions should provide satisfying visual and audio feedback.
-- The player should never be left uncertain whether a mining action succeeded.
-
-Manual mining should remain reliable and predictable throughout the game.
-
----
-
-# Player Interaction
-
-The player performs manual mining by interacting with mineable resource nodes within the world.
-
-Successful interactions produce resources which are immediately transferred into the player's inventory, provided sufficient inventory space is available.
-
-Each successful mining action should provide clear feedback through animation, sound and user interface updates.
-
----
-
-# Progression Role
-
-Manual mining introduces several core concepts that are expanded upon throughout the game.
-
-These include:
-
-- Resource acquisition.
-- Inventory management.
-- Currency generation.
-- Factory progression.
-- Production efficiency.
-
-Manual mining acts as the player's first production method before automation systems become available.
-
----
-
-# System Behaviour
-
-The Manual Mining System should:
-
-- Detect valid mineable objects.
-- Validate player interaction.
-- Generate the appropriate resource.
-- Transfer resources to the inventory.
-- Trigger visual, audio and UI feedback.
-- Update gameplay statistics where appropriate.
-
-The system should operate consistently regardless of progression level.
-
----
-
-# Dependencies
-
-The Manual Mining System depends upon:
-
-- Resource System
-- Inventory System
-- User Interface Behaviour
-- Statistics System
-
-These systems determine how mined resources are generated, stored and presented to the player.
-
----
-
-# System Interactions
-
-The Manual Mining System interacts directly with:
-
-| System | Interaction |
-|----------|-------------|
-| Resource System | Determines which resources are produced. |
-| Inventory System | Stores mined resources. |
-| Economy System | Allows mined resources to be converted into currency. |
-| Statistics System | Records mining activity. |
-| Achievement System | Tracks mining milestones where applicable. |
-
-Manual Mining serves as the entry point for multiple gameplay systems introduced later within the game.
-
----
-
-# Balancing Considerations
-
-Manual mining should:
-
-- Be satisfying during the early game.
-- Never become completely obsolete.
-- Always remain less efficient than equivalent automated production.
-- Reward active play without invalidating automation.
-
-Balance should encourage progression rather than dependency.
-
----
-
-# Future Expansion
-
-Potential future improvements may include:
-
-- Tool upgrades.
-- Mining speed improvements.
-- Resource-specific mining bonuses.
-- Temporary buffs.
-- Critical mining events.
-- Special manual-only resources.
-- New interaction mechanics.
-
-These additions should enhance manual gameplay without replacing the importance of automation.
-
----
-
-# Developer Notes
-
-Manual Mining is intentionally designed as the player's introductory production method.
-
-The objective is not to maximise long-term efficiency, but to establish the gameplay concepts that every subsequent production system expands upon.
-
-Automation should always feel like the logical evolution of manual mining rather than a completely separate mechanic.
-
----
-
-# Related Sections
-
-- 3.2 Core Gameplay Loop
-- 3.4 Resource System
-- 3.5 Inventory System
-- 3.6 Economy System
-- 3.8 Production Building System
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Manual Mining System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.4 Resource System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.4
->
-> **Implementation Status:** 🟢 Completed
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Scope: the current base-resource model and four-tier ore selection in `ores.js` and `mineOre()`. Stone and 20 ores have implemented acquisition, storage and smelting paths. This status excludes planned variants, manufactured resources and future generic processing properties; those do not currently exist.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+V1 includes Stone, the 20 ores below, and Wood/Scrap/Metal crafting materials. Resource acquisition, processed output and discovery are distinct events. Material substitution and duplication ordering are in Reference A. Material Factory XP values remain Recommended in Reference K; do not use them as approved awards. Ore tiers beyond T4 and mutation definitions are not supplied by this catalogue.
+
+### V1 ore catalogue
+
+The retained ore values and XP are from the reference catalogue. Position 1–5 orders within-tier weights from cheapest to most expensive. Tier rarity in this catalogue is a manual base tier-hit rarity, not the chance of each individual ore and not a Miner progression row.
+
+| Resource | Tier | Position | Base Cash value | Base resource XP |
+|---|---|---:|---:|---:|
+| Stone | Common | N/A | $1 | 1 |
+| Amber | T1 | 1 | $10 | 5 |
+| Quartz | T1 | 2 | $20 | 5 |
+| Topaz | T1 | 3 | $30 | 5 |
+| Amethyst | T1 | 4 | $40 | 5 |
+| Malachite | T1 | 5 | $50 | 5 |
+| Citrine | T2 | 1 | $250 | 25 |
+| Garnet | T2 | 2 | $500 | 25 |
+| Peridot | T2 | 3 | $750 | 25 |
+| Jade | T2 | 4 | $900 | 25 |
+| Aquamarine | T2 | 5 | $1,000 | 25 |
+| Spinel | T3 | 1 | $5,000 | 100 |
+| Tourmaline | T3 | 2 | $10,000 | 100 |
+| Sapphire | T3 | 3 | $15,000 | 100 |
+| Ruby | T3 | 4 | $20,000 | 100 |
+| Emerald | T3 | 5 | $25,000 | 100 |
+| Onyx | T4 | 1 | $50,000 | 1000 |
+| Tanzanite | T4 | 2 | $75,000 | 1000 |
+| Alexandrite | T4 | 3 | $100,000 | 1000 |
+| Black Opal | T4 | 4 | $150,000 | 1000 |
+| Diamond | T4 | 5 | $250,000 | 1000 |
+
+Collection discoveries persist independently of consumable inventory. The inherited prototype's collection catalogue contains the 20 ores; Stone/material statistics do not automatically create new ore-collection entries.
 
 ---
-
-# Purpose
-
-The Resource System defines how all collectible resources within Everything Factory Incremental are represented, acquired, categorised, processed and utilised.
-
-It provides a consistent framework that governs every resource introduced throughout the game, regardless of rarity, progression stage or acquisition method.
-
-Individual resources are documented separately within **Volume IV – Reference Library**.
-
----
-
-# Responsibilities
-
-The Resource System is responsible for:
-
-- Defining how resources are represented.
-- Categorising resources.
-- Defining resource properties and behaviours.
-- Providing a consistent framework for all collectible resources.
-- Supporting future resource expansion.
-
-The Resource System is not responsible for:
-
-- Storing player-owned resources.
-- Pricing resources.
-- Defining production methods.
-- Managing gameplay progression.
-- Documenting individual resources.
-
----
-
-# Overview
-
-Resources are the primary objects that drive player progression.
-
-Every major gameplay system either generates, transforms, consumes or rewards resources.
-
-The Resource System provides a common set of rules that ensure all resources behave consistently while allowing individual resources to possess unique characteristics.
-
-Rather than defining individual items, this system defines how resources function as a whole.
-
----
-
-# Design Intent
-
-The Resource System is designed to:
-
-- Provide a consistent structure for all collectible resources.
-- Support simple early-game progression while allowing significant long-term expansion.
-- Encourage discovery through increasingly valuable resources.
-- Ensure new resources can be introduced without requiring changes to the underlying system.
-- Separate gameplay behaviour from individual resource definitions.
-
-This approach allows the content of the game to expand indefinitely while keeping the gameplay rules stable.
-
----
-
-# Resource Definition
-
-Every resource should define its own set of gameplay properties.
-
-Typical properties may include:
-
-- Name
-- Description
-- Category
-- Tier
-- Base Value
-- Rarity
-- Stack Behaviour
-- Processing Behaviour
-- Unlock Requirements
-- Visual Representation
-- Audio Feedback
-- Special Properties
-
-Not every resource will require every property.
-
-Additional properties may be introduced as new gameplay systems are developed.
-
----
-
-# Resource Categories
-
-Resources may be organised into categories based upon their gameplay purpose.
-
-Examples include:
-
-- Basic Resources
-- Ores
-- Refined Materials
-- Precious Resources
-- Manufactured Components
-- Event Resources
-- Collectibles
-- Special Items
-
-Categories exist primarily for organisation and gameplay interactions.
-
-The complete list of categories is maintained within Volume IV.
-
----
-
-# Resource Lifecycle
-
-Every resource follows the same general lifecycle.
-
-```
-Generated
-
-↓
-
-Collected
-
-↓
-
-Stored
-
-↓
-
-Used
-
-↓
-
-Consumed
-or
-Retained
-```
-
-Not every resource will utilise every stage.
-
-Some resources may bypass processing entirely, while others may participate in multiple gameplay systems before being consumed.
-
----
-
-# Resource Acquisition
-
-Resources may be obtained through multiple gameplay systems.
-
-Examples include:
-
-- Manual Mining
-- Automated Production
-- Processing Buildings
-- Exploration
-- Achievements
-- Events
-- Milestones
-- Rebirth Rewards
-
-Future acquisition methods should integrate into this system without requiring structural changes.
-
----
-
-# Resource Behaviour
-
-Every resource should behave consistently within the game world.
-
-Resources may define:
-
-- Whether they can stack.
-- Whether they can be processed.
-- Whether they may be sold.
-- Whether they can be consumed.
-- Whether they are permanent.
-- Whether they unlock additional progression.
-
-Individual behaviours are determined by each resource's own properties rather than hardcoded exceptions.
-
----
-
-# Progression Role
-
-Resources form the foundation of player progression.
-
-They enable:
-
-- Factory expansion.
-- Economic growth.
-- Production chains.
-- Collection progression.
-- Achievement completion.
-- Unlock progression.
-
-Almost every gameplay system either produces resources or depends upon them.
-
----
-
-# Dependencies
-
-The Resource System depends upon:
-
-- Manual Mining System
-- Inventory System
-- Economy System
-- Production Building System
-- Collection Log System
-
-These systems determine how resources are generated, stored, transformed and rewarded.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Manual Mining System | Generates resources. |
-| Inventory System | Stores resources. |
-| Economy System | Assigns value to resources. |
-| Shop System | May require resources for purchases. |
-| Production Building System | Produces or processes resources. |
-| Collection Log System | Tracks resource discovery. |
-| Achievement System | Monitors resource-related milestones. |
-
-The Resource System serves as one of the central systems within the game and interacts with almost every other gameplay mechanic.
-
----
-
-# Balancing Considerations
-
-The Resource System should promote a satisfying sense of progression.
-
-New resources should generally represent increased player capability rather than simply larger numerical values.
-
-Resource rarity, usefulness and availability should encourage exploration, optimisation and long-term goals.
-
-The system should remain scalable as additional content is introduced.
-
----
-
-# Future Expansion
-
-The Resource System has been designed to support future additions without requiring structural redesign.
-
-Potential expansions include:
-
-- New resource categories.
-- Alternate resource qualities.
-- Mutations.
-- Enchantments.
-- Resource durability.
-- Seasonal resources.
-- Event-exclusive materials.
-- Multi-stage processing chains.
-
-These additions should extend the system while remaining compatible with its existing rules.
-
----
-
-# Developer Notes
-
-This chapter intentionally avoids documenting individual resources.
-
-Specific resources, their statistics and balancing values are maintained within **Volume IV – Reference Library**.
-
-Volume III defines how resources behave.
-
-Volume IV defines what resources exist.
-
-Maintaining this separation improves consistency, reduces duplication and simplifies long-term maintenance.
-
----
-
-# Related Sections
-
-- 3.3 Manual Mining System
-- 3.5 Inventory System
-- 3.6 Economy System
-- 3.8 Production Building System
-- Volume IV – Resource Catalogue
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Resource System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.5 Inventory System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.5
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Completed component: quantity-based inventory for Stone and all 20 ores, consumption through smelting, save persistence and value tooltips. The chapter's capacity and organisation features are not started; variant metadata is absent.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+### Decision 16 — Refiner refined-ore inventory
+
+- **How are Refine 1–15 ores stored:** Maintain ore ID, processing state, Refine Count and value-defining metadata. Refined stacks cannot lose the original pre-Refiner value.
+
+- **Separate inventory stack for every Refine level:** Yes. Distinguish Refine Counts 1–15 and any differing pre-Refiner value cohorts. Raw, Polished and Refined resources have separate inventory tabs.
+
+- **Or one stack with metadata:** Use structured stack records with metadata; do not merge different counts or incompatible values into one undifferentiated quantity.
+
+- **How does the player choose which Refine level to send back through the Refiner:** The player selects ore type and current Refine Count. Polished is count 0; a successful surviving pass returns count n+1. Count 15 cannot enter again. Reserve input when the cycle starts.
+
+- **How does the Furnace choose which Refine level to sell:** Manual selling selects a visible stack. Auto Furnace selects highest final sale value first, using a stable ore-ID/Refine-Count tie break, and reserves input/value for its active batch.
+
+Keep separate Pickaxe copies, durability/broken/equip history and materials per Reference A. Use raw, Polished and Refined resource tabs; preserve pre-Refiner value and metadata when grouping compatible cohorts. Do not collapse unlike refined value bases. Collection remains independent from spendable inventory. Active reservations must survive save/reload and cannot also be available for another transaction. Inventory capacity remains DESIGN REQUIRED, not an invented cap.
 
 ---
-
-# Purpose
-
-The Inventory System is responsible for storing, organising and managing all resources and items owned by the player.
-
-It provides a consistent method of tracking player possessions while supporting progression, production and interaction with other gameplay systems.
-
-The Inventory System serves as the central repository for all collectible content throughout the game.
-
----
-
-# Responsibilities
-
-The Inventory System is responsible for:
-
-- Storing player-owned resources.
-- Managing inventory capacity.
-- Organising inventory contents.
-- Supporting resource stacking.
-- Providing inventory access to other gameplay systems.
-- Persisting inventory state.
-
-The Inventory System is not responsible for:
-
-- Creating resources.
-- Assigning resource values.
-- Selling resources.
-- Producing resources.
-- Defining individual inventory items.
-
----
-
-# Overview
-
-Every collectible resource obtained by the player is transferred into the inventory unless otherwise specified.
-
-The inventory acts as the bridge between resource acquisition and resource usage, allowing players to store materials before using them for progression, production or other gameplay systems.
-
-The Inventory System should remain intuitive regardless of the quantity or variety of items the player possesses.
-
----
-
-# Design Intent
-
-The Inventory System is designed to:
-
-- Provide a reliable method of storing player-owned resources.
-- Present collected items in a clear and organised manner.
-- Support increasing amounts of content throughout progression.
-- Encourage inventory expansion as part of player progression.
-- Integrate seamlessly with all gameplay systems that generate or consume resources.
-
-The inventory should reduce unnecessary friction while still encouraging meaningful progression through increased storage capacity and organisation.
-
----
-
-# Inventory Structure
-
-The inventory stores player-owned resources using a standardised format.
-
-Each stored entry should maintain information relevant to that resource, such as:
-
-- Resource Reference
-- Quantity
-- Acquisition State
-- Stack Information
-- Special Properties (where applicable)
-
-The Inventory System manages these entries without requiring knowledge of the individual resource's behaviour.
-
----
-
-# Inventory Behaviour
-
-The Inventory System is responsible for:
-
-- Receiving newly acquired resources.
-- Updating existing resource quantities.
-- Creating new inventory entries when required.
-- Removing resources when consumed.
-- Maintaining inventory consistency across gameplay sessions.
-
-All inventory operations should occur predictably and without ambiguity.
-
----
-
-# Capacity Management
-
-Inventory capacity determines the maximum amount of content that can be stored.
-
-Capacity may increase through gameplay progression, upgrades or future gameplay systems.
-
-The Inventory System should clearly communicate available capacity and notify the player whenever storage limitations affect gameplay.
-
-Capacity should support progression without becoming an unnecessary source of frustration.
-
----
-
-# Stack Behaviour
-
-Resources may occupy individual slots or combine into stacks where appropriate.
-
-Stack behaviour is determined by each resource's own properties as defined by the Resource System.
-
-The Inventory System should manage stacking automatically without requiring manual player interaction.
-
----
-
-# Sorting & Organisation
-
-The Inventory System should provide methods for organising stored resources.
-
-Examples include:
-
-- Category
-- Name
-- Quantity
-- Rarity
-- Value
-- Recently Acquired
-
-Additional sorting and filtering methods may be introduced as the amount of game content increases.
-
----
-
-# User Experience
-
-Players should always be able to:
-
-- Identify owned resources.
-- Locate resources efficiently.
-- Understand inventory capacity.
-- Recognise newly acquired items.
-- Access relevant resource information.
-
-Inventory interactions should remain fast, responsive and visually consistent.
-
----
-
-# Progression Role
-
-The Inventory System supports progression by:
-
-- Preserving player resources.
-- Enabling crafting and production.
-- Supporting factory expansion.
-- Allowing long-term collection goals.
-- Acting as the foundation for future gameplay systems.
-
-Without inventory management, resource progression cannot function reliably.
-
----
-
-# Dependencies
-
-The Inventory System depends upon:
-
-- Resource System
-- Manual Mining System
-- User Interface Behaviour
-- Save & Load System
-
-These systems determine how resources enter, are displayed within and persist inside the inventory.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Manual Mining System | Adds newly mined resources. |
-| Resource System | Defines resource properties. |
-| Economy System | Removes resources during sales or purchases where applicable. |
-| Shop System | May consume or reward inventory resources. |
-| Production Building System | Deposits produced resources. |
-| Collection Log System | Detects first-time acquisitions. |
-| Achievement System | Tracks inventory-related milestones. |
-| Save & Load System | Persists inventory data between sessions. |
-
-The Inventory System serves as one of the primary integration points between gameplay systems.
-
----
-
-# Balancing Considerations
-
-Inventory limitations should encourage progression rather than inconvenience.
-
-Players should feel rewarded as storage capacity increases.
-
-Inventory management should never become excessively time-consuming or require repetitive maintenance.
-
-The system should scale comfortably throughout the entire game.
-
----
-
-# Future Expansion
-
-Potential future additions include:
-
-- Inventory upgrades.
-- Additional inventory tabs.
-- Search functionality.
-- Favourite or locked items.
-- Automatic organisation.
-- Resource filtering.
-- Bulk actions.
-- Advanced storage systems.
-
-Future additions should improve usability without fundamentally altering the purpose of the Inventory System.
-
----
-
-# Developer Notes
-
-The Inventory System defines how resources are stored and managed.
-
-It does not define individual resources, stack limits or inventory sizes.
-
-Specific inventory content and balancing values are maintained within Volume IV.
-
----
-
-# Related Sections
-
-- 3.3 Manual Mining System
-- 3.4 Resource System
-- 3.6 Economy System
-- 3.7 Shop System
-- Volume IV – Inventory Reference
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Inventory System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.6 Economy System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.6
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Completed components: Cash balance, resource sale through manual/automatic smelting and purchase deductions. Economic-history tracking, additional currencies and general income bonuses are not implemented. Future currency examples are not automatically V1.0 requirements.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+Cash is earned through Furnace sales and spent on approved purchases. Raw ore values are in 3.4; processing and Furnace multipliers in References C–E. Use immutable pre-Refiner value for repeated passes. Calculate prices from the original formula, eligible discount, then the exact Cash rounding bands in Reference E. Resale uses half actual qualifying Cash paid, rounded down; separately record refunds and earnings. Migration reconstruction is the explicit exception in Reference I.
+
+Stardust comes from Rebirth and the defined Weekly reward; Gem Dust comes from Refiners. These are distinct currencies with distinct precision rules. Gems/Ancient Shards are not active V1 requirements. Ore Value on Stone and challenge Cash/XP precision remain Open.
 
 ---
-
-# Purpose
-
-The Economy System governs how value is generated, stored, exchanged and consumed throughout Everything Factory Incremental.
-
-It provides the rules that define how currencies and economic resources flow between gameplay systems, ensuring that progression remains balanced, rewarding and scalable.
-
-The Economy System forms the foundation of all player progression by transforming production into meaningful advancement.
-
----
-
-# Responsibilities
-
-The Economy System is responsible for:
-
-- Managing player currency balances.
-- Awarding economic value.
-- Validating economic transactions.
-- Recording economic activity.
-- Providing a framework for multiple currencies.
-- Supporting progression through value exchange.
-
-The Economy System is not responsible for:
-
-- Defining individual currencies.
-- Pricing shop items.
-- Managing player inventories.
-- Determining production rates.
-- Defining resource behaviour.
-
----
-
-# Overview
-
-The Economy System manages the relationship between player effort, production output and progression.
-
-Resources obtained through gameplay are converted into economic value, which can then be invested into upgrades, expansion and other progression systems.
-
-Rather than defining individual currencies, this chapter defines the behaviours and principles that all currencies should follow.
-
-Individual currencies are documented separately within **Volume IV – Reference Library**.
-
----
-
-# Design Intent
-
-The Economy System is designed to:
-
-- Reward player effort and optimisation.
-- Create meaningful decisions when spending resources.
-- Encourage continuous reinvestment into factory growth.
-- Support both short-term and long-term progression.
-- Remain scalable throughout the lifetime of the game.
-
-The economy should always reinforce the core gameplay loop by making every improvement feel worthwhile.
-
----
-
-# Economic Principles
-
-The Economy System is built upon several core principles.
-
-## Value Generation
-
-Players should generate value through gameplay rather than passive rewards alone.
-
-Primary sources of value include:
-
-- Resource production
-- Resource processing
-- Factory optimisation
-- Achievements
-- Milestones
-- Events
-- Other gameplay systems
-
----
-
-## Value Storage
-
-Economic value should persist until intentionally spent or otherwise consumed.
-
-Players should always understand:
-
-- How much value they possess.
-- How value was earned.
-- What value can be used for.
-
----
-
-## Value Expenditure
-
-Spending value should represent meaningful progression.
-
-Common expenditure includes:
-
-- Purchasing buildings.
-- Unlocking upgrades.
-- Expanding the factory.
-- Unlocking new gameplay systems.
-- Investing in long-term progression.
-
-Players should feel that every purchase contributes towards future efficiency.
-
----
-
-# Currency Framework
-
-The Economy System supports multiple currencies.
-
-Each currency may define its own:
-
-- Purpose
-- Acquisition methods
-- Spending methods
-- Availability
-- Progression role
-- Persistence behaviour
-
-Currencies should operate independently while remaining consistent within the overall economy.
-
-Specific currencies are documented within Volume IV.
-
----
-
-# Economic Behaviour
-
-The Economy System is responsible for:
-
-- Awarding value.
-- Tracking balances.
-- Validating transactions.
-- Removing spent value.
-- Recording economic statistics.
-- Supporting future currency types.
-
-All economic transactions should be predictable, transparent and reliable.
-
----
-
-# Progression Role
-
-The Economy System transforms gameplay into progression.
-
-Without an economy:
-
-- Resources have no measurable value.
-- Upgrades cannot be purchased.
-- Expansion cannot occur.
-- Progress cannot be quantified.
-
-Every major gameplay system should either generate, consume or influence economic value.
-
----
-
-# Dependencies
-
-The Economy System depends upon:
-
-- Resource System
-- Inventory System
-- Shop System
-- Statistics System
-- Save & Load System
-
-These systems determine how value is generated, stored, spent and persisted.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Resource System | Determines the economic value of resources. |
-| Inventory System | Supplies resources for economic transactions where applicable. |
-| Shop System | Consumes currency during purchases. |
-| Production Building System | Generates value through production. |
-| Achievement System | May reward additional value. |
-| Milestone System | May unlock new economic opportunities. |
-| Statistics System | Records economic activity. |
-
-The Economy System acts as the central exchange between production and progression.
-
----
-
-# Balancing Considerations
-
-The economy should maintain a satisfying pace of progression.
-
-Growth should reward optimisation while avoiding excessive inflation or stagnation.
-
-Economic progression should remain understandable at all stages of the game, even as numerical values become significantly larger.
-
-New currencies should expand gameplay rather than replace existing progression systems.
-
----
-
-# Future Expansion
-
-The Economy System has been designed to support future additions, including:
-
-- Multiple currency types.
-- Premium currencies.
-- Seasonal currencies.
-- Limited-time event currencies.
-- Trading systems.
-- Dynamic pricing.
-- Research resources.
-- Prestige currencies.
-
-Future additions should integrate into the existing framework without requiring structural redesign.
-
----
-
-# Developer Notes
-
-This chapter defines the behaviour of the game's economy rather than individual currencies.
-
-Currency names, icons, values and balancing are maintained within **Volume IV – Reference Library**.
-
-Separating economic behaviour from economic content ensures that new currencies can be introduced without modifying the underlying system.
-
----
-
-# Related Sections
-
-- 3.4 Resource System
-- 3.5 Inventory System
-- 3.7 Shop System
-- 3.8 Production Building System
-- Volume IV – Currency Catalogue
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Economy System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.7 Shop System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.7
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Existing dashboard cards implement purchases, escalating costs and affordability checks. Adder and Multiplier cards appear at levels 2 and 5; purchase handlers themselves only check Cash. Central purchase definitions, categorised browsing and failure explanations remain unfinished.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+### Decision 1 — Unlock Miner upgrade
+
+- **Exact cash cost:** $100 Cash. This unlock is separate from the $100 purchase of a Tier 1 Miner. Factory Purchase Discount does not reduce the shop unlock fee.
+
+- **Confirm this is the first required Upgrade Shop purchase:** No. The latest opening order is guaranteed first Stone → first Furnace sale → Mining Power I → Unlock Miner → purchase first Miner → automated production.
+
+- **Confirm Mining Power is not required before it:** No. Mining Power I is a required prerequisite for Unlock Miner. Enforce the prerequisite in purchase logic as well as the UI. This supersedes the earlier optional-Mining-Power opening.
+
+### Decision 21 — Factory Purchase Discount
+
+- **Maximum level:** 10 levels.
+
+- **Stardust starting cost:** Latest recommended curve starts at 250,000 Stardust. It supersedes the earlier 1,000-start/×5 draft, but remains marked recommended pending canon approval.
+
+- **Stardust cost formula:** Latest recommended Cost(L) = 250,000 × 2^(L−1). Effect: payable machine price = raw price × (1−0.05 × DiscountLevel), then apply global Cash rounding.
+
+- **Total cost to max:** 255,750,000 Stardust for the latest recommended curve; level 10 costs 128,000,000.
+
+- **Confirm it affects machine purchase prices:** Yes: Miner, Polisher and Refiner purchases.
+
+- **Confirm it affects machine tier upgrades:** Yes: Miner, Polisher, Refiner and Furnace tier upgrades.
+
+- **Confirm whether it affects Miner slots:** No. Also exclude individual Miner Ore Luck, normal shop purchases, Pickaxe crafting/repairs, materials and Rebirth upgrades.
+
+- **Confirm whether it affects Polisher/Refiner unlock prices:** Yes for Polisher/Refiner machine purchase prices. The separate Unlock Miner shop upgrade is excluded.
+
+## Reference J — Normal Cash Shop
+
+### Normal Cash Shop
+
+These are retained costs unless explicitly superseded. Apply global Cash price rounding to purchases. Factory Purchase Discount does not apply to these shop stats.
+
+| Upgrade | Raw Cash cost to buy L | Effect at owned L | Maximum | Rebirth |
+|---|---|---|---|---|
+| Ore Value | 25 × 1.12^(L−1) | BaseOreValue × (1+0.05L) | Unlimited | Reset |
+| Mining Power | 250 × 1.38^(L−1) | +2 raw power per level | 75 | Reset |
+| Mining Luck | 100 × 1.20^(L−1) | 1+0.05L manual multiplier | 150 | Reset |
+| Mining Duplication | 250 × 1.27^(L−1) | 0.005L independent chance per eligible resource | 100 levels 50% | Reset |
+| Unlock Miner | $100 | Access after Mining Power I; separate Miner purchase | One per cycle | Reset |
+
+Ore Value applies to ore values before processing. Whether Stone receives that same global modifier is not explicitly resolved; see Reference K. No separate Cash Shop Ore Luck is added.
+
+Purchase handlers must enforce affordability, owned levels, caps and prerequisites independently of UI. Show relevant requirements in the Upgrade Shop. Unlock Miner does not grant a machine, local Miner Ore Luck is not a global shop stat, and Mining Luck affects manual rolls only. Factory Purchase Discount effect/eligibility is Defined, but its Stardust price is Recommended; do not implement purchases using that price without approval.
 
 ---
-
-# Purpose
-
-The Shop System provides the primary interface through which players exchange economic value for progression.
-
-It enables players to purchase buildings, upgrades, unlocks and other gameplay content while acting as the bridge between the Economy System and the wider progression systems.
-
-The Shop System focuses on how purchases are presented, validated and completed rather than defining the value of individual purchases.
-
----
-
-# Responsibilities
-
-The Shop System is responsible for:
-
-- Presenting purchasable content to the player.
-- Organising purchases into logical categories.
-- Validating purchase requirements.
-- Processing successful purchases.
-- Delivering purchased content or unlocks.
-- Communicating purchase outcomes to the player.
-
-The Shop System is not responsible for:
-
-- Defining currency values.
-- Managing player currency balances.
-- Determining production rates.
-- Defining individual shop items.
-- Storing purchased resources.
-
----
-
-# Overview
-
-The Shop System acts as the player's primary method of spending accumulated value.
-
-Throughout progression, players repeatedly return to the shop to invest in improved production, expanded capabilities and new gameplay systems.
-
-The shop should remain intuitive, responsive and scalable regardless of the amount of available content.
-
----
-
-# Design Intent
-
-The Shop System is designed to:
-
-- Encourage regular reinvestment into progression.
-- Clearly communicate available purchases.
-- Make purchasing feel rewarding.
-- Present progression in an organised manner.
-- Support significant future content expansion.
-
-The shop should always reinforce the gameplay loop by encouraging players to improve efficiency rather than simply accumulate unused currency.
-
----
-
-# Purchase Framework
-
-Every purchasable object should define its own purchasing properties.
-
-Typical properties may include:
-
-- Name
-- Description
-- Category
-- Cost
-- Unlock Requirements
-- Purchase Requirements
-- Purchase Behaviour
-- Maximum Ownership
-- Visual Representation
-
-Individual purchases are documented separately within **Volume IV – Reference Library**.
-
----
-
-# Shop Organisation
-
-Purchasable content should be grouped into logical categories.
-
-Examples include:
-
-- Buildings
-- Upgrades
-- Factory Expansion
-- Automation
-- Permanent Unlocks
-- Research
-- Cosmetic Content
-- Event Content
-
-The complete category structure may evolve as new gameplay systems are introduced.
-
----
-
-# Purchase Behaviour
-
-The Shop System is responsible for validating every purchase.
-
-Successful purchases should:
-
-- Verify all purchase requirements.
-- Consume the required currencies or resources.
-- Award the purchased content.
-- Update relevant gameplay systems.
-- Provide clear visual and audio feedback.
-
-Failed purchases should communicate the reason for failure clearly to the player.
-
----
-
-# Unlock Progression
-
-Not all purchasable content should be immediately available.
-
-The Shop System should support unlock conditions based on gameplay progression.
-
-Examples include:
-
-- Factory Level
-- Milestones
-- Research
-- Achievements
-- Resource Discovery
-- Previous Purchases
-- Special Events
-
-Unlock systems should encourage exploration and provide players with meaningful progression goals.
-
----
-
-# User Experience
-
-The Shop System should always enable players to:
-
-- Browse available content.
-- Understand purchase requirements.
-- Compare available upgrades.
-- Easily identify newly unlocked content.
-- Complete purchases quickly.
-
-The purchasing process should minimise unnecessary steps while providing sufficient information for informed decision-making.
-
----
-
-# Dependencies
-
-The Shop System depends upon:
-
-- Economy System
-- Inventory System
-- Resource System
-- User Interface Behaviour
-- Save & Load System
-
-These systems provide the data required to validate purchases and apply their effects.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Economy System | Validates and consumes currency during purchases. |
-| Inventory System | Awards or consumes resources where applicable. |
-| Resource System | Defines purchasable resource requirements. |
-| Production Building System | Unlocks or purchases production buildings. |
-| Factory Expansion System | Purchases additional factory capacity. |
-| Achievement System | May unlock new purchasable content. |
-| Milestone System | Controls progression-based unlocks. |
-| Statistics System | Records purchasing activity. |
-
-The Shop System serves as the primary progression interface for the player.
-
----
-
-# Balancing Considerations
-
-Purchases should always feel meaningful.
-
-The availability, pricing and pacing of purchasable content should encourage continuous progression without overwhelming the player.
-
-The shop should consistently present desirable long-term goals while ensuring that short-term purchases remain rewarding.
-
-Players should rarely feel that there is nothing worthwhile to purchase.
-
----
-
-# Future Expansion
-
-The Shop System has been designed to support future additions, including:
-
-- Multiple shop interfaces.
-- NPC vendors.
-- Travelling merchants.
-- Event-exclusive shops.
-- Limited-time offers.
-- Research terminals.
-- Premium stores.
-- Dynamic inventories.
-- Player trading systems.
-
-Future additions should integrate into the existing purchasing framework while preserving a consistent player experience.
-
----
-
-# Developer Notes
-
-This chapter defines how purchasing operates within Everything Factory Incremental.
-
-It intentionally avoids documenting individual buildings, upgrades, unlocks or prices.
-
-Specific shop content is maintained within **Volume IV – Reference Library**, while this chapter defines the rules that govern purchasing behaviour.
-
----
-
-# Related Sections
-
-- 3.5 Inventory System
-- 3.6 Economy System
-- 3.8 Production Building System
-- 3.11 Factory Expansion System
-- Volume IV – Shop Catalogue
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Shop System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
-
----
-
-# Part II — Factory Systems
 
 # 3.8 Production Building System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.8
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Completed components: counter-based Droppers, Adders, Multipliers and three furnace tiers. `produceStone()`, Stone value updates and furnace functions provide their effects. Shared building instances, placement and transport connections are not implemented. These existing effects must not be treated as missing buildings.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+V1 uses independent machine entities with stable identity, slot, tier, investment and processing state. Miner ≤5, Polisher ≤3, Refiner ≤1, and one permanent Furnace. Reuse working persistence and processing where compatible; the old counter-based effects are legacy behavior only. Grid integration is a separate dependent task, not a reason to invent conveyor rules.
+
+### Decision 6 — Miner V1 maximum tier
+
+- **Exact V1 Miner maximum tier:** Exactly Tier 25 for V1.
+
+- **Current document says approximately 25; needs an exact number:** Tier 25 is a release-specific cap. Tier 26+ belongs to future updates; the architecture must support later expansion.
+
+### Decision 7 — Miner base rarity progression
+
+- **Exact Stone/T1/T2/T3/T4 probabilities for every Miner tier:** Use the recovered Miner 1–25 table in Reference B. Those stored balance entries are rounded source values; normalize them into full-precision internal probabilities.
+
+- **Or exact formula used to generate them:** Keep the Stone anchor S exactly. Distribute 1−S among eligible ore columns proportionally, apply the recorded Overall Luck exponents, normalize, then enforce the automated 25% Stone floor. Reference B gives the complete formula.
+
+- **Exact T1 unlock tier:** T1 is available at Miner Tier 1.
+
+- **Exact T2 unlock tier:** T2 is available at Miner Tier 1.
+
+- **Exact T3 unlock tier:** T3 is available at Miner Tier 1.
+
+- **T4 unlock is currently Tier 6 — confirm:** Yes. T4 weight is 0 for Miner Tiers 1–5 and becomes eligible at Tier 6. Overall Luck never bypasses this.
+
+- **Exact tiers where the ×7.5 upgrade-cost milestone occurs:** Tier 6 only in V1. Raw upgrade costs use ×7.5 for that target tier instead of ×4, then return to ×4. Reference B lists the recurrence and full cost table.
+
+### Decision 8 — Future Miner ore tiers
+
+- **Rule for introducing T5/T6/etc:** T5+ is deferred. Plan data structures to support ore tiers through at least T10, but do not create their rarity/value/unlock balance before launch. More ores are intended for future updates.
+
+- **How future ore tiers affect Stone/T1/T2/T3/T4 probabilities:** Preserve existing Miner 1–25 balance. New Miner tiers can redistribute the remaining ore budget among old and newly unlocked tiers while Stone remains at least 25%.
+
+- **Whether future ore-tier unlocks always create a ×7.5 cost milestone:** The retained general rule uses ×7.5 on a tier step that introduces a new ore tier, then ×4 afterward. Future unlock tiers and rarity rows remain deferred.
+
+### Decision 9 — Stone floor
+
+- **Confirm final Stone minimum is 25%, not 10%:** 25% for automated Miner production only. Manual mining has no artificial Stone floor.
+
+- **Update all tests to use the same Stone floor:** Future tests must use this automated floor consistently, verify normalization, and separately verify that manual probabilities are not clamped to 25%.
+
+### Decision 10 — Ore Luck source
+
+- **Confirm whether V1 Ore Luck comes from:** Both permanent Rebirth Ore Luck and cash individual-Miner Ore Luck apply to automated mining. There is no separate cash Upgrade Shop stat named Ore Luck; the shop's Mining Luck affects manual mining.
+
+- **Rebirth progression only,:** RebirthOreLuck = 1 + 0.002 × Level, capped at level 5,000 / 11×. It persists permanently.
+
+- **individual Miner upgrades,:** IndividualMinerOreLuck = 1 + 0.02 × Level, capped at level 50 / 2×. It belongs to one Miner and is removed on resale or Rebirth.
+
+- **or both:** Both automated sources multiply. Manual Shop Mining Luck remains a separate system.
+
+- **If both, exact formula for combining them:** FinalMinerOreLuck = RebirthOreLuck × IndividualMinerOreLuck × InscriptionOreLuck. InscriptionOreLuck remains 1 while Inscriptions are deferred. Owning more Miners does not multiply Luck.
+
+### Decision 11 — Miner Ore Luck
+
+- **If individual Miners have their own Ore Luck:** Yes. Each Miner saves and upgrades its own local Ore Luck level independently.
+
+- **How is it upgraded:** Purchase levels on that individual Miner using Cash. The stat starts at level 0 and is not preserved by Machine Tier Preservation.
+
+- **What does it cost:** RawCost(L) = 1,000 × 1.25^(L−1); apply global Cash price rounding. Factory Purchase Discount does not apply. Record the actual payment in that Miner's resale investment.
+
+- **Maximum level:** 50 levels.
+
+- **Effect per level:** +2% local Ore Luck per level: 1 + 0.02L, reaching 2×. It only changes the ore chosen within an already selected tier.
+
+### Decision 12 — Miner replacement + Tier Preservation
+
+- **When a Miner is sold and repurchased, does Tier Preservation apply:** Yes. A replacement starts at the applicable preserved tier, while local Ore Luck starts at level 0. Selling removes the old entity; occupied slot access remains available.
+
+- **Does Preservation apply to every machine purchase or only the first purchase after a Rebirth:** Apply Preservation to every newly purchased machine, including replacements. Apply once at creation, not on reload; increasing the perk does not automatically raise existing machines.
+
+### Decision 13 — Miner slot purchases
+
+- **Confirm slot prices are final:** Slot 1 free; slot 2 $10,000; slot 3 $1,000,000; slot 4 $10,000,000,000; slot 5 $1,000,000,000,000. Buying a slot makes its Miner purchasable; the Miner purchase is separate.
+
+- **Confirm whether Factory Purchase Discount affects Miner slot prices:** No. Discount covers machine purchases and tiers, not Miner slot unlocks.
+
+- **Confirm whether Miner slots survive Rebirth:** Yes. Purchased slot access persists; owned Miners are removed.
+
+## Reference B Miner rarity costs and production
+
+### Stored base balance
+
+The following source table is the accepted recovered balance direction. Treat its Stone column as an anchor and its ore columns as relative weights to resolve small rounding discrepancies. These are not UI-rounded values to use as independent percentages without normalization.
+
+| Miner | Stone | T1 | T2 | T3 | T4 |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 95.898% | 4.000% | 0.100% | 0.002% | — |
+| 2 | 95.086% | 4.726% | 0.185% | 0.003% | — |
+| 3 | 93.439% | 6.177% | 0.378% | 0.006% | — |
+| 4 | 91.203% | 8.018% | 0.768% | 0.011% | — |
+| 5 | 88.480% | 10.000% | 1.500% | 0.020% | — |
+| **6** | 85.344% | 12.722% | 1.908% | 0.025% | **0.0004%** |
+| 7 | 81.861% | 15.134% | 2.754% | 0.250% | 0.0011% |
+| 8 | 78.096% | 17.538% | 3.799% | 0.565% | 0.0021% |
+| 9 | 74.119% | 19.851% | 5.048% | 0.979% | 0.0034% |
+| **10** | **70.000%** | **22.000%** | **6.500%** | **1.495%** | **0.0050%** |
+| 11 | 65.813% | 22.097% | 8.375% | 3.704% | 0.011% |
+| 12 | 61.631% | 21.463% | 10.485% | 6.402% | 0.019% |
+| 13 | 57.521% | 20.068% | 12.810% | 9.573% | 0.028% |
+| 14 | 53.542% | 17.907% | 15.325% | 13.188% | 0.039% |
+| **15** | **49.744%** | **15.000%** | **18.000%** | **17.206%** | **0.050%** |
+| 16 | 46.165% | 14.167% | 19.364% | 20.179% | 0.125% |
+| 17 | 42.830% | 13.026% | 20.650% | 23.285% | 0.208% |
+| 18 | 39.754% | 11.600% | 21.853% | 26.494% | 0.299% |
+| 19 | 36.939% | 9.915% | 22.969% | 29.780% | 0.397% |
+| **20** | **34.383%** | **8.000%** | **24.000%** | **33.117%** | **0.500%** |
+| 21 | 32.075% | 7.169% | 23.498% | 36.482% | 0.776% |
+| 22 | **30.000%** | 6.241% | 22.829% | 39.864% | 1.067% |
+| 23 | **28.141%** | 5.229% | 22.011% | 43.251% | 1.369% |
+| 24 | **26.481%** | 4.145% | 21.062% | 46.631% | 1.680% |
+| **25** | **25.000%** | **3.000%** | **20.000%** | **50.000%** | **2.000%** |
+
+### Exact normalization procedure
+
+For the selected Miner tier:
+
+1. Set S = stored Stone percentage / 100.
+2. Let v(r) be the listed ore-column value; locked tiers have v=0.
+3. BaseOreProbability(r) = (1−S) × v(r) / sum(v).
+4. AdjustedStoneWeight = S.
+5. AdjustedTierWeight(r) = BaseOreProbability(r) × OverallLuck^e(r).
+6. Use e(T1)=0.20, e(T2)=0.40, e(T3)=0.60, e(T4)=0.80.
+7. Normalize all weights into probabilities.
+8. If Stone would be below 0.25, assign Stone=0.25 and distribute 0.75 among eligible ore tiers proportionally to their adjusted weights.
+
+T4 must remain zero before Miner Tier 6, before and after normalization. Internal probabilities sum to 1. The UI alone may adjust its largest displayed percentage by a rounding remainder so displayed values total 100%; do not change RNG probabilities to fix presentation.
+
+### Automated within tier selection
+
+First choose Stone/T1/T2/T3/T4 with Overall Luck. On a non-Stone outcome, lock the tier.
+
+FinalMinerOreLuck = (1 + 0.002 × RebirthOreLuckLevel) × (1 + 0.02 × LocalMinerOreLuckLevel) × 1.
+
+The final factor is the deferred Inscription placeholder. For the five ores within the chosen tier:
+
+AdjustedOreWeight(i) = 0.65^(i−1) × FinalMinerOreLuck^(0.1×(i−1)).  
+ConditionalProbability(i) = AdjustedOreWeight(i) / sum(AdjustedOreWeights).
+
+The base conditional distribution is approximately 39.59% / 25.74% / 16.73% / 10.87% / 7.07%. Each Miner rolls independently; ownership count never acts as a Luck multiplier.
+
+### Cash and speed
+
+Purchase raw price = $100. Raw upgrade into T2 = $400. For each subsequent target tier, multiply the previous unrounded raw upgrade cost by ×4, except target T6 uses ×7.5. Return to ×4 at T7. No other V1 ore-tier milestone exists.
+
+CalculatedTierInterval = max(0.1, 5 × 0.96^(Tier−1)).  
+FinalMinerInterval = max(0.1, CalculatedTierInterval × (1−0.01 × RebirthMinerSpeedLevel)).
+
+One normal cycle produces one base resource, subject to future duplication only when the normal tier speed curve has reached its floor. The +1% duplication per subsequent tier, guaranteed copies per whole 100%, and fractional extra-copy roll are retained future architecture; they do not activate within V1's 25 tiers. Rebirth speed does not move that tier-based breakpoint.
+
+Cash investment records include actual purchase, paid tier upgrades and local Ore Luck payments. Resale requires confirmation and refunds floor(0.50 × ActualQualifyingCashInvestment). Free preserved tiers and permanent Stardust upgrades do not create refund investment.
+
+
+### Miner raw purchase and upgrade table
+
+Normal seconds exclude Rebirth speed. Cash prices are before discount/global rounding. Tier 1 is a purchase; later rows are the cost to upgrade into that target tier.
+
+| Tier | Raw Cash price | Normal seconds |
+|---:|---:|---:|
+| 1 | $100 | 5.0000 |
+| 2 | $400 | 4.8000 |
+| 3 | $1,600 | 4.6080 |
+| 4 | $6,400 | 4.4237 |
+| 5 | $25,600 | 4.2467 |
+| 6 | $192,000 | 4.0769 |
+| 7 | $768,000 | 3.9138 |
+| 8 | $3,072,000 | 3.7572 |
+| 9 | $12,288,000 | 3.6069 |
+| 10 | $49,152,000 | 3.4627 |
+| 11 | $196,608,000 | 3.3242 |
+| 12 | $786,432,000 | 3.1912 |
+| 13 | $3,145,728,000 | 3.0635 |
+| 14 | $12,582,912,000 | 2.9410 |
+| 15 | $50,331,648,000 | 2.8234 |
+| 16 | $201,326,592,000 | 2.7104 |
+| 17 | $805,306,368,000 | 2.6020 |
+| 18 | $3,221,225,472,000 | 2.4979 |
+| 19 | $12,884,901,888,000 | 2.3980 |
+| 20 | $51,539,607,552,000 | 2.3021 |
+| 21 | $206,158,430,208,000 | 2.2100 |
+| 22 | $824,633,720,832,000 | 2.1216 |
+| 23 | $3,298,534,883,328,000 | 2.0367 |
+| 24 | $13,194,139,533,312,000 | 1.9553 |
+| 25 | $52,776,558,133,248,000 | 1.8771 |
+
+### Decision 14 — Polisher purchase behaviour
+
+- **Is the $5,000 price for each of the three Polishers:** No. Slot 1 purchase costs $5,000; slot 2 $100,000; slot 3 $2,000,000, before discount.
+
+- **Or does each additional Polisher have a different purchase price:** Prices are fixed by persistent slot identity. Replacing a Polisher in slot 3 still uses slot 3's price. Slot surcharges do not affect tier upgrades; every Polisher uses the same T2–T10 curve.
+
+- **Confirm whether Polisher ownership survives Rebirth:** No. Rebirth removes Polisher ownership. The slot-specific purchase schedule still applies when rebuilding.
+
+## Reference C Polisher behavior
+
+Three independent slot-based Polishers, each tier 1–10, with separate selected ore, queue, cycle and investment. Only unpolished ores are valid inputs; Stone is invalid. Polished ores cannot be polished again. Multiple Polishers increase throughput, never repeatedly multiply one ore's polished value.
+
+PolishedValue = CurrentOreValue × 1.50 × (1 + 0.0001 × RebirthPolisherValueLevel).
+
+Apply the normal Ore Value modifier before polishing. Normal and Polished inventories remain separate.
+
+CycleTime(T) = 7.5 × 0.799413^(T−1).  
+BatchSize(T) = round(1.668101^(T−1)).  
+ProcessedAmount = min(BatchSize, available selected unpolished quantity).
+
+Tier 1 is approximately 7.5 seconds / 1 ore; tier 10 approximately 1 second / 100 ores. These inherited interpolation constants are rounded source coefficients; the intended endpoint is T10 at 1 second / 100. A partial batch is allowed; no input means Idle.
+
+RawUpgradeCost(T) = 5,000 × 10^(T−1), for T2–T10. Slot purchase cost is separate: $5,000 / $100,000 / $2,000,000. Apply eligible discount then Cash rounding. Selling removes only that entity, refunds 50% of actual qualifying Cash paid rounded down, and returns queued/unprocessed input once. Already-polished output stays in inventory.
+
+### Decision 15 — Refiner purchase cost
+
+- **Exact Refiner unlock price:** $25,000 Cash before applicable Factory Purchase Discount and Cash price rounding.
+
+- **Exact T2–T10 upgrade costs:** T2 $125,000; T3 $1,250,000; T4 $12,500,000; T5 $125,000,000; T6 $1,250,000,000; T7 $12,500,000,000; T8 $125,000,000,000; T9 $1,250,000,000,000; T10 $12,500,000,000,000. These are raw prices.
+
+- **Exact upgrade cost formula:** RawRefinerUpgradeCost(T) = 125,000 × 10^(T−2), for target T2–T10: exactly 2.5× the corresponding Polisher tier upgrade.
+
+- **Confirm whether there are milestone jumps:** No milestone jumps.
+
+### Decision 17 — Refiner value rules
+
+- **Confirm the newer Refine 1–15 formula replaces the older Refiner value section:** Yes. The final Refine 1–15 model in Reference D replaces the earlier compounding and per-pass-current-value model.
+
+- **Confirm Refine 15 is the hard maximum:** Yes. Count 15 is the hard maximum; no further pass is allowed.
+
+- **Confirm refined value always uses the pre-Refiner value rather than compounding:** Yes. RefinedValue(n) = PreRefinerValue × (1 + RefineBonus(n)). The immutable pre-Refiner basis is used for every pass.
+
+### Decision 18 — Gem Dust
+
+- **Base Gem Dust awarded on a successful roll:** One base Gem Dust per successful per-ore roll before the Yield multiplier.
+
+- **Can Gem Dust be fractional:** No. Gem Dust is an integer currency. Stardust may separately retain two decimal places.
+
+- **If not, how does +5% Gem Dust Yield handle partial Dust:** For expected Dust y = 1 + 0.05 × YieldLevel, award floor(y) and one additional Dust with probability y−floor(y).
+
+- **Confirm whether probabilistic rounding is used:** Yes. Dust is rolled and awarded before ore destruction; later destruction does not remove gained Dust.
+
+## Reference D Refiner behavior and value
+
+Maximum one Refiner, tier 1–10. Input is Polished or previously Refined ore only. Stone and raw unpolished ore are invalid.
+
+Interval(T) = 15 × 0.2^((T−1)/9).  
+Batch(T) = round(1 + 9 × ((T−1)/9)^1.2).  
+TierBaseDustChance(T) = 0.02 + (0.08/9) × (T−1).
+
+Thus T1 is 15 seconds / 1 ore / 2% base Dust; T10 is 3 seconds / 10 ores / 10% base Dust.
+
+Let input count be c and the attempted resulting pass number n=c+1. Reject c=15.  
+EffectiveBaseDustChance = min(0.25, TierBaseDustChance + 0.005 × RebirthDustChanceLevel).  
+FinalDustChance = min(0.95, EffectiveBaseDustChance × 1.25^c).  
+BaseDestroyChance = min(0.95, 0.15 × n).  
+FinalDestroyChance = clamp(BaseDestroyChance−0.005 × StabilityLevel, 0.05, 0.95).
+
+Roll Dust and award it first; then roll destruction. A destroyed input is removed permanently. A surviving input gains the new count and resulting value, then returns to Refined inventory. Dust remains even if the ore is destroyed. Overall Luck and Ore Luck have no effect on Refiner Dust or destruction.
+
+The owner's principal challenge rule is that each successful surviving pass counts, including repeated passes on the same ore. A final sentence allowing possible progress on a destroyed ore remains under review in Reference K; the clarified survivor-only wording has not been separately ratified.
+
+### Noncompounding value
+
+Store the immutable original PreRefinerValue on the first pass. It includes applicable Polisher value.
+
+StartingRefineBonus = 0.50 + 0.0014 × RebirthRefinerValueLevel.
+
+For n=1…5: RefineBonus(n) = StartingRefineBonus × (5−n)/4.  
+For n=6…15: RefineBonus(n) = −0.09 × (n−5).  
+RefinedValue(n) = PreRefinerValue × (1 + RefineBonus(n)).
+
+Without the value perk, Refines 1–5 give +50%, +37.5%, +25%, +12.5%, 0%. At perk level 5,000 they give +750%, +562.5%, +375%, +187.5%, 0%. Negative stages remain −9%, −18%, …, −90% regardless of that perk.
+
+Never multiply the previous refined value by the next pass's bonus. Preserve pre-Refiner value metadata when stacking cohorts.
+
+### Gem Dust quantities
+
+Base successful roll awards 1 Dust. ExpectedYield = 1 + 0.05 × GemDustYieldLevel. Award floor(ExpectedYield), with one extra at probability equal to its fractional part. Keep Gem Dust integer and persistent across Rebirth.
+
+Refiner resale refunds 50% of qualifying actual Cash investment, rounded down. Permanent Rebirth perks and future Inscriptions are not refunded.
+
+### Decision 20 — Furnace progression
+
+- **Exact Tier 1–20 capacity progression:** Capacity(T) = 50 × T for T1–T20. T1 50; T5 250; T10 500; T20 1,000. This replaces every previous 25-start, 10+40 and T5=150 draft.
+
+- **Exact sell-value progression per Furnace tier:** FurnaceTierValueMultiplier = 1 + 0.25 × (T−1). T1 1×; T2 1.25×; T5 2×; T10 3.25×; T20 5.75×. Apply Rebirth Furnace Value afterward.
+
+- **Exact Furnace speed progression per tier:** NormalInterval(T) = 10 × 0.1^((T−1)/19), with a 1-second normal minimum. FinalInterval = max(0.5, NormalInterval × (1−0.01 × RebirthSpeedLevel)). Use the exact interpolation formula.
+
+- **Exact Furnace tier upgrade costs:** T1 is the free placed Starter. T2 costs $100; T3 $1,000; T4–T20 raw cost = 1,000 × 4^(T−3). Apply discount and global Cash rounding.
+
+- **Exact cost scaling:** ×10 from the T2 cost to T3, then ×4 per target tier from T4 onward; no milestone jumps. Automation unlocks at T3; T1–T2 require manual activation.
+
+- **Confirm normal Furnace minimum interval is 1 second:** Yes, 1.0 second before the Rebirth speed perk.
+
+- **Confirm Rebirth Furnace Speed can reduce it to 0.5 seconds:** Yes, the 50-level Rebirth speed perk can reduce the final interval to 0.5 seconds.
+
+- **Confirm Furnace cannot be sold:** Yes. The single placed Furnace cannot be sold.
+
+## Reference E Cash price rounding and Furnace table
+
+### Global Cash pricing
+
+Calculate the original raw formula for the target purchase. Apply Factory Purchase Discount only if eligible, using factor 1−0.05×level. Then choose the rounding band from the resulting discounted amount and round half-up:
+
+| Discounted amount | Rounding step |
+|---|---:|
+| Below $1,000 | $1 |
+| $1,000 to below $1,000,000 | $10 |
+| $1,000,000 to below $1,000,000,000 | $1,000 |
+| $1,000,000,000 and above | $1,000,000 |
+
+ActualPaid = step × floor(DiscountedRaw/step + 0.5).
+
+Local Miner Ore Luck follows these Cash rounding bands but receives no Factory Purchase Discount. Do not use its old floor formula as the payable price. Resale uses actual payments, not a recomputed theoretical price. Stardust perks use their own integer rounding rules.
+
+### Furnace
+
+Capacity(T)=50T. TierValue(T)=1+0.25(T−1). NormalInterval(T)=max(1,10×0.1^((T−1)/19)). FinalInterval=max(0.5,NormalInterval×(1−0.01×RebirthFurnaceSpeedLevel)).
+
+FinalSaleValue = current resource's applicable raw/Polished/Refined value × TierValue × RebirthFurnaceValueMultiplier. The resource value includes the applicable Ore Value modifier; do not apply a modifier twice. Future Achievement/Milestone effects remain deferred until their exact stacking order is defined.
+
+The table lists raw prices before discount/rounding and interval display approximations. T1 is free and placed permanently.
+
+| Tier | Capacity | Tier value | Normal seconds | Raw upgrade Cash |
+|---:|---:|---:|---:|---:|
+| 1 | 50 | 1.00× | 10.0000 | Free starter |
+| 2 | 100 | 1.25× | 8.8587 | $100 |
+| 3 | 150 | 1.50× | 7.8476 | $1,000 |
+| 4 | 200 | 1.75× | 6.9519 | $4,000 |
+| 5 | 250 | 2.00× | 6.1585 | $16,000 |
+| 6 | 300 | 2.25× | 5.4556 | $64,000 |
+| 7 | 350 | 2.50× | 4.8329 | $256,000 |
+| 8 | 400 | 2.75× | 4.2813 | $1,024,000 |
+| 9 | 450 | 3.00× | 3.7927 | $4,096,000 |
+| 10 | 500 | 3.25× | 3.3598 | $16,384,000 |
+| 11 | 550 | 3.50× | 2.9764 | $65,536,000 |
+| 12 | 600 | 3.75× | 2.6367 | $262,144,000 |
+| 13 | 650 | 4.00× | 2.3357 | $1,048,576,000 |
+| 14 | 700 | 4.25× | 2.0691 | $4,194,304,000 |
+| 15 | 750 | 4.50× | 1.8330 | $16,777,216,000 |
+| 16 | 800 | 4.75× | 1.6238 | $67,108,864,000 |
+| 17 | 850 | 5.00× | 1.4384 | $268,435,456,000 |
+| 18 | 900 | 5.25× | 1.2743 | $1,073,741,824,000 |
+| 19 | 950 | 5.50× | 1.1288 | $4,294,967,296,000 |
+| 20 | 1000 | 5.75× | 1.0000 | $17,179,869,184,000 |
+
+T1–T2 require manual activation. T3+ automatically processes valid queued resources when available. Capacity limits each processing cycle. Auto selection uses highest final sale value first and a stable tie break. Persist active reservations and cycle state so reload does not duplicate inputs or payouts.
+
+### Decision 22 — Machine Tier Preservation
+
+- **Exact maximum level for V1:** 25 levels for V1, matching Miner Tier 25, which exceeds Furnace 20 and Polisher/Refiner 10.
+
+- **Exact cost multiplier/curve once V1 maximum machine tier is known:** Cost(L) = round(7,500 × 1.484168297348115^(L−1)), L = 1…25. Individual Stardust costs round to the nearest integer.
+
+- **Confirm target total cost:** Target approximately 300,000,000 Stardust; calculated total 299,999,997. Level 25 costs 97,871,643.
+
+- **Confirm Preservation affects Miner, Polisher, Refiner and Furnace:** Yes. StartingTier = min(MachineMaximumTier, max(1, PreservationLevel)). Individual Miner Ore Luck is excluded; no free preserved tier creates refund investment.
+
+- **Confirm whether Furnace tier is preserved even though Furnace itself is never sold:** Yes. At Rebirth restore the permanent placed Furnace to min(20, max(1, PreservationLevel)). Do not sell or recreate the Furnace.
 
 ---
-
-# Purpose
-
-The Production Building System defines the framework used by all production-based structures within Everything Factory Incremental.
-
-It establishes how buildings are placed, operated and integrated into the factory while providing a consistent set of behaviours that every production building must follow.
-
-Individual buildings are documented separately within **Volume IV – Reference Library**.
-
----
-
-# Responsibilities
-
-The Production Building System is responsible for:
-
-- Defining how production buildings behave.
-- Establishing a common framework for all production buildings.
-- Managing building placement and operation.
-- Supporting resource generation and processing.
-- Providing consistent interactions between buildings.
-- Supporting future building types.
-
-The Production Building System is not responsible for:
-
-- Defining individual buildings.
-- Determining building prices.
-- Managing player currency.
-- Storing produced resources.
-- Managing factory layout optimisation.
-
----
-
-# Overview
-
-Production buildings form the operational core of the player's factory.
-
-Every automated process within the game is performed by one or more production buildings.
-
-Although individual buildings perform different tasks, they all follow a common framework that allows them to interact predictably with one another.
-
-The Production Building System ensures that new buildings can be introduced without requiring changes to the underlying gameplay systems.
-
----
-
-# Design Intent
-
-The Production Building System is designed to:
-
-- Encourage automation over manual production.
-- Create satisfying production chains.
-- Promote experimentation with different factory designs.
-- Support gradual complexity as the player progresses.
-- Provide a scalable framework for future content.
-
-Every production building should contribute towards increasing factory efficiency or expanding player capabilities.
-
----
-
-# Building Framework
-
-Every production building should define a common set of gameplay properties.
-
-Typical properties include:
-
-- Name
-- Description
-- Building Category
-- Production Behaviour
-- Input Requirements
-- Output Behaviour
-- Placement Rules
-- Operating Requirements
-- Upgrade Path
-- Visual Representation
-- Audio Behaviour
-
-Additional properties may be introduced as new gameplay systems require.
-
----
-
-# Building Categories
-
-Production buildings may be organised into categories based on their primary function.
-
-Examples include:
-
-- Resource Generation
-- Transportation
-- Processing
-- Value Enhancement
-- Manufacturing
-- Storage
-- Automation Support
-- Utility
-
-Categories exist to improve organisation and system interactions.
-
-Individual building classifications are maintained within Volume IV.
-
----
-
-# Production Behaviour
-
-Each production building performs a defined gameplay function.
-
-Examples include:
-
-- Generating resources.
-- Transporting resources.
-- Processing materials.
-- Increasing resource value.
-- Combining materials.
-- Supporting automation.
-
-Each building should perform its intended role consistently and predictably.
-
----
-
-# Building Lifecycle
-
-Every production building generally follows the same lifecycle.
-
-```
-Purchased
-
-↓
-
-Placed
-
-↓
-
-Activated
-
-↓
-
-Operating
-
-↓
-
-Modified
-or
-Upgraded
-
-↓
-
-Removed
-or
-Replaced
-```
-
-Not every building will require every stage, but the overall lifecycle should remain consistent throughout the game.
-
----
-
-# Resource Interaction
-
-Production buildings interact directly with the Resource System.
-
-Buildings may:
-
-- Generate resources.
-- Receive resources.
-- Transfer resources.
-- Modify resources.
-- Consume resources.
-- Produce new resources.
-
-The exact behaviour is determined by the building's individual definition rather than the Production Building System itself.
-
----
-
-# Progression Role
-
-Production buildings represent the player's primary method of increasing efficiency.
-
-As additional buildings become available, players are able to:
-
-- Increase production capacity.
-- Reduce manual interaction.
-- Build more complex production chains.
-- Improve economic output.
-- Unlock advanced gameplay systems.
-
-Production buildings should remain the primary driver of factory progression.
-
----
-
-# Dependencies
-
-The Production Building System depends upon:
-
-- Resource System
-- Inventory System
-- Economy System
-- Shop System
-- Factory Layout System
-- Automation System
-
-These systems provide the resources, progression and interactions required for production buildings to operate.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Resource System | Generates, receives and modifies resources. |
-| Inventory System | Deposits produced resources where appropriate. |
-| Economy System | Produces economic value through production. |
-| Shop System | Unlocks and purchases production buildings. |
-| Factory Layout System | Determines how buildings are arranged. |
-| Automation System | Coordinates automated production. |
-| Factory Expansion System | Provides additional building space. |
-| Statistics System | Records production activity. |
-
-The Production Building System serves as the operational centre of the factory.
-
----
-
-# Balancing Considerations
-
-Production buildings should provide meaningful improvements over manual gameplay.
-
-New buildings should introduce additional strategic opportunities rather than simply increasing numerical output.
-
-The system should reward efficient factory design while remaining approachable for new players.
-
-Building progression should feel consistent throughout the entire game.
-
----
-
-# Future Expansion
-
-The Production Building System has been designed to support future additions, including:
-
-- New production categories.
-- Multi-stage manufacturing.
-- Modular buildings.
-- Building upgrades.
-- Tiered production chains.
-- Utility structures.
-- Advanced automation devices.
-- Special event buildings.
-
-Future buildings should integrate into the existing framework without requiring structural redesign.
-
----
-
-# Developer Notes
-
-This chapter defines the behaviour shared by all production buildings.
-
-Individual buildings—including their appearance, statistics, costs and specific mechanics—are documented within **Volume IV – Building Catalogue**.
-
-Maintaining this separation allows new production buildings to be introduced without modifying the underlying system specification.
-
----
-
-# Related Sections
-
-- 3.4 Resource System
-- 3.6 Economy System
-- 3.7 Shop System
-- 3.9 Factory Layout System
-- 3.10 Automation System
-- Volume IV – Building Catalogue
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Production Building System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.9 Factory Layout System
 
@@ -7682,7 +5832,7 @@ Maintaining this separation allows new production buildings to be introduced wit
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** The runtime has no placed-building records, coordinates, rotation, collisions, relocation or connection graph. The HTML/CSS dashboard grid does not implement factory layout.
+> **Historical prototype review (2026-09-28; not current acceptance):** The runtime has no placed-building records, coordinates, rotation, collisions, relocation or connection graph. The HTML/CSS dashboard grid does not implement factory layout.
 
 ---
 
@@ -7897,6 +6047,8 @@ Specific building definitions are maintained within **Volume IV – Building Cat
 
 # 3.10 Automation System
 
+> Current canonical automation is independent Miners and Tier 3+ Furnace activation (3.8). Legacy Stone-only machine effects and fixed ten-second/three-tier prototype descriptions below are historical, not approved formulas. Connected grid/transport remains a separate design dependency.
+
 > [!IMPORTANT]
 >
 > **Documentation Status:** 🟠 In Development
@@ -7907,7 +6059,7 @@ Specific building definitions are maintained within **Volume IV – Building Cat
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** Completed components: one-second Dropper ticks and configurable ten-second Auto Furnace batches, including start/stop controls, highest-value selection, reserved inventory, live progress and saved-batch recovery. Connected production networks and multi-stage routing remain absent.
+> **Historical prototype review (2026-09-28; not current acceptance):** Completed components: one-second Dropper ticks and configurable ten-second Auto Furnace batches, including start/stop controls, highest-value selection, reserved inventory, live progress and saved-batch recovery. Connected production networks and multi-stage routing remain absent.
 
 ---
 
@@ -8150,7 +6302,7 @@ Individual buildings and their unique automation capabilities are documented wit
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** No construction-area purchase, factory region or build-capacity model exists. Higher Dropper ownership and furnace capacity upgrades are implemented separately and do not provide the spatial expansion described in this chapter.
+> **Historical prototype review (2026-09-28; not current acceptance):** No construction-area purchase, factory region or build-capacity model exists. Higher Dropper ownership and furnace capacity upgrades are implemented separately and do not provide the spatial expansion described in this chapter.
 
 ---
 
@@ -8364,1358 +6516,244 @@ Implementation details and balancing values are maintained within **Volume IV �
 
 # 3.12 Resource Progression System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.12
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Completed component: rarity-based discovery of all 20 ores from the start, as specified in section 4.1 and implemented in `mineOre()`. The progression-gated availability statements below conflict with section 4.1 and the code. They remain an unresolved design/documentation discrepancy, not an instruction to add ore locks.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+Manual access is Pickaxe-dependent: ore tier r ≤ equipped Pickaxe tier + 2, capped at T4. Default accesses T1/T2; Amber adds T3; Malachite adds T4. Locked weights are zero before Luck/normalization. Automated Miners access T1–T3 at Miner Tier 1 and T4 at Miner Tier 6. Luck never bypasses either source’s locks. Discovery is an acquisition record, not itself an ore-unlock purchase. Manual rolls have no Stone floor; automated Stone remains at least 25%. References A/B define the separate distributions. This replaces all-ores-at-start and uniform-within-tier prototype design wording.
 
 ---
-
-# Purpose
-
-The Resource Progression System defines how players discover, unlock and utilise increasingly advanced resources throughout Everything Factory Incremental.
-
-It establishes the progression framework that governs resource availability while ensuring that new resources are introduced in a rewarding and scalable manner.
-
-The Resource Progression System provides the foundation for long-term content expansion without altering the underlying Resource System.
-
----
-
-# Responsibilities
-
-The Resource Progression System is responsible for:
-
-- Defining how new resources become available.
-- Governing resource progression throughout the game.
-- Supporting gradual content discovery.
-- Encouraging exploration and optimisation.
-- Integrating new resources into player progression.
-- Providing a scalable framework for future resource additions.
-
-The Resource Progression System is not responsible for:
-
-- Defining individual resources.
-- Assigning resource properties.
-- Managing resource storage.
-- Determining economic value.
-- Processing resources.
-
----
-
-# Overview
-
-Resource progression is the process through which players gain access to increasingly advanced resources as they develop their factory.
-
-Rather than making every resource immediately available, new resources are introduced gradually through gameplay progression.
-
-This approach provides players with clear progression goals while maintaining a consistent sense of discovery throughout the game.
-
----
-
-# Design Intent
-
-The Resource Progression System is designed to:
-
-- Maintain a continual sense of discovery.
-- Encourage long-term progression.
-- Introduce new gameplay opportunities over time.
-- Support increasing production complexity.
-- Ensure the game continues to reward player advancement.
-
-Players should regularly encounter new resources that expand production possibilities without invalidating previously unlocked content.
-
----
-
-# Progression Framework
-
-Resource progression should occur through clearly defined progression milestones.
-
-Resources may become available through:
-
-- Factory progression.
-- Building progression.
-- Production achievements.
-- Gameplay milestones.
-- Research systems.
-- Exploration.
-- Special events.
-- Future progression mechanics.
-
-The framework should remain flexible enough to accommodate future gameplay systems.
-
----
-
-# Resource Availability
-
-Not every resource should be available from the beginning of the game.
-
-Resource availability should expand alongside player progression.
-
-The introduction of new resources should:
-
-- Reward previous progression.
-- Introduce new production opportunities.
-- Encourage factory expansion.
-- Support increasingly complex production chains.
-- Provide meaningful long-term goals.
-
----
-
-# Discovery Behaviour
-
-Players should experience a consistent sense of discovery throughout progression.
-
-Discovering a new resource should:
-
-- Feel rewarding.
-- Expand gameplay possibilities.
-- Encourage experimentation.
-- Integrate naturally into existing production systems.
-
-The pace of discovery should remain satisfying throughout the lifetime of the game.
-
----
-
-# Progression Scaling
-
-As progression advances, resource complexity may increase.
-
-Future resources may introduce:
-
-- Additional production requirements.
-- Longer production chains.
-- Multiple processing stages.
-- Greater strategic value.
-- New gameplay interactions.
-
-Progression should favour increased gameplay depth rather than simply larger numerical values.
-
----
-
-# Progression Role
-
-Resource progression supports long-term engagement by providing a continual stream of new objectives.
-
-As additional resources become available, players are encouraged to:
-
-- Improve factory efficiency.
-- Expand production capacity.
-- Optimise existing systems.
-- Pursue increasingly ambitious production goals.
-
-Resource progression should reinforce the overall gameplay loop by ensuring there is always another objective to pursue.
-
----
-
-# Dependencies
-
-The Resource Progression System depends upon:
-
-- Resource System
-- Production Building System
-- Economy System
-- Shop System
-- Factory Level System
-- Milestone System
-
-These systems collectively determine when and how new resources become available.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Resource System | Defines the resources introduced through progression. |
-| Production Building System | Unlocks new production opportunities for advanced resources. |
-| Economy System | Integrates new resources into the game's economy. |
-| Shop System | May unlock buildings or upgrades related to newly available resources. |
-| Factory Level System | Controls progression milestones where applicable. |
-| Milestone System | Rewards resource progression through gameplay achievements. |
-| Collection Log System | Records newly discovered resources. |
-| Achievement System | Tracks progression-related accomplishments. |
-
-The Resource Progression System acts as the bridge between gameplay progression and expanding game content.
-
----
-
-# Balancing Considerations
-
-Resource progression should maintain a steady pace throughout the game.
-
-Players should consistently feel that new resources represent meaningful progression rather than simple statistical improvements.
-
-Previously unlocked resources should remain relevant wherever practical.
-
-The introduction of new resources should expand gameplay possibilities without overwhelming the player.
-
----
-
-# Future Expansion
-
-The Resource Progression System has been designed to support future additions without requiring structural redesign.
-
-Potential future expansions include:
-
-- Additional progression paths.
-- Hidden resources.
-- Branching resource progression.
-- Prestige-exclusive resources.
-- Seasonal resources.
-- World-specific resources.
-- Expansion-specific resource sets.
-
-Future additions should integrate naturally into the existing progression framework while preserving consistency across all gameplay systems.
-
----
-
-# Developer Notes
-
-This chapter defines how resources are introduced throughout player progression.
-
-It intentionally avoids documenting individual resources, unlock requirements or progression values.
-
-Specific resources, progression data and balancing values are maintained within **Volume IV – Resource Catalogue**.
-
----
-
-# Related Sections
-
-- 3.4 Resource System
-- 3.6 Economy System
-- 3.8 Production Building System
-- 3.13 Factory Level System
-- 3.14 Milestone System
-- Volume IV – Resource Catalogue
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Resource Progression System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.13 Factory Level System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.13
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** XP awards, quadratic level calculation, level display, progress bar and Adder/Multiplier card unlocks are implemented. The initial 0 XP save disagrees with the level-1 bar baseline of 100 XP. Bonus helpers are not applied to gameplay, so this chapter is not marked fully completed.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+### Decision 24 — Factory XP progression
+
+- **Exact XP requirement formula per Factory Level:** TotalXPRequired(L) = 100 × L². Fresh state is Level 0 / 0 XP. Level 1 requires 100 total XP. FactoryLevel = floor(sqrt(TotalXP/100)); next-level span = 100 × (2L+1).
+
+- **Confirm current milestone schedule:** 250 thresholds: first five 10, 25, 50, 75, 100. For indices 6–250, j=index−5 and threshold = round((100 + 9,900 × (j/245)^1.2)/5) × 5. Reference G lists all 250.
+
+- **Confirm whether Factory Level has a maximum:** No hard Factory Level cap. Level 10,000 is the final current milestone, not a maximum attainable level.
+
+- **Confirm whether Factory XP resets on Rebirth:** No. Factory XP and Factory Level permanently survive Rebirth.
+
+### Factory XP and earnings
+
+Factory XP is permanent. Total threshold for L is 100L²; L=0 begins at 0 XP. Derive Level from total XP. Full next-level span is 100(2L+1), not the remaining XP to its threshold.
+
+The normal gameplay XP perk multiplies base gameplay XP by 1+0.0004×level, capped at 5×. Do not multiply the percentage-based challenge XP reward again. Excess challenge XP carries through level-ups.
+
+CashEarnedThisRebirth records qualifying earned Cash and survives spending but resets on Rebirth. Exclude challenge payouts and resale refunds from the challenge-reward basis. Current unspent Cash, not this earnings statistic, is the actual Rebirth payout basis.
+
+New design starts at Level 0 / XP 0. The production fresh XP 0 versus missing-legacy XP 100 behavior is historical compatibility, unchanged by this documentation revision. Implement new defaults and level derivation in a dedicated ticket without treating existing earned XP as disposable. Other Level unlock/reward schedules remain DESIGN REQUIRED.
 
 ---
-
-# Purpose
-
-The Factory Level System defines how overall factory progression is measured and represented throughout Everything Factory Incremental.
-
-It provides a unified progression framework that reflects the player's long-term development while supporting the gradual introduction of new gameplay systems, content and capabilities.
-
-The Factory Level System serves as a central indicator of player progression without replacing other progression systems.
-
----
-
-# Responsibilities
-
-The Factory Level System is responsible for:
-
-- Measuring overall factory progression.
-- Awarding Factory Levels through gameplay.
-- Supporting progression-based content unlocks.
-- Providing long-term progression goals.
-- Communicating player advancement.
-- Integrating progression across multiple gameplay systems.
-
-The Factory Level System is not responsible for:
-
-- Defining progression rewards.
-- Unlocking specific resources.
-- Managing production buildings.
-- Tracking achievements.
-- Recording collections.
-- Managing rebirth progression.
-
----
-
-# Overview
-
-The Factory Level System represents the player's overall advancement within the game.
-
-As players expand, automate and optimise their factory, they earn progress towards higher Factory Levels.
-
-Each level reflects accumulated progression across the entire gameplay experience rather than a single activity.
-
-The Factory Level System provides players with a clear sense of long-term achievement while supporting future content expansion.
-
----
-
-# Design Intent
-
-The Factory Level System is designed to:
-
-- Provide a clear measure of player progression.
-- Encourage continuous long-term play.
-- Unite multiple progression systems under a common framework.
-- Create meaningful progression milestones.
-- Support scalable gameplay expansion.
-
-Factory Levels should represent the growth of the player's factory rather than acting as a simple experience counter.
-
----
-
-# Level Framework
-
-Factory Levels are earned through gameplay progression.
-
-Progress towards new levels may be influenced by:
-
-- Factory development.
-- Production growth.
-- Automation.
-- Resource progression.
-- Gameplay milestones.
-- Future progression systems.
-
-The Factory Level System provides the framework for measuring progression regardless of how future gameplay systems evolve.
-
----
-
-# Progression Behaviour
-
-Factory Levels should increase steadily throughout gameplay.
-
-Progression should:
-
-- Reward consistent play.
-- Reflect meaningful factory growth.
-- Scale appropriately throughout the game.
-- Encourage continued progression.
-- Remain understandable to the player.
-
-Level progression should always feel achievable while supporting long-term gameplay.
-
----
-
-# Level Visibility
-
-Factory Levels should be clearly communicated to the player.
-
-The system should provide:
-
-- Current Factory Level.
-- Progress towards the next level.
-- Clear progression feedback.
-- Recognition when new levels are achieved.
-
-Level progression should reinforce the player's sense of accomplishment.
-
----
-
-# Progression Role
-
-The Factory Level System acts as the central progression indicator that connects multiple gameplay systems.
-
-Factory Levels provide a framework through which players experience:
-
-- Long-term advancement.
-- Gameplay progression.
-- Unlock opportunities.
-- Increasing production complexity.
-- Continued gameplay objectives.
-
-The system should reinforce player motivation without becoming the sole focus of progression.
-
----
-
-# Dependencies
-
-The Factory Level System depends upon:
-
-- Resource Progression System
-- Production Building System
-- Automation System
-- Economy System
-- Milestone System
-- Achievement System
-
-These systems collectively contribute towards the player's overall progression.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Resource Progression System | Contributes to overall progression. |
-| Production Building System | Expands factory capability. |
-| Automation System | Reflects increasing production maturity. |
-| Economy System | Supports continued factory development. |
-| Milestone System | Recognises significant progression events. |
-| Achievement System | Complements long-term player progression. |
-| Shop System | Unlocks additional progression opportunities. |
-| Statistics System | Records Factory Level progression where applicable. |
-
-The Factory Level System acts as the overarching measure of player advancement across the game.
-
----
-
-# Balancing Considerations
-
-Factory Level progression should remain rewarding throughout the entire game.
-
-Progression should avoid large periods without meaningful advancement while also preventing levels from becoming trivial to obtain.
-
-Factory Levels should complement other progression systems rather than overshadow them.
-
-Players should feel that every level represents genuine factory development.
-
----
-
-# Future Expansion
-
-The Factory Level System has been designed to support future additions, including:
-
-- Additional level milestones.
-- Alternative progression paths.
-- Prestige level systems.
-- Seasonal progression.
-- Expansion-specific level tracks.
-- New unlock categories.
-
-Future additions should integrate seamlessly into the existing progression framework while maintaining consistency across gameplay systems.
-
----
-
-# Developer Notes
-
-This chapter defines how Factory Levels measure overall progression.
-
-It intentionally avoids documenting specific experience formulas, level requirements, unlock tables or balancing values.
-
-Implementation details are maintained within Volume IV and supporting balancing documentation.
-
----
-
-# Related Sections
-
-- 3.12 Resource Progression System
-- 3.14 Milestone System
-- 3.15 Achievement System
-- 3.17 Rebirth System
-- Volume IV – Progression Reference
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Factory Level System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.14 Milestone System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.14
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Completed component: 113 saved Factory Level milestone flags, locked/unlocked menu and completed count. A single `pendingMilestone` slot can overwrite earlier notices when several thresholds are crossed together. Milestone rewards or extra categories are not implemented; examples in this chapter are not automatically mandatory additions.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+### Decision 29 — Milestones
+
+- **Final V1 Milestone list:** 250 Factory Level entries using the final spacing formula in section 24 and Reference G. Rewards do not change the threshold schedule.
+
+- **Exact rewards:** Deferred. Desired reward types include cosmetics and substantial permanent factory/value/Stardust/Dust/mining-power boosts. Do not invent or balance those rewards in the current phase.
+
+- **Confirm whether Milestones are permanent:** Yes. Keep earned flags and future permanent effects; do not grant again when revisiting a level.
+
+- **Confirm first Rebirth reveals the system:** Yes. Track qualifying milestone progress before reveal; show the system after the first completed Rebirth.
+
+## Reference G Milestones and deferred rewards
+
+Milestones 1–5 are Factory Levels 10,25,50,75,100. For indices 6–250 use j=index−5:
+
+RawLevel=100+9,900×(j/245)^1.2.  
+MilestoneLevel=round(RawLevel/5)×5.
+
+This yields 250 unique increasing thresholds, ends at 10,000 and has later rounded gaps of 15–50. Rounding may make individual adjacent gaps fluctuate slightly; the overall spacing trend increases.
+
+Complete threshold catalogue, grouped in index order:
+
+- Entries 1–25: 10, 25, 50, 75, 100, 115, 130, 150, 170, 195, 215, 240, 265, 290, 315, 340, 365, 390, 420, 445, 475, 505, 530, 560, 590.
+- Entries 26–50: 620, 650, 680, 710, 740, 770, 800, 835, 865, 895, 930, 960, 995, 1025, 1060, 1090, 1125, 1160, 1190, 1225, 1260, 1295, 1325, 1360, 1395.
+- Entries 51–75: 1430, 1465, 1500, 1535, 1570, 1605, 1640, 1675, 1715, 1750, 1785, 1820, 1855, 1895, 1930, 1965, 2005, 2040, 2075, 2115, 2150, 2190, 2225, 2265, 2300.
+- Entries 76–100: 2340, 2375, 2415, 2455, 2490, 2530, 2570, 2605, 2645, 2685, 2725, 2760, 2800, 2840, 2880, 2920, 2960, 2995, 3035, 3075, 3115, 3155, 3195, 3235, 3275.
+- Entries 101–125: 3315, 3355, 3395, 3435, 3480, 3520, 3560, 3600, 3640, 3680, 3720, 3765, 3805, 3845, 3885, 3930, 3970, 4010, 4055, 4095, 4135, 4180, 4220, 4260, 4305.
+- Entries 126–150: 4345, 4390, 4430, 4475, 4515, 4555, 4600, 4640, 4685, 4730, 4770, 4815, 4855, 4900, 4940, 4985, 5030, 5070, 5115, 5160, 5200, 5245, 5290, 5330, 5375.
+- Entries 151–175: 5420, 5465, 5505, 5550, 5595, 5640, 5685, 5725, 5770, 5815, 5860, 5905, 5950, 5995, 6035, 6080, 6125, 6170, 6215, 6260, 6305, 6350, 6395, 6440, 6485.
+- Entries 176–200: 6530, 6575, 6620, 6665, 6710, 6755, 6800, 6845, 6895, 6940, 6985, 7030, 7075, 7120, 7165, 7215, 7260, 7305, 7350, 7395, 7445, 7490, 7535, 7580, 7630.
+- Entries 201–225: 7675, 7720, 7765, 7815, 7860, 7905, 7955, 8000, 8045, 8095, 8140, 8185, 8235, 8280, 8330, 8375, 8420, 8470, 8515, 8565, 8610, 8660, 8705, 8755, 8800.
+- Entries 226–250: 8850, 8895, 8945, 8990, 9040, 9085, 9135, 9180, 9230, 9275, 9325, 9375, 9420, 9470, 9515, 9565, 9615, 9660, 9710, 9760, 9805, 9855, 9905, 9950, 10000.
+
+Track earned flags permanently, including before UI reveal after first Rebirth. Keep milestone progress through Rebirth. Detailed reward types, amounts and balancing are deferred. Desired direction is substantial permanent boosts and cosmetics; there is no approved +75% reward assigned to a particular threshold.
 
 ---
-
-# Purpose
-
-The Milestone System defines how significant progression events are recognised throughout Everything Factory Incremental.
-
-It establishes a framework for rewarding players when they achieve meaningful gameplay objectives, providing clear indicators of advancement while encouraging continued progression.
-
-The Milestone System highlights important moments in the player's journey without replacing the broader Factory Level progression framework.
-
----
-
-# Responsibilities
-
-The Milestone System is responsible for:
-
-- Recognising significant gameplay achievements.
-- Defining progression checkpoints.
-- Providing milestone-based rewards where applicable.
-- Encouraging long-term gameplay objectives.
-- Reinforcing player progression.
-- Supporting scalable progression throughout the game.
-
-The Milestone System is not responsible for:
-
-- Measuring overall progression.
-- Defining achievements.
-- Recording player statistics.
-- Managing gameplay rewards outside milestone progression.
-- Determining experience or Factory Levels.
-
----
-
-# Overview
-
-Milestones represent notable progression points reached during gameplay.
-
-Unlike continuous progression systems, milestones occur when players accomplish specific objectives or reach predefined stages of development.
-
-Milestones provide structure to long-term progression by recognising meaningful accomplishments throughout the player's factory journey.
-
----
-
-# Design Intent
-
-The Milestone System is designed to:
-
-- Celebrate meaningful player accomplishments.
-- Provide clear short- and medium-term objectives.
-- Break long-term progression into achievable goals.
-- Reinforce a sense of advancement.
-- Encourage continued engagement.
-
-Milestones should make progression feel memorable by recognising moments that meaningfully expand or transform gameplay.
-
----
-
-# Milestone Framework
-
-Milestones may be awarded for a wide variety of gameplay accomplishments.
-
-Examples include progress related to:
-
-- Factory development.
-- Resource production.
-- Factory expansion.
-- Automation progression.
-- Collection progression.
-- Economic progression.
-- Future gameplay systems.
-
-The framework should remain flexible so new milestone categories can be introduced without changing the underlying system.
-
----
-
-# Milestone Behaviour
-
-Milestones should:
-
-- Be awarded immediately when their conditions are met.
-- Provide clear player feedback.
-- Be permanently recorded where appropriate.
-- Remain understandable and predictable.
-- Encourage continued progression after completion.
-
-Milestones should always represent meaningful accomplishments rather than routine gameplay actions.
-
----
-
-# Progression Role
-
-Milestones provide structure between major stages of progression.
-
-They serve as intermediate goals that guide players towards larger objectives while reinforcing continuous gameplay.
-
-Milestones should help players understand how their factory has evolved over time and provide regular moments of accomplishment.
-
----
-
-# Dependencies
-
-The Milestone System depends upon:
-
-- Factory Level System
-- Resource Progression System
-- Production Building System
-- Automation System
-- Economy System
-- Statistics System
-
-These systems provide the gameplay events and progression data used to evaluate milestone completion.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Factory Level System | Complements overall progression by recognising key achievements. |
-| Resource Progression System | Supports milestones related to resource advancement. |
-| Production Building System | Contributes building-related progression milestones. |
-| Automation System | Supports milestones for factory automation. |
-| Economy System | Enables economic progression milestones. |
-| Collection Log System | Supports discovery-related milestones where applicable. |
-| Achievement System | Operates alongside milestones while remaining a separate reward system. |
-| Statistics System | Supplies progression data required for milestone evaluation. |
-
-The Milestone System acts as a progression checkpoint system that highlights meaningful accomplishments throughout gameplay.
-
----
-
-# Balancing Considerations
-
-Milestones should be distributed consistently throughout the player's progression.
-
-They should become progressively more ambitious while remaining achievable.
-
-Milestones should encourage varied gameplay rather than rewarding repetitive optimisation of a single activity.
-
-Completing a milestone should always feel like a meaningful accomplishment.
-
----
-
-# Future Expansion
-
-The Milestone System has been designed to support future additions, including:
-
-- Multi-stage milestone chains.
-- Hidden milestones.
-- Seasonal milestones.
-- Expansion-specific milestones.
-- Community event milestones.
-- Challenge milestones.
-- Alternative progression milestones.
-
-Future additions should integrate naturally into the existing milestone framework while preserving consistency across all progression systems.
-
----
-
-# Developer Notes
-
-This chapter defines how milestone progression functions as a gameplay system.
-
-It intentionally avoids documenting specific milestone requirements, rewards or completion values.
-
-Individual milestones and balancing data are maintained within **Volume IV – Milestone Catalogue**.
-
----
-
-# Related Sections
-
-- 3.13 Factory Level System
-- 3.15 Achievement System
-- 3.16 Collection Log System
-- 3.17 Rebirth System
-- Volume IV – Milestone Catalogue
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Milestone System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.15 Achievement System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.15
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Six achievements already have condition checking, saved unlock/claim state, progress UI, ordering and toast feedback. All reward definitions are empty and `claimAchievement()` only marks the claim. Permanent reward granting is not started; the achievement system itself is already implemented in part.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+### Decision 28 — Achievements
+
+- **Final V1 Achievement list:** Detailed additional V1 entries are deferred. Retain the existing six-entry structure and IDs while awaiting a final catalogue. The requested direction is varied difficulty, approximately 20+ entries per category, with both click-count and resource-count objectives.
+
+- **Exact rewards:** Deferred. Future rewards should match activity and difficulty; for example, a major manual-click achievement can improve resource quantity. Placeholder reward values are not finalized zero rewards.
+
+- **Confirm whether rewards survive Rebirth:** Permanent progress and permanent reward effects persist. One-time cash/XP rewards are claimed once and follow the relevant currency rules afterward.
+
+- **Confirm when the Achievements button becomes visible:** Hidden until the first Achievement unlocks; remains visible thereafter.
+
+Existing Achievement IDs and current triggers are retained as implementation history:
+
+| ID | Name | Current trigger | Reward status |
+|---|---|---|---|
+| firstSwing | First Swing | totalOresMined ≥1 | Deferred placeholder |
+| stoneMiner | Ore Miner | totalOresMined ≥100 | Deferred placeholder |
+| dedicatedMiner | Dedicated Miner | totalOresMined ≥1,000 | Deferred placeholder |
+| firstDiscovery | Shiny | oresDiscovered ≥1 | Deferred placeholder |
+| firstSmelt | First Smelt | oresSmelted ≥1 | Deferred placeholder |
+| factoryOwner | Factory Owner | Factory Level ≥10 | Deferred placeholder |
+
+The current totalOresMined implementation increments per manual action. The owner's final direction calls for both click-count and actual-resource-count Achievement categories; additional entries and their rewards remain deferred rather than silently changing old IDs' meanings.
+
+Preserve unlocked/claimed states and legacy compatibility. Expanded click/resource categories and reward catalogues are Deferred; placeholder zero rewards are not approved final rewards.
 
 ---
-
-# Purpose
-
-The Achievement System defines how player accomplishments are recognised and rewarded throughout Everything Factory Incremental.
-
-It provides a framework for celebrating gameplay accomplishments beyond standard progression, encouraging exploration, mastery and long-term engagement.
-
-The Achievement System complements other progression systems by recognising a broad range of player activities without replacing core gameplay objectives.
-
----
-
-# Responsibilities
-
-The Achievement System is responsible for:
-
-- Recognising player accomplishments.
-- Awarding achievements upon completion of defined objectives.
-- Providing optional and long-term gameplay goals.
-- Encouraging varied playstyles.
-- Supporting achievement-based rewards where applicable.
-- Providing a scalable framework for future achievements.
-
-The Achievement System is not responsible for:
-
-- Measuring overall player progression.
-- Defining progression milestones.
-- Recording gameplay statistics.
-- Managing Factory Levels.
-- Defining Collection Log entries.
-
----
-
-# Overview
-
-Achievements recognise accomplishments that extend beyond the player's normal progression through the game.
-
-While many achievements may naturally be earned through gameplay, others encourage players to explore additional mechanics, pursue mastery or complete optional objectives.
-
-Achievements provide recognition for player accomplishments while adding long-term replay value.
-
----
-
-# Design Intent
-
-The Achievement System is designed to:
-
-- Reward player mastery.
-- Encourage exploration of game mechanics.
-- Promote varied gameplay.
-- Provide meaningful optional objectives.
-- Increase long-term replayability.
-
-Achievements should feel rewarding without becoming mandatory for overall progression.
-
----
-
-# Achievement Framework
-
-Achievements may recognise accomplishments across many gameplay systems.
-
-Achievement categories may include:
-
-- Factory progression.
-- Resource production.
-- Automation.
-- Economy.
-- Building usage.
-- Collection completion.
-- Exploration.
-- Special challenges.
-- Hidden objectives.
-- Future gameplay systems.
-
-The framework should remain flexible enough to support new achievement categories throughout future development.
-
----
-
-# Achievement Behaviour
-
-Achievements should:
-
-- Unlock immediately when their conditions are met.
-- Provide clear player feedback.
-- Be permanently recorded.
-- Remain understandable where appropriate.
-- Support hidden achievements where beneficial.
-
-Achievements should consistently reward meaningful accomplishments rather than routine gameplay.
-
----
-
-# Reward Philosophy
-
-Achievements may provide rewards where appropriate.
-
-Achievement rewards should:
-
-- Reinforce accomplishment.
-- Encourage continued progression.
-- Complement existing gameplay systems.
-- Avoid becoming mandatory for balanced gameplay.
-
-The primary purpose of achievements should remain player recognition rather than progression gating.
-
----
-
-# Progression Role
-
-Achievements provide optional objectives that extend beyond standard gameplay progression.
-
-They encourage players to:
-
-- Improve factory efficiency.
-- Explore different strategies.
-- Complete difficult objectives.
-- Experiment with gameplay systems.
-- Pursue long-term completion goals.
-
-The Achievement System should increase gameplay depth without restricting player freedom.
-
----
-
-# Dependencies
-
-The Achievement System depends upon:
-
-- Factory Level System
-- Milestone System
-- Resource Progression System
-- Collection Log System
-- Statistics System
-
-These systems provide the gameplay events and progression data required for achievement evaluation.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Factory Level System | Complements overall progression with accomplishment recognition. |
-| Milestone System | Operates alongside milestones while recognising different types of accomplishments. |
-| Resource Progression System | Supports progression-related achievements. |
-| Collection Log System | Enables collection-based achievements. |
-| Production Building System | Supports building-related achievements. |
-| Automation System | Enables automation-focused achievements. |
-| Economy System | Supports economy-related achievements. |
-| Statistics System | Provides gameplay data used to evaluate achievement completion. |
-
-The Achievement System provides recognition for accomplishments across nearly every gameplay system without directly controlling progression.
-
----
-
-# Balancing Considerations
-
-Achievements should encourage players to engage with a wide variety of gameplay systems.
-
-Objectives should range from easily obtainable accomplishments to significant long-term challenges.
-
-Achievements should reward dedication and creativity without requiring repetitive or frustrating gameplay.
-
-Optional achievements should enhance replayability while remaining separate from mandatory progression.
-
----
-
-# Future Expansion
-
-The Achievement System has been designed to support future additions, including:
-
-- Expansion-specific achievements.
-- Seasonal achievements.
-- Hidden achievement chains.
-- Community event achievements.
-- Difficulty-based achievements.
-- Challenge achievements.
-- Meta-achievements.
-- Cooperative or multiplayer achievements.
-
-Future additions should integrate seamlessly into the existing achievement framework.
-
----
-
-# Developer Notes
-
-This chapter defines how achievements function as a gameplay system.
-
-It intentionally avoids documenting individual achievements, completion requirements, rewards or balancing values.
-
-Specific achievements and their implementation details are maintained within **Volume IV – Achievement Catalogue**.
-
----
-
-# Related Sections
-
-- 3.13 Factory Level System
-- 3.14 Milestone System
-- 3.16 Collection Log System
-- 3.17 Rebirth System
-- Volume IV – Achievement Catalogue
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Achievement System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.16 Collection Log System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.16
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Completed component: the 20-ore Collection Book, first-discovery reveal, cumulative collection counts, total discovered count and save persistence. Stone is not tracked as a collection entry. Completion percentages, category summaries and variant tracking are absent; optional future collection categories remain future work.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+Retain all 20 ore discoveries and cumulative collection progress independently of inventory, processing and sales. Preserve it through Rebirth and migration. Stone and crafting-material counters do not create new ore entries. Separate discoveries from quantities and from processed/refined events. Extra tier/variant catalogues require their own approved definitions; T5+ is Deferred.
 
 ---
 
-# Purpose
+# 3.17 Rebirth and Permanent Progression
 
-The Collection Log System defines how discovered game content is permanently recorded and presented to the player throughout Everything Factory Incremental.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
 
-It provides a structured framework for tracking discovery, encouraging exploration, rewarding completion and preserving the player's collection progress across gameplay.
+### Decision 23 — Rebirth reset rules
 
-The Collection Log System serves as the player's record of what they have encountered, unlocked and collected during their progression.
+- **Cash:** Reset to $0 after awarding Rebirth Stardust from the pre-reset unspent balance. Reset Cash Earned This Rebirth.
 
----
+- **Normal ores:** Reset all raw ore and Stone inventory.
 
-# Responsibilities
+- **Polished ores:** Reset Polished ore inventory.
 
-The Collection Log System is responsible for:
+- **Refined ores:** Reset Refined ore inventory and active in-process reservations.
 
-- Recording discovered game content.
-- Tracking collection completion.
-- Presenting collection progress to the player.
-- Encouraging exploration and discovery.
-- Supporting long-term completion goals.
-- Providing a scalable framework for future collectible content.
+- **Pickaxes:** Keep all crafted copies, equipment records, remaining durability and broken state. Do not repair/refill them through Rebirth.
 
-The Collection Log System is not responsible for:
+- **Crafting materials:** Keep Wood, Scrap and Metal.
 
-- Defining collectible content.
-- Managing player inventory.
-- Awarding achievements.
-- Measuring overall progression.
-- Unlocking gameplay systems.
-- Storing gameplay statistics unrelated to collections.
+- **Normal Upgrade Shop upgrades:** Reset Ore Value, Mining Power, Mining Luck, Mining Duplication and Unlock Miner. Permanent Stardust durability upgrades are separate and retained.
 
----
+- **Miner slots:** Keep all purchased Miner slot unlocks.
 
-# Overview
+- **Miners:** Remove owned Miners and their local Ore Luck; repurchased machines use Preservation.
 
-The Collection Log provides players with a permanent record of their discoveries throughout the game.
+- **Polishers:** Remove owned Polishers.
 
-As new content is encountered, the Collection Log expands to reflect the player's progress and serves as both a reference and a long-term completion objective.
+- **Refiner:** Remove owned Refiner.
 
-The Collection Log should encourage curiosity and provide players with meaningful reasons to continue exploring all areas of the game.
+- **Furnace tier:** Furnace remains placed; reset tier unless restored by Machine Tier Preservation.
 
----
+- **Factory XP:** Never reset Factory XP on Rebirth.
 
-# Design Intent
+- **Factory Level:** Never reset Factory Level on Rebirth.
 
-The Collection Log System is designed to:
+- **Gem Dust:** Keep Gem Dust.
 
-- Encourage discovery.
-- Reward exploration.
-- Promote long-term completion.
-- Provide a clear record of player progress.
-- Increase replayability.
+- **Inscriptions:** Deferred. Active bonuses remain 1; the proposed permanent slot ownership is not an active V1 feature.
 
-Players should feel motivated to discover new content while gradually working towards a complete collection.
+- **Achievements:** Keep unlocked/claimed progress and permanent bonuses. Never re-award a previously claimed one-time reward.
 
----
+- **Milestones:** Keep unlocked progress and permanent rewards; the first-Rebirth reveal remains unlocked.
 
-# Collection Framework
+- **Collection progress:** Keep all discoveries and collection progress.
 
-The Collection Log may contain entries for a wide variety of gameplay content.
+- **Statistics:** Reset cycle statistics; retain lifetime counters, personal bests and Rebirth history. Resetting a cycle XP-earned statistic does not reset actual Factory XP.
 
-Collection categories may include:
+- **Daily Challenge progress:** Keep active Daily objectives, progress, completion/claim state and scheduled deadline.
 
-- Resources.
-- Production buildings.
-- Upgrades.
-- Technologies.
-- Factory components.
-- Special items.
-- Rare discoveries.
-- Event content.
-- Future gameplay systems.
+- **Weekly Challenge progress:** Keep active Weekly state and deadline; this Rebirth counts toward a matching objective.
 
-The framework should remain flexible enough to support new categories without requiring structural changes.
+- **Rebirth perks:** Keep Rebirth count/history, unspent Stardust and purchased permanent perks.
 
----
+## Reference H — Rebirth payout and reset matrix
 
-# Discovery Behaviour
+### Rebirth payout
 
-Collection entries should be added when players first satisfy the defined discovery conditions.
+Eligibility: current unspent Cash ≥ $1,000,000.  
+BaseStardust=10+5×log2(max(1,CurrentCash/1,000,000)).  
+StardustGainMultiplier=1+4×StardustGainLevel/7,500.  
+AwardStardust=roundToTwoDecimals(BaseStardust×StardustGainMultiplier).
 
-Discovery should:
+Calculate before resetting Cash. Previously spent Cash is excluded. Stardust Gain affects Rebirth payout only, not Weekly Stardust. Stardust can have two decimal places; Gem Dust remains integer.
 
-- Be immediate.
-- Provide clear player feedback.
-- Permanently record progression.
-- Preserve historical completion.
-- Remain consistent across all collection categories.
+| System | On Rebirth |
+|---|---|
+| Cash and Cash Earned This Rebirth | Reset |
+| Raw ore and Stone | Reset |
+| Polished and Refined ore | Reset |
+| Active processing inputs/reservations | Clear with reset inventories; no duplicate payout |
+| Ore Value Mining Power Mining Luck Mining Duplication and Unlock Miner | Reset |
+| Owned Miners Polishers Refiner | Remove |
+| Local Miner Ore Luck | Remove with Miner |
+| Furnace entity | Keep placed |
+| Furnace tier | Reset/restored by Preservation |
+| Actual Factory XP and Level | Keep permanently |
+| Pickaxe copies durability broken state and equipment history | Keep |
+| Pickaxe Durability perk | Keep |
+| Wood Scrap Metal | Keep |
+| Miner slot access | Keep |
+| Stardust and purchased Rebirth perks | Keep |
+| Gem Dust | Keep |
+| Achievement claim states and permanent effects | Keep |
+| Milestone flags and reveal state | Keep |
+| Collection and lifetime statistics | Keep |
+| Current Rebirth counters | Reset |
+| Daily and Weekly objective state | Keep until scheduled reset |
+| Inscriptions | Deferred; multipliers 1 |
 
-Players should always understand when new content has been added to their Collection Log.
+Machine Tier Preservation starts purchases at min(machine cap,max(1,perk level)); restore Furnace by the same rule at reset. Apply at creation/reset, never repeatedly on load. Do not automatically tier-up existing purchased machines when the perk increases. Local Ore Luck is never preserved.
 
----
+## Reference J — Permanent Stardust perks
 
-# Collection Progress
+### Permanent Stardust perks
 
-The Collection Log should clearly communicate progression towards completion.
+Effects use owned level; costs use the level being purchased. round in this table is whole Stardust unless stated otherwise. Each perk persists through Rebirth.
 
-Players should be able to view:
+| Perk | Maximum | Effect or cap | Stardust cost to buy L | Total to max |
+|---|---:|---|---|---:|
+| Overall Luck | 5,000 | 1+0.002L automated tier Luck max 11× | L | 12,502,500 |
+| Ore Luck | 5,000 | 1+0.002L automated within-tier Luck max 11× | L | 12,502,500 |
+| Furnace Value | 5,000 | 1+0.001L max 6× sale multiplier | L | 12,502,500 |
+| Polisher Value | 5,000 | 1+0.0001L max 1.5× extra polished multiplier | L | 12,502,500 |
+| Refiner Value | 5,000 | Starting bonus 0.50+0.0014L max +750% at Refine 1 | L | 12,502,500 |
+| Machine Tier Preservation | 25 | Starting tier capped by machine max | round(7,500 × 1.484168297348115^(L−1)) | 299,999,997 |
+| Refiner Dust Chance | 30 | +0.005L base chance max effective base 25% | 2L | 930 |
+| Gem Dust Yield | 50 | 1+0.05L max 3.5× expected yield | round(50 × 1.3368^(L−1)) | 298,482,964 |
+| Refiner Stability | 180 | −0.005L destruction max −0.90 with 5% floor | 5+sum(ceil(i/10),i=2…L) | 107,025 |
+| Factory XP Gain | 10,000 | 1+0.0004L max 5× gameplay XP | 20L | 1,000,100,000 |
+| Stardust Gain | 7,500 | 1+4L/7,500 max 5× Rebirth payout only | 18L | 506,317,500 |
+| Miner Speed | 50 | Interval factor 1−0.01L with 0.1s floor | round(100,000 × 1.121118909^(L−1)) | 250,000,002 |
+| Furnace Speed | 50 | Interval factor 1−0.01L with 0.5s floor | round(100,000 × 1.121118909^(L−1)) | 250,000,002 |
+| Pickaxe Durability | 100 | 1+0.05L base maximum then floor to 100 | round(1,000 × 1.10^(L−1)) | 137,796,124 |
+| Factory Purchase Discount | 10 | 5 percentage points per level max 50% | Recommended 250,000 × 2^(L−1) | Recommended 255,750,000 |
 
-- Total discovered entries.
-- Remaining undiscovered entries where appropriate.
-- Completion percentages.
-- Category progression.
-- Overall collection progress.
+For Stability level 1 the sum is empty, so price=5. These numeric totals use each specified individual-level rounding, not rounded headline estimates. There is no universal 400M maximum-cost rule.
 
-Collection progress should encourage continued exploration without overwhelming new players.
+Freeze Preservation prices by version. Future tier additions may require a new cost schedule, but do not silently reprice already purchased levels.
 
----
+An independent Rebirth Furnace Capacity perk was mentioned in an early specification, but no final curve/cap/price is defined here. It is not included as an invented active perk; confirmation is recorded in Reference K.
 
-# Progression Role
-
-The Collection Log supports long-term gameplay by rewarding exploration rather than production efficiency.
-
-It encourages players to:
-
-- Discover new content.
-- Experiment with different gameplay systems.
-- Pursue full completion.
-- Revisit previously explored mechanics.
-- Engage with optional content.
-
-The Collection Log should complement progression systems without replacing them.
-
----
-
-# Dependencies
-
-The Collection Log System depends upon:
-
-- Resource Progression System
-- Production Building System
-- Achievement System
-- Statistics System
-
-These systems provide the discoverable content and gameplay events required to populate the Collection Log.
+The final Defined formulas supersede any universal Rebirth-perk cost ceiling, XP reset, compounding Refiner value, or automatic repair on Rebirth. Recommended Discount prices and the unresolved Furnace Capacity perk are not active purchase definitions.
 
 ---
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Resource Progression System | Adds newly discovered resources to the Collection Log. |
-| Production Building System | Records newly encountered production buildings where applicable. |
-| Achievement System | May reference collection completion objectives. |
-| Milestone System | May recognise significant collection progression. |
-| Factory Level System | Complements overall player progression through discovery. |
-| Statistics System | Provides discovery and completion data where required. |
-
-The Collection Log System serves as the player's permanent record of exploration and discovery across the game.
-
----
-
-# Balancing Considerations
-
-Collection progression should reward exploration without becoming excessively repetitive.
-
-Players should encounter new discoveries at a satisfying pace throughout gameplay.
-
-Collection completion should remain an engaging long-term objective rather than a mandatory progression requirement.
-
-The system should balance accessibility with meaningful completion challenges.
-
----
-
-# Future Expansion
-
-The Collection Log System has been designed to support future additions, including:
-
-- Expansion-specific collections.
-- Seasonal collection categories.
-- Hidden entries.
-- Rare discoveries.
-- Variant collections.
-- Challenge collections.
-- Community event collections.
-- Additional content categories.
-
-Future additions should integrate naturally into the existing collection framework while maintaining consistency across all gameplay systems.
-
----
-
-# Developer Notes
-
-This chapter defines how collection tracking functions as a gameplay system.
-
-It intentionally avoids documenting individual collection entries, unlock conditions or completion values.
-
-Specific collection categories and entries are maintained within **Volume IV – Collection Catalogue**.
-
----
-
-# Related Sections
-
-- 3.12 Resource Progression System
-- 3.13 Factory Level System
-- 3.14 Milestone System
-- 3.15 Achievement System
-- 3.17 Rebirth System
-- Volume IV – Collection Catalogue
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Collection Log System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
-
-# 3.17 Rebirth System
-
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.17
->
-> **Implementation Status:** ⚪ Not Started
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** No playable rebirth flow, eligibility rule, selective reset, permanent reward or rebirth history exists. `permanentBonuses` and `cycleBonuses` are shared scaffolding only; `resetSave()` deletes the whole save and is not rebirth.
-
----
-
-# Purpose
-
-The Rebirth System defines how players voluntarily reset portions of their gameplay progression in exchange for permanent progression, new opportunities and long-term advancement.
-
-It provides a cyclical progression framework that extends gameplay beyond a single factory while encouraging continued optimisation, experimentation and mastery.
-
-The Rebirth System serves as the primary long-term progression mechanic within Everything Factory Incremental.
-
----
-
-# Responsibilities
-
-The Rebirth System is responsible for:
-
-- Defining the rebirth gameplay cycle.
-- Resetting eligible progression systems.
-- Awarding permanent rebirth progression.
-- Supporting long-term replayability.
-- Encouraging repeated factory optimisation.
-- Providing a scalable framework for future prestige mechanics.
-
-The Rebirth System is not responsible for:
-
-- Managing Factory Levels.
-- Recording achievements.
-- Tracking collections.
-- Defining individual rebirth rewards.
-- Managing gameplay statistics unrelated to rebirth.
-
----
-
-# Overview
-
-Rebirth allows players to voluntarily restart their factory progression after reaching appropriate stages of development.
-
-In return, players receive permanent progression that improves future gameplay and enables access to increasingly advanced opportunities.
-
-Rather than acting as the conclusion of progression, rebirth establishes a new cycle in which players apply their accumulated knowledge and permanent upgrades to build a stronger factory.
-
----
-
-# Design Intent
-
-The Rebirth System is designed to:
-
-- Extend long-term gameplay.
-- Reward player mastery.
-- Encourage optimisation.
-- Support multiple progression cycles.
-- Create meaningful long-term goals.
-
-Each rebirth should leave the player feeling more capable than before, even though parts of their factory progression have been reset.
-
----
-
-# Rebirth Framework
-
-Rebirth consists of four core stages:
-
-1. Preparation
-2. Confirmation
-3. Progression Reset
-4. Permanent Reward
-
-Each stage should be communicated clearly to ensure players fully understand the consequences and benefits of rebirth.
-
-The framework should remain flexible enough to support additional rebirth mechanics in future updates.
-
----
-
-# Reset Behaviour
-
-When a rebirth occurs, eligible gameplay systems are reset according to the game's progression rules.
-
-The Rebirth System defines the reset process but does not determine which individual systems or content are affected.
-
-Reset behaviour should:
-
-- Be predictable.
-- Be clearly communicated.
-- Preserve permanent progression.
-- Maintain game integrity.
-- Prepare the player for the next progression cycle.
-
----
-
-# Permanent Progression
-
-A rebirth should always provide lasting value.
-
-Permanent progression may include:
-
-- New gameplay opportunities.
-- Permanent upgrades.
-- Improved production potential.
-- Additional progression systems.
-- New strategic options.
-- Future prestige mechanics.
-
-Each rebirth should meaningfully strengthen future progression without eliminating the satisfaction of rebuilding.
-
----
-
-# Player Decision
-
-Rebirth should always remain a voluntary choice.
-
-Before confirming a rebirth, players should be provided with:
-
-- A clear explanation of what will reset.
-- A summary of what will be retained.
-- An overview of permanent rewards.
-- Confirmation before the reset occurs.
-
-Players should never be surprised by the outcome of a rebirth.
-
----
-
-# Progression Role
-
-The Rebirth System represents the highest layer of gameplay progression.
-
-It allows players to:
-
-- Restart progression more efficiently.
-- Reach higher levels of production.
-- Unlock additional gameplay systems.
-- Pursue increasingly ambitious factories.
-- Continue progressing beyond conventional limits.
-
-Rebirth transforms repeated gameplay into meaningful long-term advancement.
-
----
-
-# Dependencies
-
-The Rebirth System depends upon:
-
-- Factory Level System
-- Resource Progression System
-- Economy System
-- Achievement System
-- Collection Log System
-- Statistics System
-
-These systems determine progression state before rebirth and preserve the information that remains permanent.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Factory Level System | Resets or preserves progression according to rebirth rules. |
-| Resource Progression System | Restarts resource progression where applicable. |
-| Economy System | Resets economic progression where applicable. |
-| Production Building System | Returns factory construction to its initial state where applicable. |
-| Factory Expansion System | Applies rebirth rules to factory capacity where applicable. |
-| Achievement System | Preserves achievement completion unless otherwise defined. |
-| Collection Log System | Preserves collection progress unless otherwise defined. |
-| Statistics System | Records rebirth history and lifetime progression. |
-
-The Rebirth System coordinates progression resets while ensuring permanent systems continue to represent the player's long-term accomplishments.
-
----
-
-# Balancing Considerations
-
-Rebirth should always feel worthwhile.
-
-Players should clearly understand that the long-term benefits outweigh the temporary loss of progression.
-
-The pacing of rebirth should encourage optimisation rather than forcing frequent resets.
-
-Each rebirth should provide meaningful improvements while maintaining satisfying long-term progression.
-
----
-
-# Future Expansion
-
-The Rebirth System has been designed to support future additions, including:
-
-- Multiple prestige layers.
-- Alternative rebirth paths.
-- Rebirth modifiers.
-- Challenge rebirths.
-- Seasonal rebirth mechanics.
-- Expansion-specific prestige systems.
-- End-game progression systems.
-
-Future additions should build upon the existing rebirth framework without requiring structural redesign.
-
----
-
-# Developer Notes
-
-This chapter defines how rebirth functions as a gameplay system.
-
-It intentionally avoids documenting specific reset rules, reward values, unlock requirements or balancing data.
-
-Implementation details and rebirth-specific content are maintained within **Volume IV – Progression Reference**.
-
----
-
-# Related Sections
-
-- 3.13 Factory Level System
-- 3.14 Milestone System
-- 3.15 Achievement System
-- 3.16 Collection Log System
-- 3.18 Offline Progression System
-- Volume IV – Progression Reference
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Rebirth System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.18 Offline Progression System
+
+> DESIGN REQUIRED: the handoff does not authorize offline simulation. Restoring an existing reserved Furnace batch is persistence behavior, not repeated offline production.
 
 > [!IMPORTANT]
 >
@@ -9727,7 +6765,7 @@ Implementation details and rebirth-specific content are maintained within **Volu
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** There is no offline session-duration calculation, production simulation, limit or return summary. An already-started Auto Furnace batch can finish after reload using its saved timestamp; missed Dropper ticks and repeated offline batches are not simulated.
+> **Historical prototype review (2026-09-28; not current acceptance):** There is no offline session-duration calculation, production simulation, limit or return summary. An already-started Auto Furnace batch can finish after reload using its saved timestamp; missed Dropper ticks and repeated offline batches are not simulated.
 
 ---
 
@@ -9932,478 +6970,63 @@ Implementation details are maintained within Volume IV and the game's balancing 
 
 # 3.19 Player Statistics System
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.19
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Generated-resource totals, Stone/tier totals, last manual result, manual action count, unique discoveries and items smelted are recorded. Dropper output contributes to resource totals but not the manual-mining achievement counter. Earnings, play time and rebirth statistics are absent.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+### Decision 30 — Statistics
+
+- **Exact V1 statistics to track:** Use the accepted catalogue in Reference H: cash earnings/spending/refunds, clicks, manual and Miner outputs, normal/Polished/Refined activity, refine attempts/survivors/losses, XP, Dust, Stardust, Rebirths/history, challenges, discoveries, bests and play time.
+
+- **Which statistics reset each Rebirth:** Reset ThisRebirth counters such as earnings/spending/refunds, clicks/outputs, processing/sales, cycle XP earned, cycle Dust earned and cycle time. Keep current objective progress independently.
+
+- **Which statistics are lifetime:** Keep lifetime equivalents, total Stardust earned/spent, completed Rebirths/history, best Cash/Factory Level/machine tiers, collection, challenge completions and lifetime play time.
+
+- **Confirm separate stats for normal, polished and refined ores:** Yes. Distinguish base acquisitions, polished outputs and successful refined passes; materials have separate counters and are not ores. Track clicks separately from awarded quantities.
+
+## Reference H — Statistics catalogue
+
+### Statistics
+
+Keep current balances separate from lifetime and cycle event counters. Rebirth must not reset true Factory XP merely because a cycle XP-earned counter is reset.
+
+| Record | Lifetime | Current Rebirth | Required distinction |
+|---|---|---|---|
+| Furnace sale Cash earned | Yes | Yes | Qualifying reward basis excludes challenge payouts and refunds |
+| Cash spent | Yes | Yes | Record actual payable discounted/rounded cost |
+| Resale refunds | Yes | Yes | Separate from qualifying earnings |
+| Manual clicks | Yes | Yes | One action, irrespective of output |
+| Manual normal output | Yes | Yes | Per resource ID and tier; include duplicates |
+| Miner output | Yes | Yes | Per resource ID/tier and source; include duplicates |
+| Wood Scrap Metal obtained | Yes | Yes where cycle counters are shown | Separate materials; not ore counts |
+| Polished output | Yes | Yes | Per ore ID |
+| Refinement attempts | Yes | Yes | Per ore/pass count |
+| Refinement survivors and losses | Yes | Yes | Distinguish outputs from destruction |
+| Raw Polished Refined sales | Yes | Yes | Quantity and revenue; preserve Refine Count breakdown |
+| XP earned | Yes | Yes | Gameplay and challenge sources separate from actual permanent Factory XP |
+| Gem Dust earned and spent | Yes | Cycle earnings | Separate persistent balance |
+| Stardust earned and spent | Yes | Source-specific history | Separate Rebirth and Weekly sources |
+| Rebirth count and history | Yes | Current duration | Record cash payout basis, time and reward |
+| Challenge completions and claims | Yes | Active reset-cycle state | Daily and Weekly separate |
+| Highest Cash Level and machine tiers | Yes | Optional cycle views | Lifetime bests survive |
+| Collection discoveries | Yes | No reset | Resource ID; materials are not ore discoveries |
+| Play time | Yes | Current cycle | Do not invent offline simulation |
+
+Total Resources Gathered includes materials. Ore-specific counters exclude materials. Repeated surviving refinement is processed output, not acquisition of a new raw ore. Keep normal, Polished and Refined counters distinct.
 
 ---
-
-# Purpose
-
-The Player Statistics System defines how gameplay data is recorded, maintained and presented throughout Everything Factory Incremental.
-
-It provides a framework for tracking the player's lifetime activity, progression and accomplishments while supporting other gameplay systems that rely upon statistical information.
-
-The Player Statistics System serves as the authoritative record of the player's journey across all gameplay sessions.
-
----
-
-# Responsibilities
-
-The Player Statistics System is responsible for:
-
-- Recording gameplay statistics.
-- Maintaining lifetime progression data.
-- Tracking cumulative gameplay activity.
-- Providing statistical information to other systems.
-- Supporting player progression analysis.
-- Providing a scalable framework for future statistical tracking.
-
-The Player Statistics System is not responsible for:
-
-- Awarding achievements.
-- Completing milestones.
-- Defining gameplay progression.
-- Managing player inventory.
-- Saving game data.
-- Performing gameplay calculations.
-
----
-
-# Overview
-
-The Player Statistics System continuously records significant gameplay events throughout the player's progression.
-
-Statistics provide players with insight into their gameplay history while supplying reliable data for systems such as achievements, milestones and progression tracking.
-
-The system should operate automatically with minimal player interaction.
-
----
-
-# Design Intent
-
-The Player Statistics System is designed to:
-
-- Record meaningful gameplay history.
-- Support progression-based systems.
-- Encourage long-term engagement.
-- Provide players with measurable accomplishments.
-- Preserve the history of the player's factory.
-
-Statistics should help players understand the scale of their achievements rather than simply presenting large numbers.
-
----
-
-# Statistics Framework
-
-The Player Statistics System may record information relating to:
-
-- Resource production.
-- Factory development.
-- Economic activity.
-- Automation.
-- Building usage.
-- Factory expansion.
-- Progression.
-- Gameplay time.
-- Rebirth history.
-- Future gameplay systems.
-
-The framework should remain flexible enough to accommodate new statistics as additional gameplay systems are introduced.
-
----
-
-# Recording Behaviour
-
-Statistics should be updated automatically whenever relevant gameplay events occur.
-
-Recorded statistics should:
-
-- Be accurate.
-- Remain consistent.
-- Persist across gameplay sessions where appropriate.
-- Scale indefinitely.
-- Avoid unnecessary duplication.
-
-Players should never be required to manually maintain statistical information.
-
----
-
-# Data Presentation
-
-Statistics should be presented in a clear and understandable manner.
-
-Where appropriate, players should be able to view:
-
-- Lifetime totals.
-- Session totals.
-- Personal bests.
-- Progression summaries.
-- Historical records.
-
-Information should remain accessible without overwhelming the player.
-
----
-
-# Progression Role
-
-Although statistics do not directly affect gameplay, they provide valuable context for the player's progression.
-
-Statistics support:
-
-- Achievement evaluation.
-- Milestone progression.
-- Collection tracking.
-- Gameplay analysis.
-- Personal goal setting.
-
-The system reinforces long-term engagement by preserving the player's accomplishments.
-
----
-
-# Dependencies
-
-The Player Statistics System depends upon:
-
-- Resource System
-- Economy System
-- Production Building System
-- Factory Level System
-- Achievement System
-- Milestone System
-- Collection Log System
-- Rebirth System
-
-These systems generate the gameplay events recorded by the Player Statistics System.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Resource System | Records lifetime resource production and collection. |
-| Economy System | Tracks economic activity and lifetime earnings. |
-| Production Building System | Records building-related statistics. |
-| Factory Level System | Records progression history. |
-| Achievement System | Supplies statistical data for achievement evaluation. |
-| Milestone System | Supplies statistical data for milestone evaluation. |
-| Collection Log System | Records collection progress where appropriate. |
-| Rebirth System | Tracks rebirth history and lifetime progression. |
-
-The Player Statistics System provides reliable gameplay data that supports progression, recognition and player feedback throughout the game.
-
----
-
-# Balancing Considerations
-
-Statistics should record meaningful gameplay without encouraging unhealthy optimisation solely for numerical growth.
-
-Players should feel that statistics represent their journey rather than becoming mandatory objectives.
-
-Recorded values should remain understandable even during extremely long play sessions.
-
----
-
-# Future Expansion
-
-The Player Statistics System has been designed to support future additions, including:
-
-- Advanced statistical breakdowns.
-- Trend analysis.
-- Session comparisons.
-- Historical progression graphs.
-- Expansion-specific statistics.
-- Seasonal statistics.
-- Community comparison systems.
-- Additional gameplay metrics.
-
-Future additions should integrate naturally into the existing statistical framework without requiring structural redesign.
-
----
-
-# Developer Notes
-
-This chapter defines how gameplay statistics are recorded and utilised.
-
-It intentionally avoids documenting individual statistics, presentation layouts or implementation details.
-
-Specific tracked statistics are maintained within **Volume IV – Statistics Catalogue**.
-
----
-
-# Related Sections
-
-- 3.13 Factory Level System
-- 3.14 Milestone System
-- 3.15 Achievement System
-- 3.16 Collection Log System
-- 3.17 Rebirth System
-- 3.22 Saving & Loading Behaviour
-- Volume IV – Statistics Catalogue
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Player Statistics System specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.20 User Interface Behaviour
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.20
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Cards, modal screens, XP bar, inventory value tooltips, furnace controls and feedback styling are implemented. Settings, future-system screens, keyboard/focus handling and full device/accessibility validation are unfinished. Large-number formatting exists but its beyond-last-suffix fallback is not reached as intended.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
+
+Fresh saves start with $0, Factory Level 0, 0 Factory XP and the infinite-durability Default Pickaxe. The first-ever manual mining action guarantees Stone and cannot substitute a crafting material. Subsequent actions use the normal accessible manual pool.
+
+Opening sequence: first Stone → first Starter Furnace sale → Mining Power I → Unlock Miner → buy first Miner → automatic production. Mining Power I is required before the shop unlock, which is separate from buying a Miner. The Starter Furnace is the selling system; no separate direct-sale mechanic is required.
+
+The Furnace, Upgrade Shop, Collection and Statistics are visible from the start. Miner purchase/unlock access appears in the Upgrade Shop with applicable requirements. Achievements are revealed after the first Achievement unlocks; Milestones after the first completed Rebirth. Track milestone progress before reveal. Pickaxes and resources share an inventory screen with appropriate tabs; crafting has its own screen. Raw, Polished and Refined resources use separate tabs.
+
+Requirements must also be enforced in transaction logic. Show machine-specific tier, local upgrades, investment and state independently. Show price after eligible discount and rounding; separate destructive resale/Rebirth confirmations from normal upgrades. Preserve existing accessibility and readable feedback; these rules do not authorize an unrelated UI redesign.
 
 ---
-
-# Purpose
-
-The User Interface Behaviour System defines how gameplay information is presented and communicated to the player throughout Everything Factory Incremental.
-
-It establishes the behavioural framework for all user interface interactions, ensuring that information is delivered consistently, clearly and responsively across every gameplay system.
-
-The User Interface Behaviour System supports player decision-making by presenting relevant information at the appropriate time without disrupting gameplay.
-
----
-
-# Responsibilities
-
-The User Interface Behaviour System is responsible for:
-
-- Presenting gameplay information.
-- Communicating system state changes.
-- Supporting player interaction.
-- Providing visual feedback.
-- Maintaining interface consistency.
-- Supporting accessibility across gameplay systems.
-
-The User Interface Behaviour System is not responsible for:
-
-- Defining gameplay mechanics.
-- Managing gameplay progression.
-- Performing gameplay calculations.
-- Recording player statistics.
-- Saving game data.
-- Managing notification logic.
-
----
-
-# Overview
-
-The User Interface Behaviour System governs how players interact with gameplay systems through the game's interface.
-
-Every gameplay system should communicate its current state through clear, responsive and consistent interface behaviour.
-
-The interface should minimise unnecessary complexity while ensuring players always have access to the information required to make informed decisions.
-
----
-
-# Design Intent
-
-The User Interface Behaviour System is designed to:
-
-- Present information clearly.
-- Reduce unnecessary player confusion.
-- Support rapid decision-making.
-- Maintain consistency throughout the game.
-- Reinforce gameplay through effective feedback.
-
-The interface should assist the player without becoming the focus of gameplay.
-
----
-
-# Interaction Framework
-
-The interface should support intuitive interaction across all gameplay systems.
-
-Interactions should be:
-
-- Consistent.
-- Predictable.
-- Responsive.
-- Easy to understand.
-- Appropriate for the current gameplay context.
-
-Players should not need to relearn interface behaviour when interacting with different gameplay systems.
-
----
-
-# Information Hierarchy
-
-The interface should prioritise information according to gameplay importance.
-
-Information should be presented in a hierarchy that:
-
-- Highlights critical gameplay information.
-- Reduces unnecessary visual clutter.
-- Groups related information together.
-- Supports efficient decision-making.
-- Scales effectively as additional systems are introduced.
-
-The amount of visible information should remain manageable regardless of player progression.
-
----
-
-# Feedback Behaviour
-
-The interface should provide immediate feedback whenever meaningful player actions occur.
-
-Feedback may communicate:
-
-- Successful interactions.
-- Invalid actions.
-- Progress updates.
-- Resource changes.
-- System status.
-- Gameplay events.
-
-Feedback should always be understandable and proportional to the importance of the event.
-
----
-
-# Consistency Principles
-
-Interface behaviour should remain consistent across the entire game.
-
-Consistency should include:
-
-- Navigation behaviour.
-- Interaction patterns.
-- Terminology.
-- Information presentation.
-- Player expectations.
-- Visual responses.
-
-Consistent behaviour reduces cognitive load and improves usability.
-
----
-
-# Accessibility Considerations
-
-The User Interface Behaviour System should support accessibility wherever practical.
-
-Accessibility considerations may include:
-
-- Readable information presentation.
-- Clear interaction feedback.
-- Consistent navigation.
-- Alternative communication methods.
-- Adjustable interface options.
-- Future accessibility features.
-
-Accessibility should improve usability without compromising gameplay design.
-
----
-
-# Progression Role
-
-The User Interface Behaviour System supports every stage of gameplay progression.
-
-As gameplay systems become more complex, the interface should continue presenting information in a way that remains understandable and approachable.
-
-The interface should evolve alongside gameplay while maintaining consistent interaction principles.
-
----
-
-# Dependencies
-
-The User Interface Behaviour System depends upon:
-
-- Player Statistics System
-- Notification System
-- Saving & Loading Behaviour
-- Every gameplay system that presents information to the player
-
-These systems provide the gameplay data and events required for meaningful interface presentation.
-
----
-
-# System Interactions
-
-| System | Interaction |
-|----------|-------------|
-| Gameplay Systems | Present gameplay information through the interface. |
-| Player Statistics System | Displays statistical information where appropriate. |
-| Notification System | Delivers gameplay notifications through the interface. |
-| Saving & Loading Behaviour | Communicates save and loading states to the player. |
-| Economy System | Displays economic information. |
-| Inventory System | Presents inventory information and interactions. |
-| Factory Level System | Displays progression information. |
-
-The User Interface Behaviour System provides the primary communication layer between gameplay systems and the player.
-
----
-
-# Balancing Considerations
-
-The interface should communicate sufficient information to support informed decision-making without overwhelming the player.
-
-Additional gameplay complexity should result in improved organisation rather than increased visual clutter.
-
-Players should be able to understand the current state of their factory with minimal effort.
-
----
-
-# Future Expansion
-
-The User Interface Behaviour System has been designed to support future additions, including:
-
-- Additional interface customisation.
-- Alternative navigation methods.
-- Advanced accessibility features.
-- Expanded information displays.
-- Modular interface components.
-- Context-sensitive interface behaviour.
-- Future gameplay systems.
-
-Future additions should integrate into the existing interaction framework while maintaining behavioural consistency.
-
----
-
-# Developer Notes
-
-This chapter defines how the game's interface behaves as a gameplay support system.
-
-It intentionally avoids documenting individual screens, layouts, artwork, visual themes or implementation details.
-
-Specific interface designs, screen layouts and visual assets are maintained separately within the project's interface documentation and supporting reference material.
-
----
-
-# Related Sections
-
-- 3.19 Player Statistics System
-- 3.21 Notification System
-- 3.22 Saving & Loading Behaviour
-- Volume IV – Interface Reference (if applicable)
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial User Interface Behaviour specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
 
 # 3.21 Notification System
 
@@ -10417,7 +7040,7 @@ Specific interface designs, screen layouts and visual assets are maintained sepa
 >
 > **Status Reviewed:** 2026-09-28
 >
-> **Implementation Review:** Discovery and milestone modals plus a seven-second achievement toast are implemented. Single pending slots and shared toast timing do not provide reliable queued delivery for simultaneous events; priority handling and offline/rebirth notifications are absent.
+> **Historical prototype review (2026-09-28; not current acceptance):** Discovery and milestone modals plus a seven-second achievement toast are implemented. Single pending slots and shared toast timing do not provide reliable queued delivery for simultaneous events; priority handling and offline/rebirth notifications are absent.
 
 ---
 
@@ -10641,244 +7264,147 @@ Notification content, presentation assets and implementation details are maintai
 
 # 3.22 Saving & Loading Behaviour
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Development
->
-> **Section ID:** VOL3-3.22
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Normal browser load/save, five-second autosave, several immediate saves, missing-field defaults, Boolean achievement conversion, active furnace batch restoration and reset exist. Parsing/storage errors are unhandled and no explicit save schema version exists. Recovery and compatibility validation remain unfinished.
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
 
----
+The accepted current contract is [SAVE_VERSIONING.md](SAVE_VERSIONING.md): schema 1, canonical defaults, sequential migrations, validation before runtime, and non-destructive recovery. Never silently reset or overwrite rejected data; block gameplay/autosave, export exact original bytes, allow retry, and require explicit reset confirmation. Current V1 legacy fields remain in production until an implementation ticket changes them.
 
-# Purpose
+### Decision 31 — Save migration
 
-The Saving & Loading Behaviour System defines how player progression and game state are preserved and restored throughout Everything Factory Incremental.
+- **Confirm old Dropper data migrates to Miner:** Yes. Convert each legacy Dropper to an independent Miner, up to 5. Count-only records create Tier 1 Miners in fixed slot order. Migration unlocks enough slots for retained Miners without charging Cash.
 
-It establishes a framework for maintaining gameplay continuity while ensuring that player progress remains reliable, consistent and resilient across gameplay sessions.
+- **Confirm old Adder data migrates to Polisher:** Yes. Convert Adders to Polishers, up to 3; assign persistent slots 1–3. Count-only records start at Tier 1.
 
-The Saving & Loading Behaviour System provides the persistence layer that supports every gameplay system within the game.
+- **Confirm old Multiplier data migrates to Refiner:** Yes. Any positive valid Multiplier ownership converts to one Refiner. Zero ownership does not create a free Refiner. Compensate overflow separately.
 
----
+- **Confirm all new saves use only the new names:** Yes. V2 writes canonical new structures/names. Loader accepts legacy names via migration; original bytes remain recoverable if parsing, migration or validation fails.
 
-# Responsibilities
+- **Confirm save version number/migration strategy:** Existing unversioned schema is 0; inspected accepted schema is 1. New instance structures use 2. Load sequentially 0→1→2, validate before normal play, and do not reapply V2 migration on reload. Reference I gives conversion, compensation and open reconstruction details.
 
-The Saving & Loading Behaviour System is responsible for:
+## Reference I Save version 2 migration
 
-- Preserving player progression.
-- Restoring gameplay state.
-- Maintaining save data integrity.
-- Supporting gameplay continuity across sessions.
-- Coordinating persistence for gameplay systems.
-- Providing a scalable framework for future persistence features.
+The inspected persistence foundation uses saveVersion 1, accepts unversioned legacy 0 through sequential migration, validates loaded state, preserves rejected raw data and offers recovery. Keep that foundation. New instance structures use schema 2, independent of game/Bible document versions.
 
-The Saving & Loading Behaviour System is not responsible for:
+Load: parse → identify version → migrate each required step → validate V2 → apply defined defaults → start gameplay. Unsupported future versions must not be downgraded or overwritten. Write canonical machine names and instance records. Once migrated, V2 reload never reapplies migration or compensation.
 
-- Defining gameplay mechanics.
-- Managing gameplay progression.
-- Recording gameplay statistics.
-- Calculating gameplay systems.
-- Presenting interface layouts.
-- Managing notification content.
+### Entity conversion
 
----
+- Each Dropper becomes one Miner, up to 5.
+- Each Adder becomes one Polisher, up to 3.
+- Positive Multiplier ownership becomes one Refiner.
+- If individual records exist, rank strongest by compatible tier, then recorded investment, then oldest ID.
+- Count-only saves create Tier 1 entities in deterministic slot order; new stats with no equivalent begin at level 0.
+- Clamp compatible tiers to the new machine cap. Local Ore Luck begins at 0 unless a compatible prior record explicitly exists.
+- Assign Polishers to slots 1–3. Retain only occupied ownership for the converted count.
+- Unlock enough Miner slots for retained Miners, maximum 5, free of migration Cash charges.
+- Generate stable deterministic IDs for count-only records so a failed/retried migration does not change compensation decisions.
 
-# Overview
+### Investment and compensation
 
-The Saving & Loading Behaviour System ensures that the player's factory and progression persist between gameplay sessions.
+Use recorded compatible investment where available. When absent, the supplied policy reconstructs using current undiscounted equivalent purchase and tier prices, without Factory Purchase Discount. This is a migration exception to normal gameplay's actual-paid investment rule.
 
-Whenever gameplay state changes, the system should preserve the information necessary to accurately restore the player's progress.
+For removed overflow machines: refund 50% of their reconstructed full investment. For a retained machine whose old tier exceeds the new cap, reconstruct before clamping; compensate 50% of the lost above-cap portion, and keep only retained-tier investment as its future resale basis. Do not credit both full lost investment and retained investment as refunds.
 
-Loading should reliably reconstruct the gameplay state while maintaining consistency across all interconnected systems.
+Unsupported progression receives 100% of recorded Cash investment; without historical information use an approved closest current equivalent cost. Compensation is Cash only, never Stardust. Exact equivalent prices above current tier/slot limits remain open in Reference K; do not invent high-value overflow compensation.
 
-Persistence should be dependable and require minimal player intervention.
+Retain total Factory XP; derive its appropriate Level using 100L² if old level/XP are inconsistent. Rebirth gameplay never resets either. Preserve lifetime statistics, collection, claims and supported unknown data through the existing validation/recovery policy.
 
----
+**Planned, not activated:** unversioned/V0 → V1 → V2. Before shipping V2, resolve Reference K’s unsupported investment reconstruction and define the exact field contract, defaults and validators. Include individual machine IDs/slots/tiers/local stats/investment and independent reserved processing state; preserve compatible unknown data. No placeholder future systems or unapproved overflow formulas. Test compensation exactly once, tier reconstruction before clamping, full chain, active-batch continuity and recovery.
 
-# Design Intent
+# 3.23 Daily and Weekly Challenges
 
-The Saving & Loading Behaviour System is designed to:
+**Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
 
-- Protect player progression.
-- Minimise the risk of data loss.
-- Maintain gameplay continuity.
-- Support reliable recovery from interruptions.
-- Operate transparently during normal gameplay.
+### Decision 25 — Daily Challenges
 
-Players should feel confident that their progress is safely preserved without needing to think about the underlying persistence process.
+- **Exact number of Daily Challenges available at once:** Three active Daily Challenges.
 
----
+- **Can players reroll a challenge:** No player rerolls in V1. Correct invalid generated state without duplicate rewards; completed challenges are not immediately replaced.
 
-# Persistence Framework
+- **Does a completed but unclaimed challenge disappear at reset:** Yes. At the scheduled reset, unclaimed completed or incomplete challenges expire and the entire set is replaced.
 
-The Saving & Loading Behaviour System provides the framework through which gameplay systems preserve their state.
+- **Does Stone appear in normal Daily ore challenges:** Stone is excluded from standard ore-specific Daily objectives. A Stone-specific type must be explicitly defined if used.
 
-Persistent gameplay data may include:
+- **Exact minimum/maximum quantity safeguards:** Minimum quantity 1. Standard resource targets use at most 30 minutes of current sustainable production, with a 60% expected-output safety factor. Exclude resources whose expected output in the chosen window is below 5. Manual fallback is 30 clicks/minute. Whole-item/friendly target rounding remains a technical detail to specify.
 
-- Factory progression.
-- Player progression.
-- Resource progression.
-- Collection progress.
-- Achievement progress.
-- Statistics.
-- Gameplay configuration.
-- Future gameplay systems.
+- **Confirm Daily rewards use Cash Earned This Rebirth:** Yes. Each Daily awards 0.10 × CashEarnedThisRebirth and (0.50/3) × the current full next-level XP span. The advertised 30% Cash/50% XP applies to the full set at a common progression state. Exclude challenge Cash and resale refunds from the qualifying earnings basis. Calculate each reward at claim; do not multiply challenge XP by the XP perk again.
 
-The framework should remain flexible enough to accommodate additional persistent data as development continues.
+### Decision 26 — Weekly Challenges
 
----
+- **Exact number of Weekly Challenges available at once:** Seven active Weekly Challenges.
 
-# Saving Behaviour
+- **Is the 150% reward exactly 150% or a minimum of 150%:** The 150% applies to the seven-challenge set. Each challenge awards (1.50/7) of its claim-time Cash basis and full next-level XP span. Claims at different progression states need not sum to 150% of a single historical value.
 
-Saving should occur whenever appropriate to preserve meaningful player progress.
+- **Exact Stardust reward rules:** After at least one completed Rebirth, exactly one generated Weekly objective has extra Stardust: max(100, floor(CurrentEligibleStardust × 0.10)), in addition to its normal Cash/XP share. No Stardust Gain multiplier. First Rebirth mid-week enables this at the next reset only.
 
-Saving behaviour should:
+- **Maximum Rebirth-count objective:** Maximum 15. Exclude if estimated cycle time exceeds 240 minutes. Otherwise target = clamp(floor(240/EstimatedMinutesPerRebirth),1,15). Prefer the last 3 valid Rebirth durations; without history estimate 1,000,000 / sustainable non-Challenge Cash per minute. If no reliable rate exists, exclude.
 
-- Record a complete and consistent gameplay state.
-- Avoid disrupting active gameplay.
-- Preserve data integrity.
-- Operate reliably under normal gameplay conditions.
-- Support manual and automatic saving where applicable.
+- **Can weekly challenges require Refined ores as well as Polished ores:** Yes. Refined objectives accept any successful surviving pass, resulting count ≥1; exact Refine Counts are not required in V1. Account for Refiner throughput and destruction, then apply the 60% safety factor. One ore surviving several passes can award several progress events.
 
-Players should always understand when significant progress has been successfully preserved.
+### Decision 27 — Challenge reset timezone
 
----
+- **Confirm resets use fixed GMT/UTC year-round:** Fixed UTC/GMT year-round: Daily 00:01; Weekly Friday 17:00.
 
-# Loading Behaviour
+- **Or UK local time including BST:** No BST adjustment. In Europe/London during BST these are Daily 01:01 and Weekly Friday 18:00.
 
-Loading should accurately restore the previously saved gameplay state.
+## Reference F Factory XP and challenges
 
-Loading behaviour should:
+### Factory XP and earnings
 
-- Restore gameplay consistently.
-- Validate save data before use where appropriate.
-- Reconstruct interconnected gameplay systems.
-- Minimise loading interruptions.
-- Preserve gameplay integrity.
+Factory XP is permanent. Total threshold for L is 100L²; L=0 begins at 0 XP. Derive Level from total XP. Full next-level span is 100(2L+1), not the remaining XP to its threshold.
 
-Players should resume gameplay in a state that accurately reflects their previous progress.
+The normal gameplay XP perk multiplies base gameplay XP by 1+0.0004×level, capped at 5×. Do not multiply the percentage-based challenge XP reward again. Excess challenge XP carries through level-ups.
 
----
+CashEarnedThisRebirth records qualifying earned Cash and survives spending but resets on Rebirth. Exclude challenge payouts and resale refunds from the challenge-reward basis. Current unspent Cash, not this earnings statistic, is the actual Rebirth payout basis.
 
-# Data Integrity
+### Generation and progress
 
-The Saving & Loading Behaviour System should prioritise data reliability.
+Generate 3 Daily and 7 Weekly objectives at fixed reset boundaries. Requirements are fixed at generation; reward values remain dynamic until claim. Identical objectives, including the same ore/state/action with different target quantities, cannot appear twice within one set. Different resources or genuinely different actions can share a system.
 
-The system should:
+Use only current owned machines, upgrades and accessible systems, never assumed future purchases. All unlocked low-tier ores remain in the eligible pool. Standard Daily ore objectives exclude Stone. Polished/Refined objectives require the corresponding ore access and processing capability.
 
-- Prevent incomplete gameplay states.
-- Recover gracefully where possible.
-- Maintain consistency between gameplay systems.
-- Preserve permanent progression accurately.
-- Support future compatibility with evolving gameplay systems.
+Use current sustainable automatic output for standard objectives. Daily effort is 10–30 minutes, with a maximum 30-minute resource target. Weekly individual resource targets must be achievable in approximately four hours or less. Explicit manual objectives and fallback for players without automation use 1 click every 2 seconds (30/minute), adjusted for current Pickaxe, Luck, power, duplication and accessible pool.
 
-Protecting player progression should remain a primary design objective.
+ResourceTarget = ExpectedOutputDuringTargetWindow × 0.60. Exclude an ore if expected quantity during the window is below 5. This margin makes ordinary completion more likely but never guarantees RNG outcomes. Whole-item target rounding is noted in Reference K.
 
----
+For Polished output, account for acquisition supply and Polisher throughput. For Refined output, account for input supply, Refiner throughput and survival probability. ExpectedSuccessfulOutput = effective processing input rate × survival probability. Apply the 60% factor afterward.
 
-# Progression Role
+Progress records activity after generation, not pre-existing inventory. Progress does not consume resources. Manual and automated acquisition both count for normal collection unless the objective says manual-only. Polished progress counts qualifying outputs. Refined progress follows the surviving-pass rule discussed above. Completed objectives stay in the set; do not replace them immediately.
 
-Although saving and loading do not directly contribute to gameplay progression, they enable every progression system within the game.
+### Daily and Weekly claim formulas
 
-Reliable persistence ensures that:
+At each claim, snapshot all applicable bases before awarding any payout:
 
-- Factory growth is preserved.
-- Long-term progression remains meaningful.
-- Player accomplishments are retained.
-- Rebirth progression is maintained.
-- Collection progress remains permanent.
+DailyCash = 0.30/3 × CashEarnedThisRebirth = 0.10 × basis.  
+DailyXP = 0.50/3 × FullNextLevelXPSpan.
 
-Without reliable persistence, long-term gameplay systems cannot function effectively.
+WeeklyCash = 1.50/7 × CashEarnedThisRebirth.  
+WeeklyXP = 1.50/7 × FullNextLevelXPSpan.
 
----
+Use exact fractions internally, not the rounded display percentages. At a common progression state, a complete set represents its advertised totals. If bases change between claims, the awarded totals need not equal those percentages of a single historical snapshot. Cash/XP reward fractional precision still requires the existing currency policy or explicit definition in Reference K.
 
-# Dependencies
+Cash received from a challenge does not increase the qualifying challenge earnings basis. A Rebirth can therefore reset the basis for a later claim without resetting the objective itself.
 
-The Saving & Loading Behaviour System depends upon:
+### Weekly Rebirth targets
 
-- Player Statistics System
-- User Interface Behaviour
-- Notification System
-- Every gameplay system that maintains persistent progression
+Prefer the average of the last 3 valid completed Rebirth durations; if fewer exist, use all available. Without history, estimate minutes = 1,000,000 / sustainable non-Challenge CashPerMinute. This quotient is already in minutes.
 
-These systems provide the gameplay state and player feedback required to support reliable persistence.
+Exclude Rebirth objectives when the rate is unreliable/nonpositive or the estimated cycle exceeds 240 minutes. Otherwise target=min(15,max(1,floor(240/EstimatedMinutesPerRebirth))). Track completed Rebirth events while the objective is active.
 
----
+### Weekly Stardust
 
-# System Interactions
+If the player has already completed at least 1 Rebirth when the set is generated, designate exactly 1 of the 7 Weekly challenges as the Stardust objective. It receives normal Weekly Cash and XP shares plus extra Stardust:
 
-| System | Interaction |
-|----------|-------------|
-| Player Statistics System | Preserves recorded gameplay statistics. |
-| User Interface Behaviour | Communicates save and loading states where appropriate. |
-| Notification System | Informs players about significant save-related events where necessary. |
-| Factory Level System | Preserves progression state. |
-| Achievement System | Maintains achievement completion. |
-| Collection Log System | Retains discovered content. |
-| Rebirth System | Preserves permanent rebirth progression. |
-| Offline Progression System | Supplies progression generated while the player was away. |
+WeeklyStardust = max(100, floor(CurrentEligibleStardust×0.10)).
 
-The Saving & Loading Behaviour System provides the persistence foundation upon which every long-term gameplay system depends.
+Do not multiply it by Stardust Gain. It rounds down to whole Stardust before the 100 minimum. First Rebirth mid-week does not alter existing objectives; eligibility takes effect at the next reset.
 
----
+With one such reward there is no same-cycle reward chaining. If multiple are introduced later, exclude earlier Weekly Stardust awards in that cycle from later eligible balance calculations.
 
-# Balancing Considerations
+### Reset times
 
-Saving and loading should operate consistently regardless of player progression.
+Daily: 00:01 UTC every day. Weekly: Friday 17:00 UTC. These are fixed GMT/UTC times, not Europe/London wall-clock times adjusted for BST. Replace the entire set on reset; all unclaimed objectives expire, even when completed. Rebirth does not refresh or remove challenge state.
 
-The persistence system should minimise opportunities for unintended data loss or inconsistent gameplay states while remaining transparent during normal gameplay.
-
-Players should trust that their progress is preserved accurately throughout extended gameplay.
-
----
-
-# Future Expansion
-
-The Saving & Loading Behaviour System has been designed to support future additions, including:
-
-- Multiple save profiles.
-- Cloud save support.
-- Cross-platform progression.
-- Automatic backup systems.
-- Save recovery mechanisms.
-- Version migration support.
-- Additional persistence features.
-
-Future additions should integrate into the existing persistence framework while maintaining data integrity and gameplay continuity.
-
----
-
-# Developer Notes
-
-This chapter defines how gameplay persistence functions as a supporting system.
-
-It intentionally avoids documenting save file formats, serialisation methods, storage locations, compression, encryption or implementation-specific technical details.
-
-Technical implementation and save data structures are maintained within the project's technical documentation.
-
----
-
-# Related Sections
-
-- 3.19 Player Statistics System
-- 3.20 User Interface Behaviour
-- 3.21 Notification System
-- 3.17 Rebirth System
-- 3.18 Offline Progression System
-- Volume V – Technical Architecture (if applicable)
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Saving & Loading Behaviour specification created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
+**Implementation gates:** Reference K’s target rounding, payout precision and destroyed-ore wording must be resolved for affected challenge generation/claims. The exact formulas above are not permission to guess those missing rules.
 
 ---
 
@@ -11097,855 +7623,79 @@ Additional notes regarding maintenance of Volume IV.
 
 # 4.1 Resource Catalogue
 
-> [!IMPORTANT]
->
-> **Documentation Status:** 🟠 In Progress — resource data is populated; rarity wording and Stone collection details need reconciliation.
->
-> **Section ID:** VOL4-4.1
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Completed component: Stone/20-ore data, tier lists, base values and XP. The catalogue still misstates Stone collection behaviour and presents tier rarity as though it were each individual ore's probability. These discrepancies require reconciliation before the entire reference can be marked completed.
+Use the exact V1 ore/XP table in 3.4. References A/B define source-specific accessibility and probability; all-ores-at-start and uniform per-tier selection are superseded. Stone/materials are not Collection entries.
 
 ---
 
-# Purpose
+# 4.2 Currency Catalogue
 
-The Resource Catalogue serves as the authoritative reference for every obtainable resource within Everything Factory Incremental.
-
-It documents the implementation details, balancing values and gameplay purpose of each resource without redefining the gameplay systems responsible for resource generation, inventory management or progression.
-
-This catalogue should be considered the single source of truth for all collectible resources currently available within the game.
+Cash: Furnace sales and approved costs. Stardust: Rebirth/permanent perks and eligible Weekly reward. Gem Dust: Refiner integer rolls; Inscriptions remain Deferred. See 3.6, References D/H/J. Other currency examples are not active requirements.
 
 ---
 
-# Scope
+# 4.3 Production Building Catalogue
 
-The Resource Catalogue contains every resource that can currently be obtained by the player.
-
-Resources are primarily acquired through manual mining and form the foundation of the game's collection, economy and progression systems.
-
-This catalogue documents:
-
-- Resource properties
-- Balancing values
-- Rarity
-- Experience rewards
-- Collection information
-- Related gameplay systems
-
-The catalogue does not document:
-
-- Mining mechanics
-- Inventory behaviour
-- Collection Log behaviour
-- Economy calculations
-- Factory production
-
-These systems are documented within Volume III.
+Miner tiers 1–25, Polisher/Refiner 1–10, Furnace 1–20. Exact ownership, slots, costs, intervals, value and resale rules: 3.8 / References B–E. Conveyors remain required by AGENTS but their detailed mechanics need design.
 
 ---
 
-# Design Philosophy
+# 4.4 Upgrade Catalogue
 
-Everything Factory Incremental intentionally avoids a traditional resource progression where increasingly valuable resources are unlocked over time.
-
-Instead, every ore exists within a single randomised loot pool from the beginning of the game.
-
-Players are encouraged to continue mining in pursuit of increasingly rare discoveries rather than reaching predetermined resource tiers through progression.
-
-This philosophy creates a gameplay loop centred around discovery, collection and luck, while maintaining long-term excitement whenever a rare ore is found.
+Normal Cash Shop and permanent Stardust tables are in 3.7 and 3.17 (Reference J). Mining Luck, automated Overall Luck and automated Ore Luck are separate. Recommended Discount price and unresolved Furnace Capacity perk are not canonical costs.
 
 ---
 
-# Resource Entry Template
+# 4.5 Factory Level Reference
 
-Every resource entry should contain:
-
-- Name
-- Tier
-- Category
-- Description
-- Base Value
-- XP Reward
-- Rarity
-- Unlock Requirement
-- Obtainable From
-- Primary Uses
-- Collection Behaviour
-- Related Systems
-- Developer Notes
+Use 3.13: total threshold 100L², Level floor(sqrt(XP/100)), fresh Level 0 / XP 0, permanent XP. Other unlock/reward tables remain DESIGN REQUIRED.
 
 ---
 
-# Documentation Notes
+# 4.6 Milestone Catalogue
 
-When creating new resource entries:
-
-- Maintain consistent balancing terminology.
-- Avoid documenting gameplay behaviour.
-- Update balancing values whenever implementation changes.
-- Add new resources using the standard entry template.
-- Maintain one authoritative entry per resource.
+Reference G in 3.14 contains the exact 250 thresholds through Level 10,000. Track before first-Rebirth reveal; retain earned/claim flags. Rewards Deferred.
 
 ---
 
-# Resource Overview
+# 4.7 Achievement Catalogue
 
-The current implementation contains twenty-one obtainable resources.
-
-| Tier | Resources | Rarity |
-|------|-----------|---------|
-| Common | Stone | Always Available |
-| Tier 1 | Amber, Quartz, Topaz, Amethyst, Malachite | 1 in 25 |
-| Tier 2 | Citrine, Garnet, Peridot, Jade, Aquamarine | 1 in 1,000 |
-| Tier 3 | Spinel, Tourmaline, Sapphire, Ruby, Emerald | 1 in 50,000 |
-| Tier 4 | Onyx, Tanzanite, Alexandrite, Black Opal, Diamond | 1 in 250,000 |
+Retain the six IDs and historical triggers in 3.15. Reveal after first unlock. Additional entries and detailed rewards Deferred.
 
 ---
 
-# Gameplay Notes
+# 4.8 Collection Catalogue
 
-## Resource Progression
-
-Resources are **not** unlocked through gameplay progression.
-
-Every resource is obtainable from the beginning of the game through random chance.
+The 20 ores in 3.4; see 3.16 for persistent discovery independent of inventory. No implicit Stone/material entries.
 
 ---
 
-## Resource Usage
+# 4.9 Statistics Catalogue
 
-At the current stage of development, all resources share a single gameplay purpose.
-
-Resources can be:
-
-- Collected
-- Stored within the player's inventory
-- Sold for Cash
-- Recorded within the Collection Log
-
-Additional resource uses may be introduced during future development.
+Reference H in 3.19 is the accepted event/cycle/lifetime catalogue. Actual balances, qualifying earnings and refunds are distinct.
 
 ---
 
-## Resource Variants
+# 4.10 Notification Reference
 
-The current implementation contains no resource variants.
-
-Future updates may introduce modifier systems (such as Mutations or Prefixes) which alter resource properties, but these systems are outside the scope of the current implementation.
+Use 3.21 for existing notification behavior and roadmap V1-190–196 for remaining coordination. Do not invent reward events for Deferred rewards.
 
 ---
 
-# Catalogue Entries
+# 4.11 Interface Reference
+
+Use 3.20 for disclosure, inventory tabs and purchase requirements. Do not expose unimplemented systems as usable controls.
 
 ---
 
-# Stone
+# 4.12 Gameplay Constants
 
-## Tier
-
-Common
+Authoritative numeric tables are stored once in References A–J in the relevant chapters. Preserve full precision, explicit caps and source status. Future tiers/inscriptions have no active constants.
 
 ---
 
-## Category
+# 4.13 Formula Reference
 
-Basic Resource
-
----
-
-## Description
-
-Stone is the most common resource within Everything Factory Incremental and forms the foundation of the game's mining system.
-
----
-
-## Base Value
-
-$1
-
----
-
-## XP Reward
-
-1 XP
-
----
-
-## Rarity
-
-Always Available
-
----
-
-## Unlock Requirement
-
-Available from the start of the game.
-
----
-
-## Obtainable From
-
-- Manual Mining
-
----
-
-## Primary Uses
-
-- Sell for Cash
-- Collection Log Completion
-
----
-
-## Collection Behaviour
-
-Recorded permanently upon first discovery.
-
----
-
-## Related Systems
-
-- Resource System
-- Economy System
-- Inventory System
-- Collection Log System
-- Factory Level System
-
----
-
-## Developer Notes
-
-Acts as the baseline resource against which all other resource values are balanced.
-
----
-
-# Tier 1 Resources
-
-| Resource | Value | XP | Rarity |
-|----------|------:|---:|---------|
-| Amber | $10 | 5 | 1 in 25 |
-| Quartz | $20 | 5 | 1 in 25 |
-| Topaz | $30 | 5 | 1 in 25 |
-| Amethyst | $40 | 5 | 1 in 25 |
-| Malachite | $50 | 5 | 1 in 25 |
-
-Developer Notes:
-
-Tier 1 introduces players to uncommon resources while remaining common enough to be discovered regularly.
-
----
-
-# Tier 2 Resources
-
-| Resource | Value | XP | Rarity |
-|----------|------:|---:|---------|
-| Citrine | $250 | 25 | 1 in 1,000 |
-| Garnet | $500 | 25 | 1 in 1,000 |
-| Peridot | $750 | 25 | 1 in 1,000 |
-| Jade | $900 | 25 | 1 in 1,000 |
-| Aquamarine | $1,000 | 25 | 1 in 1,000 |
-
-Developer Notes:
-
-Tier 2 represents the transition into genuinely rare discoveries and provides significantly higher economic rewards.
-
----
-
-# Tier 3 Resources
-
-| Resource | Value | XP | Rarity |
-|----------|------:|---:|---------|
-| Spinel | $5,000 | 100 | 1 in 50,000 |
-| Tourmaline | $10,000 | 100 | 1 in 50,000 |
-| Sapphire | $15,000 | 100 | 1 in 50,000 |
-| Ruby | $20,000 | 100 | 1 in 50,000 |
-| Emerald | $25,000 | 100 | 1 in 50,000 |
-
-Developer Notes:
-
-Tier 3 resources are intended to be memorable discoveries that may not appear for extended periods of gameplay.
-
----
-
-# Tier 4 Resources
-
-| Resource | Value | XP | Rarity |
-|----------|------:|---:|---------|
-| Onyx | $50,000 | 1,000 | 1 in 250,000 |
-| Tanzanite | $75,000 | 1,000 | 1 in 250,000 |
-| Alexandrite | $100,000 | 1,000 | 1 in 250,000 |
-| Black Opal | $150,000 | 1,000 | 1 in 250,000 |
-| Diamond | $250,000 | 1,000 | 1 in 250,000 |
-
-Developer Notes:
-
-Tier 4 resources represent the rarest naturally obtainable resources currently implemented and serve as long-term collection goals.
-
----
-
-# Future Expansion
-
-Future versions of this catalogue may include:
-
-- Resource Mutations
-- Resource Prefixes
-- Additional Resource Tiers
-- Event-exclusive Resources
-- Crafted Resources
-- Processing Chains
-- Resource Metadata
-
----
-
-# Related Sections
-
-- Volume III – Resource System
-- Volume III – Economy System
-- Volume III – Collection Log System
-- 4.2 Currency Catalogue
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Resource Catalogue created. |
-| 1.0.1 | 2026-09-28: Added source-based implementation status and remaining-work notes; intended design retained. |
-
----
-
-## 4.2 Currency Catalogue
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Cash earning, spending, display and persistence are completed. Gems, Stardust and Ancient Shards have no runtime implementation. Catalogue names alone do not define launch requirements.
-
-### Purpose
-
-Documents every gameplay currency.
-
-### Scope
-
-Defines all currencies used throughout the game.
-
-### Currency Entry Template
-
-Every currency entry contains:
-
-- Name
-- Description
-- Acquisition Methods
-- Primary Uses
-- Progression Role
-- Related Systems
-- Developer Notes
-
-### Catalogue Entries
-
-Cash
-
-Gems
-
-Stardust
-
-Ancient Shards
-
-Future Currencies
-
----
-
-# Part II — Buildings
-
-## 4.3 Production Building Catalogue
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Counter-based Droppers, Adders, Multipliers and Starter/Basic/Auto Furnaces are implemented. Conveyors, placeable building instances and storage buildings are not started.
-
-### Purpose
-
-Documents every production building.
-
-### Scope
-
-Defines all factory buildings.
-
-### Building Entry Template
-
-Every building entry contains:
-
-- Name
-- Category
-- Description
-- Unlock Requirement
-- Inputs
-- Outputs
-- Processing Behaviour
-- Upgrade Path
-- Variants
-- Related Buildings
-- Related Systems
-- Developer Notes
-
-### Catalogue Entries
-
-Droppers
-
-Conveyors
-
-Furnaces
-
-Adders
-
-Multipliers
-
-Storage
-
-Future Buildings
-
----
-
-## 4.4 Upgrade Catalogue
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Current purchases and furnace tier upgrades have real effects. Permanent/cycle bonus and cosmetic fields are scaffolding; conveyor, mining and general bonus upgrades have no playable implementation.
-
-### Purpose
-
-Documents every permanent upgrade.
-
-### Scope
-
-Defines all gameplay upgrades.
-
-### Upgrade Entry Template
-
-Every upgrade entry contains:
-
-- Name
-- Description
-- Unlock Requirement
-- Maximum Level
-- Effect
-- Cost Formula
-- Dependencies
-- Related Systems
-- Developer Notes
-
-### Catalogue Entries
-
-Factory Upgrades
-
-Conveyor Upgrades
-
-Mining Upgrades
-
-Automation Upgrades
-
-Economy Upgrades
-
-Future Upgrades
-
----
-
-# Part III — Progression Content
-
-## 4.5 Factory Level Reference
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** XP awards, the level formula, display and level-2/5 card unlocks exist. Initial XP-bar behaviour and unused bonus helpers prevent a complete status.
-
-### Purpose
-
-Documents every Factory Level.
-
-### Scope
-
-Defines progression by Factory Level.
-
-### Factory Level Entry Template
-
-Every entry contains:
-
-- Level
-- Unlocks
-- Rewards
-- Related Systems
-- Developer Notes
-
-### Catalogue Entries
-
-Factory Levels
-
----
-
-## 4.6 Milestone Catalogue
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** 113 Factory Level milestone flags and their menu are implemented. Multiple-unlock notification handling is incomplete; no reward implementation exists.
-
-### Purpose
-
-Documents every milestone.
-
-### Scope
-
-Defines all gameplay milestones.
-
-### Milestone Entry Template
-
-Every entry contains:
-
-- Name
-- Requirement
-- Reward
-- Unlock Conditions
-- Related Systems
-- Developer Notes
-
-### Catalogue Entries
-
-Gameplay Milestones
-
----
-
-## 4.7 Achievement Catalogue
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Six achievements and unlock/claim-state handling exist. Reward definitions and granting are unfinished.
-
-### Purpose
-
-Documents every achievement.
-
-### Scope
-
-Defines all achievements.
-
-### Achievement Entry Template
-
-Every entry contains:
-
-- Name
-- Category
-- Requirement
-- Reward
-- Hidden Status
-- Repeatable
-- Related Systems
-- Developer Notes
-
-### Catalogue Entries
-
-Achievements
-
----
-
-## 4.8 Collection Catalogue
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** The basic 20-ore Collection Book is completed. Percentage/category completion summaries and mutation/variant tracking are absent.
-
-### Purpose
-
-Documents every Collection Log entry.
-
-### Scope
-
-Defines all collection entries.
-
-### Collection Entry Template
-
-Every entry contains:
-
-- Name
-- Category
-- Unlock Requirement
-- Discovery Method
-- Related Content
-- Completion Notes
-- Developer Notes
-
-### Catalogue Entries
-
-Collection Entries
-
----
-
-# Part IV — Supporting Content
-
-## 4.9 Statistics Catalogue
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Resource, tier, manual mining, discovery and smelting counters exist. Buildings placed, play time, lifetime earnings and highest factory value have no tracking implementation.
-
-### Purpose
-
-Documents every tracked player statistic.
-
-### Scope
-
-Defines all statistics recorded by the game.
-
-### Statistics Entry Template
-
-Every entry contains:
-
-- Name
-- Description
-- Recorded By
-- Display Location
-- Related Systems
-
-### Catalogue Entries
-
-Resources Collected
-
-Buildings Placed
-
-Play Time
-
-Lifetime Earnings
-
-Highest Factory Value
-
-Future Statistics
-
----
-
-## 4.10 Notification Reference
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Discovery, milestone and achievement feedback exist. Queued delivery, priority handling and dedicated level/offline notifications are absent.
-
-### Purpose
-
-Documents every gameplay notification.
-
-### Scope
-
-Defines every notification generated by gameplay systems.
-
-### Notification Entry Template
-
-Every entry contains:
-
-- Name
-- Trigger
-- Priority
-- Display Behaviour
-- Related Systems
-
-### Catalogue Entries
-
-Achievement Notifications
-
-Milestone Notifications
-
-Level Notifications
-
-Discovery Notifications
-
-Offline Progress Notifications
-
-Future Notifications
-
----
-
-## 4.11 Interface Reference
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** The dashboard, existing modal screens and purchase cards exist. A spatial factory view and settings are not started; the broader shop interface is incomplete.
-
-### Purpose
-
-Documents every gameplay interface.
-
-### Scope
-
-Defines all player-facing interfaces.
-
-### Interface Entry Template
-
-Every entry contains:
-
-- Name
-- Purpose
-- Accessible From
-- Primary Functions
-- Related Systems
-
-### Catalogue Entries
-
-HUD
-
-Inventory
-
-Shop
-
-Factory View
-
-Statistics
-
-Settings
-
-Future Interfaces
-
----
-
-# Part V — Balancing Reference
-
-## 4.12 Gameplay Constants
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Ore values, furnace tiers, production/smelt/save intervals, starting values and purchase constants exist in the code. A unified balance catalogue is unfinished; walk speed and spatial factory limits are not implemented.
-
-### Purpose
-
-Documents global balancing values.
-
-### Scope
-
-Defines constants used throughout gameplay.
-
-### Constant Entry Template
-
-Every entry contains:
-
-- Name
-- Value
-- Description
-- Used By
-- Developer Notes
-
-### Catalogue Entries
-
-Starting Inventory
-
-Mining Speed
-
-Walk Speed
-
-Factory Limits
-
-Global Multipliers
-
-Future Constants
-
----
-
-## 4.13 Formula Reference
-
-> **Documentation Status:** 🟠 In Progress — catalogue outline; detailed entries remain unfinished.
->
-> **Implementation Status:** 🟠 In Progress
->
-> **Status Reviewed:** 2026-09-28
->
-> **Implementation Review:** Resource probabilities, Cash transactions, upgrade costs, XP/levels and production calculations exist. Bonus formula helpers are unused, and rebirth/offline formulas have no runtime implementation.
-
-### Purpose
-
-Documents every gameplay formula.
-
-### Scope
-
-Defines mathematical formulas used throughout the game.
-
-### Formula Entry Template
-
-Every entry contains:
-
-- Name
-- Formula
-- Description
-- Variables
-- Used By
-- Developer Notes
-
-### Catalogue Entries
-
-Economy
-
-Upgrade Costs
-
-Experience
-
-Factory Levels
-
-Resource Scaling
-
-Automation
-
-Offline Progress
-
-Future Formulae
-
----
-
-# Revision History
-
-| Version | Summary |
-|----------|---------|
-| 1.0.0 | Initial Volume IV structure created. |
-| 1.0.1 | 2026-09-28: Added implementation statuses to catalogue outlines; resource-reference discrepancies recorded without altering balance data. |
+Manual: Reference A. Miner: B. Polisher: C. Refiner: D. Furnace/Cash rounding: E. XP/challenges: F. Milestones: G. Rebirth/statistics: H. Migration: I. Shop/perks/resources: J. Reference K lists unresolved/recommended/deferred values. Reference L lists future acceptance checks, not results.
 
 ---
 
@@ -12108,3 +7858,4 @@ The table below refers only to the existence of the document framework and reser
 ---
 
 # End of Framework Part 3
+

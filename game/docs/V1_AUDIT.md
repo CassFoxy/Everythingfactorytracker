@@ -1,5 +1,10 @@
 # TEFI V1 Repository Audit — 2026-09-28
 
+## Historical audit boundary — documentation synchronization, 2026-10-06
+
+This audit is a dated prototype snapshot, not a current design or implementation-status authority. V1-003 and V1-010–015 have since been reviewed and accepted, as has the V1-020 opening review (not stored as a separate repository report). The [Game Bible](GAME_BIBLE.md) now incorporates the owner’s 6 October specification; the [roadmap](../V1_ROADMAP.md) distinguishes accepted foundations from unimplemented new gameplay. Preserve old machine names/formulas below only as legacy migration evidence. Do not repeat the full audit or treat its former design gaps as unresolved where the new Bible supplies a Defined rule.
+
+
 Baseline: `6fa2effce60c62efbf254544e452f087e168d593` on `main`. Read-only audit completed before V1-010 edits. Compared all four runtime files with AGENTS.md, the complete Development Bible and all 168 roadmap tickets. Existing Bible source-audit notes describe prototype components, not V1 release certification.
 
 ## Overall finding
