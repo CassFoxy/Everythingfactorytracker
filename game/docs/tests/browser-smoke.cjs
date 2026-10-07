@@ -106,6 +106,28 @@ const server = http.createServer((req, res) => {
         await fresh.context.close();
         console.log("PASS Chromium: fresh $0/XP 0/Level 0, progress boundary, mining and reload.");
 
+        const manual = await session(null);
+        // This roll formerly selected T4; Default access must redirect it into T2.
+        await manual.page.evaluate(() => { Math.random = () => 0; });
+        await manual.page.locator("#mineButton").click();
+        assert.equal(await manual.page.locator("#discoveryPopup").isVisible(), true);
+        const mined = await manual.page.evaluate(() => {
+            saveGame();
+            return JSON.parse(localStorage.getItem("ef_incremental"));
+        });
+        assert.equal(mined.inventory.citrine, 1);
+        assert.equal(mined.oreCollection.citrine, 1);
+        assert.equal(mined.factoryXP, 25);
+        assert.equal(mined.tier3Ores, 0);
+        assert.equal(mined.tier4Ores, 0);
+        assert.equal(mined.saveVersion, 1);
+        assert.equal(Object.hasOwn(mined, "manualProgress"), false);
+        await manual.page.reload();
+        assert.deepEqual(await manual.page.evaluate(() => JSON.parse(JSON.stringify(save))), mined);
+        assert.deepEqual(manual.errors, []);
+        await manual.context.close();
+        console.log("PASS Chromium: Default manual T2 discovery, T3/T4 lock and schema-1 reload.");
+
         const current = await normalLoop();
         assert.equal(current.saveVersion, 1);
         console.log("PASS Chromium: real mining/purchase/furnace clicks, autosave, reload and menus; no console errors.");
