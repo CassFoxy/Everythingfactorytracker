@@ -50,7 +50,9 @@ const server = http.createServer((req, res) => {
             return { context, page, errors };
         }
         async function normalLoop(legacyBaseline = false) {
-            const app = await session(null);
+            // Seed an existing funded save to compare unchanged gameplay outside the new baseline.
+            const app = await session(JSON.stringify({ cash: 100, factoryXP: 100, factoryLevel: 1,
+                droppers: 0, adders: 0, multipliers: 0 }));
             const { page } = app;
             // Older baseline scripts predate the gated game wrapper.
             if (legacyBaseline) await page.evaluate(() => {
@@ -68,7 +70,7 @@ const server = http.createServer((req, res) => {
             const before = await page.evaluate(() => JSON.parse(localStorage.getItem("ef_incremental")));
             assert.equal(before.cash, 92);
             assert.equal(before.inventory.stone, 0);
-            assert.equal(before.factoryXP, 4);
+            assert.equal(before.factoryXP, 104);
             await page.reload();
             const after = await page.evaluate(() => JSON.parse(JSON.stringify(save)));
             assert.deepEqual(after, before);
@@ -81,6 +83,29 @@ const server = http.createServer((req, res) => {
             await app.context.close();
             return before;
         }
+        const fresh = await session(null);
+        async function assertProgress(page, cash, xp, level, width) {
+            assert.deepEqual(await page.evaluate(() => [save.cash, save.factoryXP, save.factoryLevel]),
+                [cash, xp, level]);
+            assert.equal(await page.locator("#factoryLevel").textContent(), String(level));
+            assert.equal(await page.locator("#cash").textContent(), "$" + cash);
+            assert.equal(await page.locator("#xpBar").evaluate(el => el.style.width), width + "%");
+        }
+        await assertProgress(fresh.page, 0, 0, 0, 0);
+        await fresh.page.evaluate(() => saveGame());
+        await fresh.page.reload();
+        await assertProgress(fresh.page, 0, 0, 0, 0);
+        await fresh.page.evaluate(() => { save.factoryXP = 99; updateUI(); });
+        await assertProgress(fresh.page, 0, 99, 0, 99);
+        await fresh.page.locator("#mineButton").click();
+        await assertProgress(fresh.page, 0, 100, 1, 0);
+        await fresh.page.evaluate(() => saveGame());
+        await fresh.page.reload();
+        await assertProgress(fresh.page, 0, 100, 1, 0);
+        assert.deepEqual(fresh.errors, []);
+        await fresh.context.close();
+        console.log("PASS Chromium: fresh $0/XP 0/Level 0, progress boundary, mining and reload.");
+
         const current = await normalLoop();
         assert.equal(current.saveVersion, 1);
         console.log("PASS Chromium: real mining/purchase/furnace clicks, autosave, reload and menus; no console errors.");
@@ -177,7 +202,7 @@ const server = http.createServer((req, res) => {
         assert.equal(await recovering.page.locator("#saveRecovery").isVisible(), false);
         assert.equal(await recovering.page.locator("#mineButton").isVisible(), true);
         assert.equal(await recovering.page.evaluate(() => save.saveVersion), 1);
-        assert.equal(await recovering.page.evaluate(() => save.cash), 100);
+        await assertProgress(recovering.page, 0, 0, 0, 0);
         assert.equal(await recovering.page.evaluate(() => localStorage.getItem("ef_incremental")), null);
         await recovering.page.evaluate(() => testIntervals.find(t => t.ms === 5000).callback());
         await recovering.page.reload();

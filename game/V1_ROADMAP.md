@@ -14,7 +14,7 @@ V1-003, V1-010–015 and the V1-020 review are accepted. Newly Defined gameplay 
 
 Ticket numbers preserve history, not execution order. Complete one bounded child at a time; a parent is not permission for an entire architecture rewrite.
 
-1. **V1-021A** fresh Cash/Level baseline only (next recommended ticket).
+1. **V1-021A** fresh Cash/Level baseline only (implemented and tested; continue with the contract work in step 2).
 2. V1-016 state/compatibility contract; V1-026 Default Pickaxe/access and V1-021B first-ever Stone; V1-050 price rules and V1-023 Starter sale. Agree incremental persistence boundaries before writing new fields.
 3. V1-041 inventory contract, V1-028/029 manual quantity/material/Luck, V1-027 crafting/copies and V1-051/052 normal Shop; integrate V1-024 Mining Power I. Material XP recommendations and Stone Ore Value remain gated.
 4. V1-070 machine lifecycle contract → V1-071A/B basic Miner → V1-017/018 complete safe V2 conversion/activation → V1-025 separate unlock/purchase → V1-071C/D individual Luck/resale. Do not expose partial V2 gameplay or ship compensation before K.2 is resolved.
@@ -220,13 +220,15 @@ Existing manual acquisition is reusable, but the new baseline and first-ever gua
 
 ## V1-021A — Fresh Cash and Factory Level Baseline
 
-**Status:** ⚪ NOT STARTED
-**Design:** DESIGN COMPLETE / READY
+**Status:** ✅ COMPLETE
+**Design:** Implemented and tested for this bounded baseline only
 **Dependencies:** Accepted persistence/testing foundation
 
 Smallest next implementation: change fresh Cash to $0 and fresh Level/XP to 0/0; use total threshold 100L² and Level floor(sqrt(XP/100)) consistently for initial display. Update the directly affected default/validation/display tests. Preserve existing total XP and valid legacy saves; assess any compatibility adjustment before editing. Do not add Pickaxes, first-click flags, machine entities, shop gates or V2 in this ticket. V1-100/101 later integrate the same formula; do not duplicate it.
 
 **Acceptance:** Reference L checks 1 (cash/XP/level portion only).
+
+Implemented fresh Cash/XP/Level 0/0/0, derived Level from total XP and valid Level-0 progress. Existing Cash/XP and missing-legacy XP fallback 100 are retained; saveVersion remains 1. Verified four syntax checks, 225 Node regressions and 11 browser scenarios. The first-resource, Pickaxe, sale, Shop and automation steps remain separate incomplete tickets.
 
 ---
 
