@@ -399,7 +399,7 @@ function validateSaveData(data){
         "tier1Ores", "tier2Ores", "tier3Ores", "tier4Ores"]){
         optional(data, key, (value, path) => number(value, path, 0, true));
     }
-    optional(data, "factoryLevel", (value, path) => number(value, path, 1, true));
+    optional(data, "factoryLevel", (value, path) => number(value, path, 0, true));
     for(const key of ["lastOreValue", "stoneValue"])
         optional(data, key, number);
     optional(data, "lastOre", string);
@@ -640,8 +640,8 @@ function createDefaultSave(){
     }
     return {
         saveVersion: SAVE_VERSION,
-        cash: 100,
-        factoryLevel: 1,
+        cash: 0,
+        factoryLevel: 0,
         factoryXP: 0,
         droppers: 0,
         adders: 0,
@@ -680,7 +680,7 @@ function createDefaultSave(){
 function completeValidatedSave(validatedSave){
     const completed = copySaveData(validatedSave);
     const defaults = createDefaultSave();
-    // Preserve the established missing-XP fallback; changing opening XP is a separate ticket.
+    // Existing saves missing XP retain their established fallback, distinct from fresh XP 0.
     defaults.factoryXP = 100;
 
     function fillMissing(target, source){
@@ -704,6 +704,8 @@ function completeValidatedSave(validatedSave){
 
 function initializeGameState(loadedSave){
     save = loadedSave === null ? createDefaultSave() : completeValidatedSave(loadedSave);
+    // XP is authoritative; preserve existing Cash/XP, including the legacy XP fallback.
+    save.factoryLevel = getFactoryLevelFromXP(save.factoryXP);
 }
 
           let pendingSmelt = {
@@ -749,19 +751,14 @@ if(
 
 function updateFactoryLevel(){
 
-    save.factoryLevel = Math.floor(
-
-        Math.sqrt(
-            save.factoryXP / 100
-        )
-
-    );
-
-if(save.factoryLevel < 1)
-    save.factoryLevel = 1;
+    save.factoryLevel = getFactoryLevelFromXP(save.factoryXP);
 
 checkFactoryMilestones();
     checkAchievements();
+}
+
+function getFactoryLevelFromXP(totalXP){
+    return Math.floor(Math.sqrt(totalXP / 100));
 }
 
 function unlockAchievement(id){
@@ -864,6 +861,7 @@ function claimAchievement(id){
 
 function saveGame(){
         if(!gameStarted || recoveryState.active) return;
+        save.factoryLevel = getFactoryLevelFromXP(save.factoryXP);
         localStorage.setItem(
             "ef_incremental",
             JSON.stringify(save)
@@ -2349,6 +2347,7 @@ document.getElementById(
 
 function updateUI(){
 
+    save.factoryLevel = getFactoryLevelFromXP(save.factoryXP);
     document.getElementById("factoryLevel").textContent =
     save.factoryLevel;
 
@@ -2368,14 +2367,13 @@ const xpIntoLevel =
     currentLevelXP;
 
 const xpNeeded =
-    nextLevelXP -
-    currentLevelXP;
+    100 * (2 * save.factoryLevel + 1);
 
 const xpPercent =
-    Math.min(
+    Math.max(0, Math.min(
         100,
         (xpIntoLevel / xpNeeded) * 100
-    );
+    ));
 
     document.getElementById(
     "xpBar"

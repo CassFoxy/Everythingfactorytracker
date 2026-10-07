@@ -48,7 +48,10 @@ test("each missing optional top-level field uses canonical defaults with the pre
         const partial = structuredClone(defaults);
         delete partial[key];
         const expected = structuredClone(defaults);
-        if (key === "factoryXP") expected.factoryXP = 100;
+        if (key === "factoryXP") {
+            expected.factoryXP = 100;
+            expected.factoryLevel = 1;
+        }
         assert.deepEqual(ready(JSON.stringify(partial)).state(), expected, key);
     }
 });
@@ -233,7 +236,7 @@ test("cancelled reset preserves snapshot and storage", () => {
     assert.equal(app.storageCalls.remove, 0);
 });
 
-test("confirmed reset removes once, creates original fresh state and saves a valid version 1", () => {
+test("confirmed reset removes once, creates the current fresh state and saves a valid version 1", () => {
     const app = boot("{bad");
     app.confirmReset(true);
     assert.equal(app.run("resetRecoverySave()"), true);
@@ -241,8 +244,9 @@ test("confirmed reset removes once, creates original fresh state and saves a val
     assert.equal(app.stored(), null);
     assert.equal(app.intervals.length, 3);
     assert.equal(app.state().saveVersion, 1);
-    assert.equal(app.state().cash, 100);
+    assert.equal(app.state().cash, 0);
     assert.equal(app.state().factoryXP, 0);
+    assert.equal(app.state().factoryLevel, 0);
     app.run("validateSaveData(save)");
     app.tick(5000);
     assert.deepEqual(ready(app.stored()).state(), app.state());
@@ -513,7 +517,7 @@ function assertRejected(raw, expectedPath) {
 const invalidFields = [
     ["cash", "100"], ["cash", -1], ["cash", null], ["cash", true],
     ["factoryXP", -1], ["factoryXP", 0.5], ["factoryXP", "100"], ["factoryXP", null],
-    ["factoryLevel", 0], ["factoryLevel", 1.5], ["factoryLevel", "1"],
+    ["factoryLevel", -1], ["factoryLevel", 1.5], ["factoryLevel", "1"],
     ["furnaceTier", -1], ["furnaceTier", 3], ["furnaceTier", 1.5], ["furnaceTier", "2"],
     ["inventory", null], ["inventory", []], ["inventory", "items"],
     ["oreCollection", []], ["oreCollection", null],
@@ -794,6 +798,7 @@ test("saving mid-cycle preserves reservations and stop-after-current across the 
 
 test("enabled furnace reload completes one batch then reserves the next without duplicating payout", () => {
     const data = ready().state();
+    data.cash = 100; // Retain this populated-save payout fixture independently of fresh Cash.
     data.furnaceTier = 2;
     data.inventory.stone = 150;
     let app = ready(JSON.stringify(data));
@@ -976,17 +981,81 @@ function legacyFixture() {
     return data;
 }
 
-test("new save has version 1 and unchanged starting state; autosave/reload round trip", () => {
+test("new save has version 1 and zero Cash/XP/Level; autosave/reload round trip", () => {
     const app = ready();
     assert.equal(app.state().saveVersion, 1);
-    assert.equal(app.state().cash, 100);
+    assert.equal(app.state().cash, 0);
     assert.equal(app.state().factoryXP, 0);
-    assert.equal(app.state().factoryLevel, 1);
+    assert.equal(app.state().factoryLevel, 0);
     assert.equal(app.state().droppers, 0);
     assert.equal(app.writes.length, 0);
     app.tick(5000);
     assert.equal(app.writes.length, 1);
     assert.deepEqual(ready(app.stored()).state(), app.state());
+});
+
+test("Factory Level boundaries and progress follow total XP from Level 0 upward", () => {
+    const app = ready();
+    for (const [xp, level, progress] of [
+        [0, 0, 0], [99, 0, 99], [100, 1, 0], [250, 1, 50],
+        [399, 1, 299 / 300 * 100], [400, 2, 0], [899, 2, 499 / 500 * 100],
+        [900, 3, 0], [1599, 3, 699 / 700 * 100], [1600, 4, 0],
+        [9999, 9, 1899 / 1900 * 100], [10000, 10, 0]
+    ]) {
+        app.run(`save.factoryXP = ${xp}; updateFactoryLevel(); updateUI();`);
+        assert.equal(app.state().factoryLevel, level, "XP " + xp);
+        assert.equal(Number(app.elements.get("factoryLevel").textContent), level);
+        const width = Number.parseFloat(app.elements.get("xpBar").style.width);
+        assert.ok(Number.isFinite(width) && width >= 0 && width <= 100);
+        assert.ok(Math.abs(width - progress) < 1e-10, "progress at XP " + xp);
+        assert.equal(app.run(`getXPForLevel(${level + 1}) - getXPForLevel(${level})`),
+            100 * (2 * level + 1));
+    }
+    // Existing validation accepts large finite XP: subtraction must not create a zero span/NaN.
+    for (const xp of [1e40, Number.MAX_VALUE]) {
+        app.run(`save.factoryXP = ${xp}; updateUI();`);
+        const width = Number.parseFloat(app.elements.get("xpBar").style.width);
+        assert.ok(Number.isFinite(width) && width >= 0 && width <= 100);
+    }
+});
+
+test("legacy/current Cash and XP survive load while stale or absent Level is derived", () => {
+    for (const version of [undefined, 0, 1]) {
+        for (const [xp, storedLevel, expectedLevel] of [[0, 1, 0], [99, 20, 0],
+            [400, 1, 2], [10000, undefined, 10], [undefined, 0, 1]]) {
+            const data = { cash: 137.5, droppers: 2, adders: 0, multipliers: 0,
+                saveVersion: version, factoryXP: xp, factoryLevel: storedLevel,
+                extra: { keep: true } };
+            const raw = JSON.stringify(data);
+            let app = ready(raw);
+            assert.equal(app.stored(), raw, "loading must not rewrite bytes");
+            for (let round = 0; round < 3; round++) {
+                assert.equal(app.state().cash, 137.5);
+                assert.equal(app.state().factoryXP, xp ?? 100);
+                assert.equal(app.state().factoryLevel, expectedLevel);
+                assert.equal(app.state().droppers, 2);
+                assert.deepEqual(app.state().extra, { keep: true });
+                app.run("validateSaveData(save); saveGame();");
+                app = ready(app.stored());
+            }
+        }
+    }
+});
+
+test("Level 0 crosses into Level 1 through mining and persists a derived Level", () => {
+    let app = ready(JSON.stringify({ cash: 0, factoryXP: 99, factoryLevel: 0,
+        droppers: 0, adders: 0, multipliers: 0 }));
+    app.elements.get("mineButton").onclick();
+    assert.equal(app.state().factoryXP, 100);
+    assert.equal(app.state().factoryLevel, 1);
+    assert.equal(app.elements.get("xpBar").style.width, "0%");
+    app = saveAndReload(app);
+    assert.equal(app.state().cash, 0);
+    assert.equal(app.state().factoryLevel, 1);
+    // A save between XP updates and rendering also uses authoritative XP.
+    app.run("addFactoryXP(300); saveGame();");
+    assert.equal(JSON.parse(app.stored()).factoryLevel, 2);
+    assert.equal(ready(app.stored()).state().factoryXP, 400);
 });
 
 test("unversioned populated save preserves every existing field, including active batch", () => {
@@ -1059,7 +1128,9 @@ for (const raw of ["{broken", "null", "[]", "false", "0", '"text"']) {
 }
 
 test("mine, buy Dropper, produce, manually smelt and reload preserve the normal loop", () => {
-    const app = ready();
+    // Existing funded saves retain the same purchase/production behavior.
+    const app = ready(JSON.stringify({ cash: 100, factoryXP: 0, factoryLevel: 1,
+        droppers: 0, adders: 0, multipliers: 0 }));
     app.elements.get("mineButton").onclick();
     app.elements.get("buyDropper").onclick();
     app.tick(1000);
