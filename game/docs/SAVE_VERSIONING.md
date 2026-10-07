@@ -1,4 +1,12 @@
-# Save schema version 1 — V1-010 through V1-015
+# Save schema version 1 — accepted persistence foundation
+
+## Current baseline and future contract — V1-016
+
+Production remains **saveVersion 1**, including accepted V1-021A: fresh Cash/XP/Level are 0/0/0. Existing Cash/XP are retained; absent legacy XP still defaults to 100. Factory Level is a non-negative compatibility cache derived from XP on initialization, updates, display and save. Older ticket reports below record their original results and are not a claim that the old $100/Level-1 defaults remain current.
+
+The future [V2 State and Compatibility Contract](V2_STATE_CONTRACT.md) defines exact field ownership, deterministic IDs, slots/entities, investment ledgers, reserved cycles, source conversion, additive manual development and activation gates. It is documentation only. V0→V1 remains unchanged; V1→V2, new validators and V2 writers are **not implemented or activated**. K.2 compensation and the contract's other decision gates remain unresolved. Next safe implementation: the Default-only portion of V1-026, without first-action backfill or V2.
+
+Accepted baseline verification remains 225 Node tests and 11 browser smoke scenarios; no test/production code is changed by V1-016.
 
 ## Planned V2 boundary — documentation synchronization, 2026-10-06
 
@@ -86,7 +94,7 @@ Other established optional fields may be absent; canonical default completion su
 | saveVersion | Existing absent/0 -> 1 compatibility; current 1 accepted; invalid/future versions rejected. |
 | Cash, lastOreValue, stoneValue | Finite, non-negative numbers. Fractional cash/value snapshots are retained. |
 | Factory XP, machine counts, production/tier counters | Finite, non-negative integers. |
-| Factory Level | Finite integer at least 1; not recomputed or reconciled with XP here. |
+| Factory Level | Since V1-021A: finite non-negative integer; structural validation precedes derivation from authoritative XP during runtime initialization and saving. |
 | lastOre | Nonempty string; historical display text is retained. |
 | Furnace tier | Integer indexing one of the existing furnace definitions. |
 | Inventory / Ore Collection | Objects of non-negative integer counts. Inventory allows Stone and current ore IDs; collection allows the existing 20 ore IDs. Unknown IDs reject the whole save, never silently disappear. |
@@ -226,7 +234,7 @@ For exact defaults, see createDefaultSave in game.js. validateSaveData remains t
 
 ### Persisted versus derived/runtime values
 
-No existing field is removed. stoneValue is derivable but remains persisted; changing that contract or its UI-side refresh is unnecessary here. Factory Level and some statistics can overlap other data, but immediate saves may capture intermediate counters, so loading does not reconcile or reinterpret them. Collection, inventory and achievement statistics are not interchangeable.
+No existing field is removed. stoneValue is derivable but remains persisted; changing that contract or its UI-side refresh is unnecessary here. Factory Level is now derived from XP by accepted V1-021A; the older V1-014 decision not to reconcile that cache is superseded. Other overlapping statistics retain their original meanings and are not reconstructed during load. Collection, inventory and achievement statistics are not interchangeable.
 
 Auto Furnace processing status and its runtime mirror are restored from the saved batch/timestamp/enabled fields. Batch unit values are historical snapshots and must not be recalculated from today's upgrades. UI selections, pending dialogs, recovery snapshots, timer handles and gameStarted remain runtime-only. Existing cost/capacity/progress calculations continue to derive their values without new persisted fields.
 
