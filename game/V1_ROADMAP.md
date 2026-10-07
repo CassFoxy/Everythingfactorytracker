@@ -15,10 +15,10 @@ V1-003, V1-010–015 and the V1-020 review are accepted. Newly Defined gameplay 
 Ticket numbers preserve history, not execution order. Complete one bounded child at a time; a parent is not permission for an entire architecture rewrite.
 
 1. **V1-021A** fresh Cash/Level baseline only (implemented and tested; continue with the contract work in step 2).
-2. V1-016 state/compatibility contract; V1-026 Default Pickaxe/access and V1-021B first-ever Stone; V1-050 price rules and V1-023 Starter sale. Agree incremental persistence boundaries before writing new fields.
+2. V1-016 contract documented; next implement the V1-026 Default-only portion using its [incremental boundary](docs/V2_STATE_CONTRACT.md#11-incremental-development-before-v2-activation). V1-021B first-ever Stone waits on M1 legacy policy. V1-050 price rules and V1-023 sale work must respect the same non-writing/compatible limits.
 3. V1-041 inventory contract, V1-028/029 manual quantity/material/Luck, V1-027 crafting/copies and V1-051/052 normal Shop; integrate V1-024 Mining Power I. Material XP recommendations and Stone Ore Value remain gated.
-4. V1-070 machine lifecycle contract → V1-071A/B basic Miner → V1-017/018 complete safe V2 conversion/activation → V1-025 separate unlock/purchase → V1-071C/D individual Luck/resale. Do not expose partial V2 gameplay or ship compensation before K.2 is resolved.
-5. V1-074A/B Polisher → V1-075A/B Refiner → V1-080–085 Furnace modernization, integrating independent reservations. Do not delay the opening Tier 1 sale until every later Furnace feature exists.
+4. V1-070 lifecycle contract → V1-071A/B Miner consumers and V1-071C/D local upgrades/resale; develop V1-017 migration and V1-018 validation against candidate fixtures without activating V2. K.2 and applicable contract decision gates must be resolved before release.
+5. V1-074A/B Polisher → V1-075A/B Refiner → V1-080–085 Furnace modernization, integrating independent reservations. Build consumers before V2 activation; they depend on the contract, not an already-active V2. Only after all migrated data has working consumers may V1-018 activate V2 and V1-025 expose new Miner automation. Compatible opening sale work need not wait for all later tiers, but must not reinterpret old active batches.
 6. V1-060–079 grid/network integration and V1-090–093 expansion after their unresolved design contracts; reuse tested machine simulation. Machine formulas do not define conveyor behavior.
 7. V1-100/101 XP integration, V1-130/131 milestones and retained Achievements; implement V1-150–155 event statistics alongside their producers, before dependent Rebirth/challenges.
 8. V1-170/172 perk definitions/calculations → V1-160–166 Rebirth → V1-164/171/173–175 permanent Shop/integration. Purchase pricing for Recommended Discount and any unapproved Capacity perk stay excluded.
@@ -160,13 +160,15 @@ Reviewed and accepted schema-1 persistence foundation. Preserve current compatib
 
 ## V1-016 — V2 State and Compatibility Contract
 
-**Status:** ⚪ NOT STARTED
-**Design:** Behavior Defined; unsupported compensation DESIGN REQUIRED
-**Dependencies:** V1-014–015; References I/K
+**Status:** ✅ COMPLETE (technical contract/documentation only)
+**Design:** Contract specified; listed gameplay/migration gates remain DESIGN REQUIRED
+**Dependencies:** Accepted V1-010–015/V1-021A; References I/K
 
 Define exact canonical instance fields and ownership for machines, slots, investments, reservations and newly implemented opening/manual state. Cover deterministic IDs, optional defaults, established unknown-data/recovery policy and V0→V1→V2. Do not activate V2 here. Specify a dependency-safe path for incremental opening fields; material shape changes require adjacent migration, not unversioned additions. Resolve K.2 before shipping compensation; do not reset existing progress. This contract is technical work, not permission to invent gameplay.
 
-**Acceptance:** Reference L checks 25–27.
+**Contract:** [V2_STATE_CONTRACT.md](docs/V2_STATE_CONTRACT.md). Field tables, exact ID/slot and investment ownership, reservation commit protocol, conversion responsibilities, decision gates and pre-V2 paths are documented. This completion does not certify an implemented migration or activate schema 2. The existing 225 Node tests and 11 browser scenarios remain unchanged.
+
+**Future implementation acceptance:** Reference L checks 25–27, plus the contract activation checklist.
 
 ---
 
@@ -186,7 +188,7 @@ Convert legacy Dropper counts to ≤5 Miners, Adders to ≤3 Polishers and posit
 
 **Status:** ⚪ NOT STARTED
 **Design:** DESIGN COMPLETE contract; depends on migration resolution
-**Dependencies:** V1-017, compatible runtime consumers in V1-041/070/071A
+**Dependencies:** V1-017; runtime consumers from V1-041/070/071A–C, V1-074A/B, V1-075A/B and V1-080–085; all applicable [activation gates](docs/V2_STATE_CONTRACT.md#12-activation-gate-for-v1-018). Consumers may be built/tested against candidate V2 records before activation; activation must not precede them.
 
 Validate after adjacent migrations; complete canonical defaults before runtime. Run full V0/V1/V2 fixtures, caps, IDs, investments, active cycles, retry, export, exactly-once compensation and rejection-with-original-bytes tests. Activate schema 2 only when all supported data can load into functional consumers safely; do not ship partial destructive conversion.
 
@@ -235,8 +237,8 @@ Implemented fresh Cash/XP/Level 0/0/0, derived Level from total XP and valid Lev
 ## V1-021B — Guaranteed First Manual Resource
 
 **Status:** ⚪ NOT STARTED
-**Design:** DESIGN COMPLETE; persistence contract prerequisite
-**Dependencies:** V1-021A, V1-016 field contract and compatible activation path, V1-026
+**Design:** Fresh guarantee Defined; legacy first-action backfill DESIGN REQUIRED (M1)
+**Dependencies:** V1-021A, V1-026 and V1-016 contract gate M1 approved; use the validated additive manual envelope if implemented before V2
 
 Implement the once-ever Stone/no-material first action, persisted so reload cannot repeat it. Define legacy completion defaults in the technical contract without inventing past player events. Later actions use the manual pool. Do not use inventory emptiness as a first-action flag.
 
@@ -296,7 +298,7 @@ Unlock Miner costs $100, requires Mining Power I and produces nothing. Purchase 
 
 **Status:** ⚪ NOT STARTED
 **Design:** DESIGN COMPLETE
-**Dependencies:** V1-021A, V1-016 inventory/default contract
+**Dependencies:** V1-021A and documented V1-016 contract. Default-only manual access can proceed in schema 1; crafted copies and first-action history are separate gated work
 
 Infinite Default Pickaxe, source-specific accessible tiers, locked weights zero before Luck; default reaches T2. Establish the runtime boundary without implementing future tiers. Legacy mapping/defaults must be explicit before persisted additions.
 
@@ -761,7 +763,7 @@ Legacy Adder effects are migration context, not final Polisher behavior. Separat
 
 **Status:** ⚪ NOT STARTED
 **Design:** DESIGN COMPLETE
-**Dependencies:** V1-070, V1-041, V1-050, V1-018
+**Dependencies:** V1-070, V1-041, V1-050 and V1-016 candidate-state contract; affected lifecycle gate T1. Implement/test consumer before V1-018 activation
 
 Reference C raw-ore-only input, no Stone/repolishing; 1–10 tiers, exact time/capacity/value, partial batches, selected ore and independent queue/reservation state.
 
@@ -797,7 +799,7 @@ Legacy Multiplier ownership migrates to a Refiner; old duplication and compoundi
 
 **Status:** ⚪ NOT STARTED
 **Design:** DESIGN COMPLETE
-**Dependencies:** V1-074A, V1-041, V1-070, V1-018
+**Dependencies:** V1-074A, V1-041, V1-070 and V1-016 candidate-state contract; affected lifecycle gate T1. Implement/test consumer before V1-018 activation
 
 One Refiner; polished or refined 1–14 inputs only. Reserve inputs, exact time/capacity/probability formulas, Dust roll/award before destruction, integer probabilistic yield; survivor count ≤15 and immutable pre-Refiner value. Separate metadata/cohorts and preserve Dust on destruction.
 

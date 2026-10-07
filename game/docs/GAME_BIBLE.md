@@ -7266,6 +7266,8 @@ Notification content, presentation assets and implementation details are maintai
 
 **Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
 
+The future [V2 State and Compatibility Contract](V2_STATE_CONTRACT.md) is the field-level companion for this chapter: authoritative/cache distinctions, manual state, machine slots/IDs/investment, active reservations, source mappings, additive V1 boundaries and the V2 activation gate. It changes no gameplay formulas or production schema. Its M1 (unknown legacy first-action history), T1 (new-cycle downtime/value timing) and B1 (unmapped legacy effects) boundaries require owner decisions where applicable; K.2 and the existing milestone/Refiner-resale questions remain Open. The current milestone catalogue may remain intact until a separate approved mapping exists. No partial V2 can be written before every migrated machine has a functional consumer.
+
 The accepted current contract is [SAVE_VERSIONING.md](SAVE_VERSIONING.md): schema 1, canonical defaults, sequential migrations, validation before runtime, and non-destructive recovery. Never silently reset or overwrite rejected data; block gameplay/autosave, export exact original bytes, allow retry, and require explicit reset confirmation. Current V1 legacy fields remain in production until an implementation ticket changes them.
 
 ### Decision 31 — Save migration
