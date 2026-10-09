@@ -909,13 +909,38 @@ Legacy Adder effects are migration context, not final Polisher behavior. Separat
 
 ## V1-074A — Polisher Processing
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟡 IN PROGRESS
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-070, V1-041A, V1-050A/B and V1-016 for candidate processing; V1-041B/V1-050C for applicable persisted/transaction integration and gate T1 before affected activation. Implement/test consumer before V1-018 activation
 
 Reference C raw-ore-only input, no Stone/repolishing; 1–10 tiers, exact time/capacity/value, partial batches, selected ore and independent queue/reservation state.
 
 **Acceptance:** Reference L checks 14, 26.
+
+Pure mathematics and Lot construction are complete in A1. Ownership, input transfer and actual processing remain outstanding in A2; the parent and overall Polisher system are not complete.
+
+### V1-074A1 — Pure Polisher Tier, Processing and Value Model
+
+**Status:** ✅ COMPLETE (pure model only)
+**Dependencies:** Reference C / Decision 14, V1-041A, V1-050A; V1-016 / V1-070 contracts
+
+`PolisherModel` in `ores.js` supplies:
+
+- `getCycleTime(tier)` / `getBatchSize(tier)`: tiers 1…10, exact `7.5 × 0.799413^(T−1)` seconds and positive half-up `1.668101^(T−1)` capacity. Approved source coefficients remain unchanged; no speed floor or forced endpoint.
+- `getProcessedAmount(tier,availableQuantity)`: finite non-negative integer quantity, minimum of available and capacity, including zero/partial batches. No inventory consumption or capacity policy.
+- `validateInputLot(lot)`: reuse InventoryModel canonical validation, then require raw ore; no Stone, materials, unknown IDs or already processed inputs.
+- `calculatePolishedValue(currentOreValue,rebirthValueLevel)`: finite non-negative supplied basis already includes applicable Ore Value; multiply once by `1.50 × (1 + 0.0001L)`, integer L=0…5000. Preserve full precision; reject overflow. This does not resolve T1 snapshot timing or reprice existing Lots.
+- `createPolishedLot(resourceId,processedQuantity,polishedValue)`: delegate exact metadata/positive quantity validation to InventoryModel; return an independent Lot with the supplied historical value, without attaching it to any inventory.
+- `getRawTierUpgradeCost(targetTier)` / `getTierUpgradePrice(targetTier,discountLevel)`: original `5000 × 10^(T−1)` for target 2…10, using CashPricingModel `polisherTier` Discount-before-rounding. No slot purchase prices, debit or investment append.
+
+Seven deterministic regressions cover formulas, quantities, all 20 raw ores, stage/value rejection, precise historical metadata, original costs, immutable inputs and unchanged production saves/gameplay. Local verification: all four syntax checks, 301 Node tests and the unchanged 12 browser smoke scenarios pass. SaveVersion remains 1; no live state integration.
+
+### V1-074A2 — Polisher Processing Lifecycle Integration
+
+**Status:** ⚪ NOT STARTED
+**Dependencies:** V1-074A1, V1-070, V1-041A and V1-016 for candidate lifecycle; V1-041B / V1-050C for applicable persisted/transaction integration; gate T1 before affected activation
+
+Implement independent selected-ore, queue/reservation and cycle transitions through the lifecycle contract. Transfer input ownership once and commit canonical Polished output once, preserving historical metadata across reloads. Use A1 calculations without choosing unresolved timing/value binding. Build/test the consumer before V1-018 activation. A1 does not implement ownership, queues, cycles, output awards or migration. V1-074B, V1-041B, V1-050C, V1-017 and V1-018 remain outstanding.
 
 ---
 
