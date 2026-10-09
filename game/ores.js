@@ -752,3 +752,198 @@ const InvestmentModel = (() => {
     return Object.freeze({ validatePayment, createActualPayment, createInvestment,
         validateInvestment, appendActualPayment, sumInvestment, calculateRefund });
 })();
+
+// V1-071A1: non-writing, idle-only candidate projection; never a save validator.
+const MinerCandidateModel = (() => {
+    const slotPrices = Object.freeze([0, 10000, 1000000, 10000000000, 1000000000000]);
+    const minerFields = ["id", "slot", "tier", "oreLuckLevel", "investment", "nextCycleSequence", "cycle"];
+
+    function invalid(field, rule){
+        throw new TypeError("Invalid Miner candidate: " + field + " " + rule);
+    }
+
+    function record(value, fields, path){
+        if(value === null || typeof value !== "object" || Array.isArray(value))
+            invalid(path, "must be a record");
+        const prototype = Object.getPrototypeOf(value);
+        if(prototype !== null && Object.getPrototypeOf(prototype) !== null)
+            invalid(path, "must be a plain data record");
+        if(Reflect.ownKeys(value).length !== fields.length)
+            invalid(path, "must contain exactly the candidate fields");
+        for(const key of fields){
+            const descriptor = Object.getOwnPropertyDescriptor(value, key);
+            if(!descriptor || !descriptor.enumerable || !("value" in descriptor))
+                invalid(path + "." + key, "must be an own data field");
+        }
+    }
+
+    function array(value, path){
+        if(!Array.isArray(value) || Reflect.ownKeys(value).length !== value.length + 1)
+            invalid(path, "must be a dense data array");
+        for(let i = 0; i < value.length; i++){
+            const descriptor = Object.getOwnPropertyDescriptor(value, i);
+            if(!descriptor || !descriptor.enumerable || !("value" in descriptor))
+                invalid(path, "must contain only own data entries");
+        }
+    }
+
+    function integer(value, minimum, maximum, path){
+        if(!Number.isInteger(value) || value < minimum || value > maximum)
+            invalid(path, "must be an integer from " + minimum + " through " + maximum);
+    }
+
+    function entitySequence(id, kinds){
+        if(typeof id !== "string") invalid("id", "must be a canonical entity ID");
+        const match = /^(pickaxe|miner|polisher|refiner):([1-9][0-9]*)$/.exec(id);
+        if(!match || !kinds.includes(match[1]) || !Number.isSafeInteger(Number(match[2])) ||
+            String(Number(match[2])) !== match[2]) invalid("id", "must be a canonical allocated entity ID");
+        return Number(match[2]);
+    }
+
+    function createSlotAccess(){
+        return [true, false, false, false, false];
+    }
+
+    function validateSlots(slots){
+        array(slots, "minerSlots");
+        if(slots.length !== 5 || slots.some(flag => typeof flag !== "boolean") || slots[0] !== true)
+            invalid("minerSlots", "requires five Booleans with slot 1 unlocked");
+    }
+
+    function validateIdleMiner(miner){
+        record(miner, minerFields, "miner");
+        entitySequence(miner.id, ["miner"]);
+        integer(miner.slot, 1, 5, "slot");
+        integer(miner.tier, 1, 25, "tier");
+        integer(miner.oreLuckLevel, 0, 50, "oreLuckLevel");
+        integer(miner.nextCycleSequence, 1, Number.MAX_SAFE_INTEGER, "nextCycleSequence");
+        // Active-cycle certification belongs to the cycle consumer, not this model.
+        if(miner.cycle !== null) invalid("cycle", "must be null; active-cycle validation is not supported");
+        InvestmentModel.validateInvestment(miner.investment, { machineType: "miner", owned: true });
+        for(const payment of miner.investment.entries){
+            if(payment.kind === "tier" && payment.targetLevel > miner.tier ||
+                payment.kind === "oreLuck" && payment.targetLevel > miner.oreLuckLevel)
+                invalid("investment", "cannot record an upgrade above the owned level");
+        }
+    }
+
+    function validateCollection(miners, slots){
+        validateSlots(slots);
+        array(miners, "miners");
+        if(miners.length > 5) invalid("miners", "cannot exceed five owned entities");
+        const ids = new Set(), occupied = new Set();
+        for(const miner of miners){
+            validateIdleMiner(miner);
+            if(ids.has(miner.id)) invalid("miners", "contains a duplicate ID");
+            if(occupied.has(miner.slot)) invalid("miners", "contains a duplicate slot");
+            if(!slots[miner.slot - 1]) invalid("miners", "cannot occupy a locked slot");
+            ids.add(miner.id);
+            occupied.add(miner.slot);
+        }
+    }
+
+    // Exact projection: {cash, shop:{minerUnlocked}, factory:{minerSlots,miners},
+    // identity:{nextEntitySequence,nextManualEquipSequence}}. Not an entire V2 save.
+    // otherEntityIds is REQUIRED caller context: all allocated non-Miner entity IDs,
+    // excluding reserved Default/Furnace IDs. The future full-state adapter supplies it
+    // and retains unrelated fields/extensions; this model cannot certify omitted IDs.
+    function validateCandidate(state, otherEntityIds){
+        record(state, ["cash", "shop", "factory", "identity"], "state");
+        if(typeof state.cash !== "number" || !Number.isFinite(state.cash) || state.cash < 0)
+            invalid("cash", "must be a finite non-negative number");
+        record(state.shop, ["minerUnlocked"], "shop");
+        if(typeof state.shop.minerUnlocked !== "boolean") invalid("minerUnlocked", "must be a Boolean");
+        record(state.factory, ["minerSlots", "miners"], "factory");
+        validateCollection(state.factory.miners, state.factory.minerSlots);
+        record(state.identity, ["nextEntitySequence", "nextManualEquipSequence"], "identity");
+        for(const key of ["nextEntitySequence", "nextManualEquipSequence"])
+            integer(state.identity[key], 1, Number.MAX_SAFE_INTEGER, key);
+        array(otherEntityIds, "otherEntityIds");
+        const sequences = new Set();
+        function reserve(id, kinds){
+            const sequence = entitySequence(id, kinds);
+            if(sequences.has(sequence)) invalid("identity", "contains a reused entity sequence");
+            if(sequence >= state.identity.nextEntitySequence)
+                invalid("nextEntitySequence", "must exceed every supplied entity sequence");
+            sequences.add(sequence);
+        }
+        for(const miner of state.factory.miners) reserve(miner.id, ["miner"]);
+        for(const id of otherEntityIds) reserve(id, ["pickaxe", "polisher", "refiner"]);
+    }
+
+    function getSlotState(miners, slots, slot){
+        validateCollection(miners, slots);
+        integer(slot, 1, 5, "slot");
+        return { unlocked: slots[slot - 1], occupied: miners.some(miner => miner.slot === slot) };
+    }
+
+    function getSlotPrice(slot, discountLevel){
+        integer(slot, 1, 5, "slot");
+        return CashPricingModel.calculateCashPrice(slotPrices[slot - 1], { category: "minerSlot", discountLevel });
+    }
+
+    function getMinerPrice(discountLevel){
+        return CashPricingModel.calculateCashPrice(100, { category: "minerPurchase", discountLevel });
+    }
+
+    function debit(cash, price){
+        if(cash < price) invalid("cash", "is insufficient");
+        const remaining = cash - price;
+        if(!Number.isFinite(remaining) || remaining + price !== cash || cash - remaining !== price)
+            invalid("cash", "cannot represent the exact debit");
+        return remaining;
+    }
+
+    function copyCandidate(state){
+        return {
+            cash: state.cash, shop: { ...state.shop }, identity: { ...state.identity },
+            factory: {
+                minerSlots: [...state.factory.minerSlots],
+                miners: state.factory.miners.map(miner => ({ ...miner,
+                    investment: { entries: miner.investment.entries.map(payment => ({ ...payment })) }
+                }))
+            }
+        };
+    }
+
+    function prepareSlotUnlock(state, slot, discountLevel, otherEntityIds){
+        validateCandidate(state, otherEntityIds);
+        integer(slot, 1, 5, "slot");
+        const price = getSlotPrice(slot, discountLevel);
+        if(state.factory.minerSlots[slot - 1]) invalid("slot", "is already unlocked");
+        const cash = debit(state.cash, price);
+        const result = copyCandidate(state);
+        result.cash = cash;
+        result.factory.minerSlots[slot - 1] = true;
+        return result;
+    }
+
+    function preparePurchase(state, slot, options, otherEntityIds){
+        validateCandidate(state, otherEntityIds);
+        record(options, ["discountLevel", "preservationLevel"], "options");
+        integer(options.preservationLevel, 0, 25, "preservationLevel");
+        const price = getMinerPrice(options.discountLevel);
+        const access = getSlotState(state.factory.miners, state.factory.minerSlots, slot);
+        if(state.factory.miners.length >= 5) invalid("miners", "already owns five");
+        if(!access.unlocked) invalid("slot", "is locked");
+        if(access.occupied) invalid("slot", "is occupied");
+        if(!state.shop.minerUnlocked) invalid("minerUnlocked", "requires the separate Unlock Miner purchase");
+        const cash = debit(state.cash, price);
+        const sequence = state.identity.nextEntitySequence;
+        if(sequence === Number.MAX_SAFE_INTEGER) invalid("nextEntitySequence", "is exhausted");
+        const investment = InvestmentModel.appendActualPayment(InvestmentModel.createInvestment(),
+            { kind: "purchase", targetLevel: null, cashPaid: price, basis: "actual" },
+            { machineType: "miner", owned: false });
+        const result = copyCandidate(state);
+        result.cash = cash;
+        result.identity.nextEntitySequence = sequence + 1;
+        result.factory.miners.push({ id: "miner:" + sequence, slot,
+            tier: Math.min(25, Math.max(1, options.preservationLevel)), oreLuckLevel: 0,
+            investment, nextCycleSequence: 1, cycle: null });
+        validateCandidate(result, otherEntityIds);
+        return result;
+    }
+
+    return Object.freeze({ createSlotAccess, validateSlots, validateIdleMiner, validateCollection,
+        validateCandidate, getSlotState, getSlotPrice, getMinerPrice, prepareSlotUnlock, preparePurchase });
+})();

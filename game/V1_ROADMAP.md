@@ -726,15 +726,44 @@ Replace final-design ownership semantics through the planned V2 transition, not 
 
 ## V1-071A — Miner Slots, Entities and Purchases
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟠 IN PROGRESS
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-070, V1-050A/B, V1-016 for candidate slot/entity/purchase preparation; V1-050C durable transaction integration and V1-018 gates before live writes/activation
 
 Five slots: free / $10,000 / $1,000,000 / $10,000,000,000 / $1,000,000,000,000, retained after resale/Rebirth and not discounted. Separate unlock and $100 machine purchase; independent entities with tier/local level/state/investment. Enforce caps in handlers.
 
-Begin with pure candidate validation/purchase preparation under the [lifecycle contract](docs/V1_MACHINE_LIFECYCLE_CONTRACT.md#12-implementation-handoff-and-future-acceptance). Do not convert live legacy counts, start production, add grid activation rules or write instance records into schema 1. Completing that bounded portion alone does not complete all live V1-071A integration.
+V1-071A1 completes pure candidate validation/purchase preparation under the [lifecycle contract](docs/V1_MACHINE_LIFECYCLE_CONTRACT.md#12-implementation-handoff-and-future-acceptance). V1-071A2 remains gated live integration. Do not convert live legacy counts, start production, add grid activation rules or write instance records into schema 1. Completing the pure portion alone does not complete V1-071A or the parent Miner system.
 
 **Acceptance:** Reference L checks 4–6, 17, 26.
+
+---
+
+## V1-071A1 — Pure Miner Slot, Entity and Purchase Candidate Model
+
+**Status:** ✅ COMPLETE (pure idle candidates only)
+**Dependencies:** V1-016, V1-070, V1-050A/B
+
+`MinerCandidateModel` in `ores.js` supplies `createSlotAccess`, `validateSlots`, `validateIdleMiner`, `validateCollection`, `validateCandidate`, `getSlotState`, `getSlotPrice`, `getMinerPrice`, `prepareSlotUnlock` and `preparePurchase`. Slots are exactly five Booleans with slot 1 true; fixed catalogue prices use `minerSlot` pricing without Discount. Nonsequential access is valid. Slot-unlock candidates debit only their private Cash/slot projection, never create a Miner or investment entry, and reject already-unlocked access.
+
+The exact non-persisted projection is `{cash, shop:{minerUnlocked}, factory:{minerSlots,miners}, identity:{nextEntitySequence,nextManualEquipSequence}}`. `validateCandidate(state, otherEntityIds)` requires explicit context containing every currently allocated non-Miner entity ID (Pickaxe/Polisher/Refiner, excluding reserved Default/Furnace IDs). `preparePurchase(state, slot, {discountLevel,preservationLevel}, otherEntityIds)` and `prepareSlotUnlock(state, slot, discountLevel, otherEntityIds)` return independent projections. Future full-state adapters must supply complete ID context, retain unrelated fields/extensions and preserve allocation history; these helpers do not certify omitted collections or replace the whole save. No implicit empty-ID default or new persisted context field is introduced.
+
+Miner records use exactly `id`, `slot`, `tier`, `oreLuckLevel`, `investment`, `nextCycleSequence`, `cycle`. Collection checks enforce five owners, unique IDs/slots and unlocked access. Tier 1–25, local level 0–50, positive safe operation counters and owned investment are validated; payments cannot claim levels above owned progress. Free tiers do not require invented payments. **Only `cycle:null` is certified**: any non-null cycle rejects explicitly pending its owning active-cycle validator, rather than passing unchecked work. Exact record fields are required at this pure-model boundary; future V2 inert-extension adapters remain required.
+
+Purchases require explicit `shop.minerUnlocked:true`, vacant unlocked slot and sufficient representable Cash. `CashPricingModel` quotes the original $100 machine purchase with Discount level 0–10. Preservation input is integer 0–25; starting tier is min(25,max(1,L)) once at creation. `InvestmentModel` records exactly one actual purchase payment, never free tier/local/slot charges. New local Ore Luck is 0, cycle null and operation sequence 1. A successful candidate consumes one global sequence; failures consume none. Existing entity state, historical payments and the manual-equip counter are retained independently. Counter exhaustion, malformed inputs and precision-losing debits reject without partial changes.
+
+Verified four syntax checks, 278 Node tests (13 focused candidate regressions added), and all 12 unchanged browser scenarios. No live transactions, production simulation, migration, UI, schema/default or legacy cost changes; production saveVersion remains 1. V1-050C and all live Miner integration remain outstanding.
+
+---
+
+## V1-071A2 — Live Miner Purchase and Ownership Integration
+
+**Status:** ⚪ NOT STARTED
+**Design:** Candidate contract Defined; live release gated
+**Dependencies:** V1-071A1, V1-050C transaction coordinator, V1-018 consumer/activation gates and approved grid placement/activation semantics where applicable
+
+Adapt the approved pure projection to the authoritative full state without dropping unrelated/unknown data. Supply complete global identity context, validate any active cycles through their owning consumer, and commit actual Cash, access/ownership, identity and ledger atomically. Bind prerequisites/feedback in UI while enforcing them in logic. Preserve slot access after removal and reject stale/failed transactions without duplicate debit or ID consumption. No partial instance writes into schema 1, no implicit ownership-to-placement rule, and no live activation before required V2 consumers and gates. Coordinate prerequisite Shop ownership with its owning ticket; this child does not invent Unlock Miner or production rules.
+
+**Acceptance:** Reference L checks 4–6, 17, 26 plus the lifecycle transaction failure/reload checklist.
 
 ---
 
