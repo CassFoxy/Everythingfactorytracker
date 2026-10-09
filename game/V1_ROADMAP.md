@@ -970,13 +970,39 @@ Legacy Multiplier ownership migrates to a Refiner; old duplication and compoundi
 
 ## V1-075A — Refiner Processing and Gem Dust
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟡 IN PROGRESS
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-074A, V1-041A, V1-070 and V1-016 for candidate processing; V1-041B for persisted integration and gate T1 before affected activation. R1 continues to block active resale in V1-075B. Implement/test consumer before V1-018 activation
 
 One Refiner; polished or refined 1–14 inputs only. Reserve inputs, exact time/capacity/probability formulas, Dust roll/award before destruction, integer probabilistic yield; survivor count ≤15 and immutable pre-Refiner value. Separate metadata/cohorts and preserve Dust on destruction.
 
 **Acceptance:** Reference L checks 15, 26.
+
+Pure calculations and hypothetical outcomes are complete in A1. Actual reservation, destruction, Dust credit and survivor output remain outstanding in A2; neither the parent nor the Refiner system is complete.
+
+### V1-075A1 — Pure Refiner Tier, Probability, Value and Gem Dust Model
+
+**Status:** ✅ COMPLETE (pure model only)
+**Dependencies:** Reference D / Decisions 17–18, V1-041A, V1-074A1 and V1-016 / V1-070 contracts
+
+`RefinerModel` in `ores.js` exposes deterministic calculations with explicit levels/rolls:
+
+- `getInterval`, `getBatchSize`, `getProcessedAmount`: tiers 1…10, full-precision `15 × 0.2^((T−1)/9)`, positive half-up `1 + 9 × ((T−1)/9)^1.2`, and min(capacity, finite non-negative integer available quantity). Partial/empty input supported without mutation.
+- `validateInputLot` reuses InventoryModel and accepts Polished count 0 or Refined count 1…14 only. `getNextPass(c)` is c+1; count 15 rejects.
+- `getTierBaseDustChance`, `getEffectiveBaseDustChance`, `getDustChance`: Reference D base formula, +0.005 per Dust Chance level 0…30 with 25% effective-base cap, then ×1.25^c with 95% final cap.
+- `getDestructionChance(c,stabilityLevel)`: attempted pass n=c+1; clamp(min(0.95,0.15n)−0.005L,0.05,0.95), Stability level 0…180. No Luck or ownership modifier.
+- `getExpectedDustYield` / `getDustQuantity`: Yield level 0…50, expected 1+0.05L; explicit Boolean Dust success plus independent fractional roll in [0,1). Integer floor plus probabilistic remainder, or zero on failed success.
+- `getRefineBonus` / `calculateRefinedValue`: passes 1…15 and Value level 0…5000 follow Reference D exactly, including intentional negative bonuses after pass 5. `createRefinedLot(input,successfulQuantity,valueLevel)` validates positive quantity no larger than input and delegates canonical metadata to InventoryModel. First basis is historical polishedValue; later basis remains preRefinerValue, never the prior derived result.
+- `evaluateItem(input,tier,perks,rolls)` requires input amount exactly 1, perks `{dustChanceLevel,stabilityLevel,yieldLevel,valueLevel}` and separate rolls `{dust,fractionalYield,destruction}`. Returns `{dust,destroyed,refinedLot}`. Dust is calculated first and survives hypothetical destruction; destroyed outcomes have null output. Surviving output is one independent Lot. Future batch callers require separate rolls per item; no batch-wide outcome, inventory splitting/merging or award occurs here.
+
+Eight focused deterministic regressions cover full formulas, caps, eligibility, roll boundaries, integer yield, all 15 value passes, historical metadata, malformed inputs/overflow, independence and unchanged production persistence/gameplay. Local checks: four syntax checks, 309 Node tests and all 12 existing browser smoke scenarios pass. Production saveVersion stays 1.
+
+### V1-075A2 — Refiner Processing Lifecycle Integration
+
+**Status:** ⚪ NOT STARTED
+**Dependencies:** V1-075A1, V1-070, V1-041A and V1-016 for candidate lifecycle; V1-041B / V1-050C for applicable persisted/transaction integration; gate T1 before affected activation
+
+Implement per-item reservation/result ownership and exactly-once commits for Dust, destruction and surviving Refined Lots using the established cycle contract. Preserve independent rolls and immutable value bases across reload. A1 has no reservation, active cycle, payout, statistics or challenge event. K.1 destroyed-ore challenge credit remains unresolved; R1 still blocks active Refiner resale in V1-075B; T1 timing/value binding is not decided by these mathematical helpers. V1-075B, V1-041B, V1-050C and V1-018 remain outstanding; no V2 activation or migration occurs here.
 
 ---
 
