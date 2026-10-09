@@ -769,13 +769,44 @@ Adapt the approved pure projection to the authoritative full state without dropp
 
 ## V1-071B — Miner Tier Curve and Automated Distribution
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟠 IN PROGRESS
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-071A, V1-030
 
 Use every Reference B tier-1–25 table entry and original cost recurrence (Tier 6 ×7.5 only), interval/speed floors and one base output/cycle. T4 zero before Miner 6. Normalize ore columns around Stone anchor, apply Overall Luck, normalize and enforce Stone ≥25%. Do not activate future output duplication/tier 26+.
 
+V1-071B1 completes the pure mathematical model only. V1-071B2 remains outstanding for live production; this does not complete V1-071, V1-025, purchase integration or V2 activation.
+
 **Acceptance:** Reference L checks 5–8.
+
+---
+
+## V1-071B1 — Pure Miner Tier Curves and Automated Distribution
+
+**Status:** ✅ COMPLETE (pure mathematics only)
+**Dependencies:** Reference B / V1-030 catalogue, V1-050A pricing; V1-071A1 provides the separate candidate ownership boundary
+
+`MinerTierModel` in `ores.js` exposes `getTierSource`, `getTierProbabilities`, `getRawTierUpgradeCost`, `getTierUpgradePrice`, `getProductionInterval` and immutable `BASE_OUTPUT_PER_CYCLE:1`. Source rows are frozen copies of all 25 approved rows; `stone` is a percentage anchor and `tier1`–`tier4` are relative ore-column weights. Probability results use the same keys as fractions and are independent objects. T4 is explicitly zeroed below Miner 6, separate from manual Pickaxe access.
+
+Distribute 1−S over eligible ore columns, multiply by explicit Overall Luck exponents 0.20/0.40/0.60/0.80, normalize with unchanged Stone weight, then enforce Stone ≥0.25 by proportionally assigning 0.75 to adjusted ore weights. Identity Luck retains the source Stone anchor exactly. Full-precision normalization sums to 1 within floating-point precision; no display rounding or remainder is charged to Stone/locked tiers. Positive finite multiplier inputs, including numerical extremes, remain finite; this mathematical input does not grant or persist perk ownership. The current Defined permanent source still caps at 11×. No within-tier Ore Luck calculation or tier-roll/RNG helper is implemented here.
+
+Raw upgrades start at $400 into T2, use ×4 except ×7.5 into T6, then ×4 through T25 ($52,776,558,133,248,000). Recompute the original raw recurrence for each target; `CashPricingModel` applies `minerTier` Discount and Cash rounding. No upgrade transaction/payment is appended. Tier 1 purchase remains V1-071A1.
+
+Intervals return full-precision seconds: max(0.1, max(0.1,5×0.96^(T−1))×(1−0.01L)), with validated tiers 1–25 and Defined Miner Speed levels 0–50. The floor remains in the formula but does not bind within these caps; no invalid higher tier/perk is enabled to demonstrate it. One base resource is an invariant, not an award; duplication remains inactive.
+
+Verified four syntax checks, 287 Node tests (nine focused model regressions added), and all 12 unchanged browser scenarios. Tests compare every source row against both canonical documents, validate normalized/floored/locked distributions and relative Luck weighting, original costs/quotes, intervals and unchanged production saves/manual/legacy behavior. Production saveVersion remains 1; no state, handler, timer, award, migration or UI integration.
+
+---
+
+## V1-071B2 — Live Automated Production Integration
+
+**Status:** ⚪ NOT STARTED
+**Design:** Mathematical rules Defined; timing/activation still gated
+**Dependencies:** V1-071B1, V1-071A2, V1-071C within-tier selection, V1-070 cycle contract, V1-050C transaction coordination and V1-018 consumer/activation gates; T1 timing/effect binding and applicable grid activation decisions
+
+Connect independent owned Miner cycles to the pure tier model and the separately approved within-tier ore model. Explicitly bind effects at the approved timing boundary, reserve/resolve/commit outcomes once, and integrate resource awards, XP, Collection and statistics with their owning consumers. Rebuild only valid schedulers after load; do not generate offline catch-up, double-pay results or infer production activation from grid ownership. Implement deterministic roll boundary and lifecycle/reload tests in the existing harness. No partial production writes into schema 1 or duplicated legacy Dropper production.
+
+**Acceptance:** Reference L checks 5–8, 26 and V1-070's cycle/reload checklist.
 
 ---
 

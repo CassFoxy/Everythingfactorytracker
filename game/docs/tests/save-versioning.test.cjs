@@ -12,6 +12,172 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const minerTiers = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; MinerTierModel;');
+const tierProbabilityKeys = ["stone", "tier1", "tier2", "tier3", "tier4"];
+function closeProbability(actual, expected) {
+    assert.ok(Math.abs(actual - expected) <= 8 * Number.EPSILON * Math.max(Math.abs(expected), Number.MIN_VALUE),
+        `${actual} differs from ${expected}`);
+}
+
+test("Miner catalogue matches all 25 approved Reference B rows in both canonical documents", () => {
+    for (const document of ["GAME_BIBLE.md", "TEFI_Consolidated_Development_Specification.md"]) {
+        const section = fs.readFileSync(path.join(root, "docs", document), "utf8")
+            .split("## Reference B Miner rarity costs and production")[1].split("### Exact normalization procedure")[0];
+        const rows = section.split(/\r?\n/).filter(line => /^\| (?:\*\*)?\d/.test(line))
+            .map(line => line.replace(/\*\*|%/g, "").split("|").slice(1, -1)
+                .map(value => value.trim() === "—" ? 0 : Number(value.trim())));
+        assert.equal(rows.length, 25);
+        rows.forEach(([tier, ...weights], i) => {
+            assert.equal(tier, i + 1);
+            const source = minerTiers.getTierSource(tier);
+            assert.deepEqual(Object.keys(source), tierProbabilityKeys);
+            assert.deepEqual(Object.values(source), weights);
+            assert.equal(Object.isFrozen(source), true);
+            assert.throws(() => { source.stone = 0; }, TypeError);
+            assert.equal(minerTiers.getTierSource(tier).stone, weights[0]);
+            assert.equal(source.tier4 === 0, tier < 6);
+        });
+    }
+});
+
+test("Luck 1 preserves Stone anchors while normalizing imperfect ore source totals", () => {
+    for (let tier = 1; tier <= 25; tier++) {
+        const source = minerTiers.getTierSource(tier), p = minerTiers.getTierProbabilities(tier, 1);
+        assert.equal(p.stone, source.stone / 100);
+        const oreTotal = source.tier1 + source.tier2 + source.tier3 + source.tier4;
+        for (const key of tierProbabilityKeys.slice(1))
+            closeProbability(p[key], (1 - source.stone / 100) * source[key] / oreTotal);
+    }
+    // Tier 2's rounded columns sum to 100.005, so treating each as a percent is wrong.
+    assert.notEqual(minerTiers.getTierProbabilities(2, 1).tier1, 4.726 / 100);
+    assert.equal(minerTiers.getTierProbabilities(25, 1).stone, 0.25);
+});
+
+test("automated distributions stay finite, normalized and access-locked across positive finite Luck extremes", () => {
+    for (let tier = 1; tier <= 25; tier++) {
+        for (const luck of [Number.MIN_VALUE, 1e-200, 0.001, 0.5, 1, 2, 11, 1e100, Number.MAX_VALUE]) {
+            const p = minerTiers.getTierProbabilities(tier, luck);
+            assert.deepEqual(Object.keys(p), tierProbabilityKeys);
+            for (const value of Object.values(p)) assert.ok(Number.isFinite(value) && value >= 0 && value <= 1);
+            assert.ok(Math.abs(Object.values(p).reduce((a, b) => a + b, 0) - 1) <= 4 * Number.EPSILON);
+            assert.ok(p.stone >= 0.25);
+            for (const key of ["tier1", "tier2", "tier3"]) assert.ok(p[key] > 0);
+            if (tier < 6) assert.equal(p.tier4, 0);
+            else assert.ok(p.tier4 > 0);
+        }
+    }
+});
+
+test("Overall Luck applies the four exponents and the Stone floor preserves adjusted ore proportions", () => {
+    for (const [tier, luck] of [[1, 2], [6, 11], [25, 11]]) {
+        const source = minerTiers.getTierSource(tier), stone = source.stone / 100;
+        const columns = [source.tier1, source.tier2, source.tier3, source.tier4];
+        const sourceTotal = columns.reduce((a, b) => a + b, 0);
+        const weights = columns.map((v, i) => (1 - stone) * v / sourceTotal * luck ** [0.2, 0.4, 0.6, 0.8][i]);
+        const oreWeight = weights.reduce((a, b) => a + b, 0);
+        const unboundedStone = stone / (stone + oreWeight);
+        const p = minerTiers.getTierProbabilities(tier, luck);
+        closeProbability(p.stone, Math.max(0.25, unboundedStone));
+        for (let i = 0; i < 4; i++) closeProbability(p[tierProbabilityKeys[i + 1]],
+            unboundedStone < 0.25 ? 0.75 * weights[i] / oreWeight : weights[i] / (stone + oreWeight));
+        closeProbability(p.tier3 / p.tier1, source.tier3 / source.tier1 * luck ** 0.4);
+        assert.ok(p.tier3 / p.tier1 > source.tier3 / source.tier1);
+    }
+    assert.ok(minerTiers.getTierProbabilities(1, 2).stone > 0.25); // No unnecessary clamp.
+    assert.equal(minerTiers.getTierProbabilities(25, 11).stone, 0.25);
+    assert.equal(minerTiers.getTierProbabilities(5, Number.MAX_VALUE).tier4, 0);
+    assert.ok(minerTiers.getTierProbabilities(6, Number.MAX_VALUE).tier4 > 0);
+});
+
+test("probability result objects are independent and cannot mutate source data", () => {
+    const first = minerTiers.getTierProbabilities(6, 11), expected = structuredClone(first);
+    const second = minerTiers.getTierProbabilities(6, 11);
+    assert.notEqual(first, second);
+    first.stone = 0; first.tier4 = 100;
+    assert.deepEqual(structuredClone(second), expected);
+    assert.deepEqual(structuredClone(minerTiers.getTierProbabilities(6, 11)), expected);
+    assert.equal(minerTiers.getTierSource(6).tier4, 0.0004);
+});
+
+test("raw Miner upgrade costs use original recurrence with only the Tier 6 exception", () => {
+    for (const [tier, cost] of [[2, 400], [3, 1600], [5, 25600], [6, 192000], [7, 768000], [25, 52776558133248000]])
+        assert.equal(minerTiers.getRawTierUpgradeCost(tier), cost);
+    for (let tier = 3; tier <= 25; tier++)
+        assert.equal(minerTiers.getRawTierUpgradeCost(tier), minerTiers.getRawTierUpgradeCost(tier - 1) * (tier === 6 ? 7.5 : 4));
+    const pricing = vm.runInNewContext(ores + "\nCashPricingModel;");
+    for (const discountLevel of [0, 1, 10]) {
+        for (let tier = 2; tier <= 25; tier++)
+            assert.equal(minerTiers.getTierUpgradePrice(tier, discountLevel),
+                pricing.calculateCashPrice(minerTiers.getRawTierUpgradeCost(tier), { category: "minerTier", discountLevel }));
+    }
+    assert.equal(minerTiers.getTierUpgradePrice(2, 1), 380);
+    assert.equal(minerTiers.getTierUpgradePrice(3, 10), 800); // Discount crosses below $1,000 before band selection.
+    assert.equal(minerTiers.getTierUpgradePrice(6, 10), 96000);
+    const roundedEarlier = minerTiers.getTierUpgradePrice(7, 1);
+    assert.notEqual(roundedEarlier * 4, minerTiers.getTierUpgradePrice(8, 1));
+    assert.equal(minerTiers.getRawTierUpgradeCost(8), 3072000);
+});
+
+test("Miner intervals use full-precision seconds, independent speed levels and one base output", () => {
+    assert.equal(minerTiers.getProductionInterval(1, 0), 5);
+    assert.equal(minerTiers.getProductionInterval(1, 50), 2.5);
+    for (let tier = 1; tier <= 25; tier++) {
+        for (const speed of [0, 1, 25, 50]) {
+            const normal = Math.max(0.1, 5 * 0.96 ** (tier - 1));
+            const interval = minerTiers.getProductionInterval(tier, speed);
+            assert.equal(interval, Math.max(0.1, normal * (1 - 0.01 * speed)));
+            assert.ok(interval >= 0.1);
+            assert.equal(minerTiers.BASE_OUTPUT_PER_CYCLE, 1);
+        }
+    }
+    assert.notEqual(minerTiers.getProductionInterval(25, 0), 1.8771); // Display approximation is not the formula.
+    assert.ok(minerTiers.getProductionInterval(25, 50) > 0.1); // Floor cannot bind at Defined V1 caps.
+    assert.throws(() => { minerTiers.BASE_OUTPUT_PER_CYCLE = 2; }, TypeError);
+});
+
+test("Miner tier mathematics rejects invalid tiers, Luck, speed and Discount rather than clamping", () => {
+    for (const tier of [0, -1, 26, 2.5, "1", null, true, undefined, NaN, Infinity, -Infinity]) {
+        for (const call of [() => minerTiers.getTierSource(tier), () => minerTiers.getTierProbabilities(tier, 1),
+            () => minerTiers.getProductionInterval(tier, 0), () => minerTiers.getRawTierUpgradeCost(tier),
+            () => minerTiers.getTierUpgradePrice(tier, 0)]) assert.throws(call, /Invalid Miner tier model/);
+    }
+    assert.throws(() => minerTiers.getRawTierUpgradeCost(1));
+    assert.throws(() => minerTiers.getTierUpgradePrice(1, 0));
+    for (const luck of [0, -1, "1", null, true, undefined, NaN, Infinity, -Infinity])
+        assert.throws(() => minerTiers.getTierProbabilities(1, luck), /Overall Luck/);
+    for (const speed of [-1, 51, 1.5, "0", null, true, undefined, NaN, Infinity])
+        assert.throws(() => minerTiers.getProductionInterval(1, speed), /rebirthSpeedLevel/);
+    for (const discount of [-1, 11, 1.5, "0", null, true, undefined, NaN, Infinity])
+        assert.throws(() => minerTiers.getTierUpgradePrice(2, discount), /discountLevel/);
+});
+
+test("unused Miner tier calculations preserve production saves, timers, manual mining and legacy purchases", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion,
+        cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), control = ready(raw), before = app.state(), timerCount = app.intervals.length;
+        app.run(`for(let tier=1;tier<=25;tier++) {
+            MinerTierModel.getTierSource(tier); MinerTierModel.getTierProbabilities(tier,11);
+            MinerTierModel.getProductionInterval(tier,50);
+            if(tier>1) MinerTierModel.getTierUpgradePrice(tier,10);
+        }`);
+        assert.deepEqual(app.state(), before);
+        assert.equal(app.intervals.length, timerCount);
+        assert.equal(app.writes.length, 0);
+        // Existing controlled manual pipeline and legacy production remain the only active paths.
+        for (const instance of [app, control]) {
+            instance.elements.get("mineButton").onclick();
+            if (raw !== null) for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                instance.elements.get(id).onclick();
+            instance.tick(1000);
+        }
+        assert.deepEqual(app.state(), control.state());
+        const after = app.state();
+        assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 // Candidate models execute without gameplay, DOM, storage, clocks or RNG.
 const minerModel = vm.runInNewContext(ores + "\nMinerCandidateModel;");
 const minerOptions = Object.freeze({ discountLevel: 0, preservationLevel: 0 });

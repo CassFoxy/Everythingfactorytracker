@@ -947,3 +947,99 @@ const MinerCandidateModel = (() => {
     return Object.freeze({ createSlotAccess, validateSlots, validateIdleMiner, validateCollection,
         validateCandidate, getSlotState, getSlotPrice, getMinerPrice, prepareSlotUnlock, preparePurchase });
 })();
+
+// V1-071B1: Reference B mathematics only, not a production cycle or resource award.
+const MinerTierModel = (() => {
+    // Stone is a percentage anchor; ore columns are relative source weights.
+    // Keep all approved rows, including their original rounding discrepancies.
+    const sources = Object.freeze([
+        [95.898, 4.000, 0.100, 0.002, 0],
+        [95.086, 4.726, 0.185, 0.003, 0],
+        [93.439, 6.177, 0.378, 0.006, 0],
+        [91.203, 8.018, 0.768, 0.011, 0],
+        [88.480, 10.000, 1.500, 0.020, 0],
+        [85.344, 12.722, 1.908, 0.025, 0.0004],
+        [81.861, 15.134, 2.754, 0.250, 0.0011],
+        [78.096, 17.538, 3.799, 0.565, 0.0021],
+        [74.119, 19.851, 5.048, 0.979, 0.0034],
+        [70.000, 22.000, 6.500, 1.495, 0.0050],
+        [65.813, 22.097, 8.375, 3.704, 0.011],
+        [61.631, 21.463, 10.485, 6.402, 0.019],
+        [57.521, 20.068, 12.810, 9.573, 0.028],
+        [53.542, 17.907, 15.325, 13.188, 0.039],
+        [49.744, 15.000, 18.000, 17.206, 0.050],
+        [46.165, 14.167, 19.364, 20.179, 0.125],
+        [42.830, 13.026, 20.650, 23.285, 0.208],
+        [39.754, 11.600, 21.853, 26.494, 0.299],
+        [36.939, 9.915, 22.969, 29.780, 0.397],
+        [34.383, 8.000, 24.000, 33.117, 0.500],
+        [32.075, 7.169, 23.498, 36.482, 0.776],
+        [30.000, 6.241, 22.829, 39.864, 1.067],
+        [28.141, 5.229, 22.011, 43.251, 1.369],
+        [26.481, 4.145, 21.062, 46.631, 1.680],
+        [25.000, 3.000, 20.000, 50.000, 2.000]
+    ].map(([stone, tier1, tier2, tier3, tier4]) => Object.freeze({ stone, tier1, tier2, tier3, tier4 })));
+    const oreKeys = ["tier1", "tier2", "tier3", "tier4"];
+    const exponents = [0.20, 0.40, 0.60, 0.80];
+
+    function integer(value, minimum, maximum, field){
+        if(!Number.isInteger(value) || value < minimum || value > maximum)
+            throw new TypeError("Invalid Miner tier model: " + field + " must be an integer from " + minimum + " through " + maximum);
+    }
+
+    function finite(value){
+        if(!Number.isFinite(value)) throw new TypeError("Invalid Miner tier model: non-finite calculation");
+        return value;
+    }
+
+    function getTierSource(tier){
+        integer(tier, 1, 25, "tier");
+        return sources[tier - 1]; // Immutable, including the returned row.
+    }
+
+    function getTierProbabilities(tier, overallLuck){
+        const source = getTierSource(tier);
+        if(typeof overallLuck !== "number" || !Number.isFinite(overallLuck) || overallLuck <= 0)
+            throw new TypeError("Invalid Miner tier model: Overall Luck must be positive and finite");
+        const stone = source.stone / 100;
+        const eligible = oreKeys.map(key => key === "tier4" && tier < 6 ? 0 : source[key]);
+        const sourceTotal = eligible.reduce((sum, weight) => sum + weight, 0);
+        const adjusted = eligible.map((weight, i) => finite(
+            (1 - stone) * (weight / sourceTotal) * Math.pow(overallLuck, exponents[i])));
+        const oreTotal = finite(adjusted.reduce((sum, weight) => sum + weight, 0));
+        const total = finite(stone + oreTotal);
+        // Identity Luck retains the approved anchor exactly despite source rounding.
+        const normalizedStone = overallLuck === 1 ? stone : stone / total;
+        const floorApplies = normalizedStone < 0.25;
+        const result = { stone: floorApplies ? 0.25 : normalizedStone };
+        for(let i = 0; i < oreKeys.length; i++)
+            result[oreKeys[i]] = finite(floorApplies ? 0.75 * (adjusted[i] / oreTotal) : adjusted[i] / total);
+        // Retain full precision: sum is 1 to floating-point precision. Do not apply
+        // display rounding or subtract a remainder from Stone/the locked T4 bucket.
+        // Direct normalization also retains tiny eligible probabilities at small Luck,
+        // even if the representable Stone probability rounds to 1.
+        return result;
+    }
+
+    function getRawTierUpgradeCost(targetTier){
+        integer(targetTier, 2, 25, "targetTier");
+        let raw = 400;
+        for(let target = 3; target <= targetTier; target++) raw = finite(raw * (target === 6 ? 7.5 : 4));
+        return raw;
+    }
+
+    function getTierUpgradePrice(targetTier, discountLevel){
+        return CashPricingModel.calculateCashPrice(getRawTierUpgradeCost(targetTier),
+            { category: "minerTier", discountLevel });
+    }
+
+    function getProductionInterval(tier, rebirthSpeedLevel){
+        integer(tier, 1, 25, "tier");
+        integer(rebirthSpeedLevel, 0, 50, "rebirthSpeedLevel");
+        const normal = Math.max(0.1, 5 * Math.pow(0.96, tier - 1));
+        return finite(Math.max(0.1, normal * (1 - 0.01 * rebirthSpeedLevel))); // Seconds, not rounded.
+    }
+
+    return Object.freeze({ getTierSource, getTierProbabilities, getRawTierUpgradeCost,
+        getTierUpgradePrice, getProductionInterval, BASE_OUTPUT_PER_CYCLE: 1 });
+})();
