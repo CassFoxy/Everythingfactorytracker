@@ -812,13 +812,37 @@ Connect independent owned Miner cycles to the pure tier model and the separately
 
 ## V1-071C — Miner Luck and Individual Upgrades
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟡 IN PROGRESS
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-071B, V1-050
 
 Separate Overall Luck tier roll from within-tier Ore Luck. Local Ore Luck levels 0–50, own cost curve, no Discount; multiply with permanent Ore Luck and 1× deferred Inscription factor. Track actual local investment; no cross-Miner sharing or ownership-count Luck.
 
 **Acceptance:** Reference L checks 5, 8, 17.
+
+Pure calculations are complete in C1; live local upgrades and production use remain outstanding in C2/B2. This does not complete the parent or the Miner system.
+
+### V1-071C1 — Pure Miner Ore Luck and Within-Tier Selection
+
+**Status:** ✅ COMPLETE (pure model only)
+**Dependencies:** V1-071B1, V1-050A; Reference B / Decisions 10–11 and the existing ore catalogue
+
+`MinerOreLuckModel` in `ores.js` provides:
+
+- `getFinalOreLuck(rebirthLevel, localLevel)`: `(1 + 0.002R) × (1 + 0.02L)` with integer R=0…5000 and L=0…50; maximum 22×. Deferred Inscriptions remain 1×; no ownership-count factor.
+- `getOreWeights(R,L)`: five full-precision weights `0.65^i × FinalMinerOreLuck^(0.1i)`, i=0…4.
+- `getOreProbabilities(oreTier,R,L)`: fresh ordered `{resourceId, probability}` records using the existing five-ore T1…T4 catalogues. Stone is rejected: the future production caller bypasses this second stage for Stone. Overall Luck and access locks remain the first-stage responsibility.
+- `selectOreId(oreTier,R,L,roll)`: explicit roll in [0,1), half-open cumulative intervals and a final floating-point remainder assigned only to the last eligible ore in the selected tier. No runtime RNG or awards.
+- `getRawUpgradeCost(targetLevel)` / `getUpgradePrice(targetLevel,discountLevel)`: original `1000 × 1.25^(L−1)` for target 1…50; CashPricingModel category `minerOreLuck` applies Cash rounding but no Discount. Quotes do not create payments or change owned levels.
+
+Seven deterministic regressions cover formula/level limits, canonical ordering, approximate display distribution versus unrounded probabilities, boundary rolls, input rejection, independent results, unchanged Overall Luck results and production persistence/gameplay. Local verification: all four syntax checks, 294 Node tests and the existing 12 browser smoke scenarios pass. No schema change; production saveVersion remains 1.
+
+### V1-071C2 — Individual Miner Ore Luck Upgrade Integration
+
+**Status:** ⚪ NOT STARTED
+**Dependencies:** V1-071C1, V1-071A2, V1-050C, V1-018 and the V1-070 lifecycle contract; applicable T1 in-flight effect-binding decisions
+
+Use C1 quotes for a selected owned Miner's next local level, enforce cap/affordability in simulation, and atomically debit Cash, update that entity and append its actual InvestmentModel payment. No Discount, Preservation grant or cross-Miner change. Bind the second-stage selection to future V1-071B2 cycles only through the approved runtime/cycle boundary. No live transaction, timer, inventory award or migration is supplied by C1. A2, B2, V1-050C and V1-018 remain outstanding.
 
 ---
 

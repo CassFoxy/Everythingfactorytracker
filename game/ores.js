@@ -1043,3 +1043,70 @@ const MinerTierModel = (() => {
     return Object.freeze({ getTierSource, getTierProbabilities, getRawTierUpgradeCost,
         getTierUpgradePrice, getProductionInterval, BASE_OUTPUT_PER_CYCLE: 1 });
 })();
+
+// V1-071C1: conditional ore selection only. The caller has already selected a
+// non-Stone tier with Overall Luck; this model never rolls or changes that tier.
+const MinerOreLuckModel = (() => {
+    const tiers = [TIER_1_ORES, TIER_2_ORES, TIER_3_ORES, TIER_4_ORES];
+
+    function integer(value, minimum, maximum, field){
+        if(!Number.isInteger(value) || value < minimum || value > maximum)
+            throw new TypeError("Invalid Miner Ore Luck: " + field + " must be an integer from " + minimum + " through " + maximum);
+    }
+
+    function finite(value){
+        if(!Number.isFinite(value)) throw new TypeError("Invalid Miner Ore Luck: non-finite calculation");
+        return value;
+    }
+
+    function getFinalOreLuck(rebirthLevel, localLevel){
+        integer(rebirthLevel, 0, 5000, "rebirthLevel");
+        integer(localLevel, 0, 50, "localLevel");
+        // Inscriptions are Deferred: fixed 1x, no ownership/count modifier.
+        return finite((1 + 0.002 * rebirthLevel) * (1 + 0.02 * localLevel));
+    }
+
+    function getOreWeights(rebirthLevel, localLevel){
+        const luck = getFinalOreLuck(rebirthLevel, localLevel);
+        return Array.from({ length: 5 }, (_, index) => finite(
+            Math.pow(0.65, index) * Math.pow(luck, 0.1 * index)));
+    }
+
+    // Ore tier numbers 1..4, not Miner tiers. Fresh records expose IDs only,
+    // never mutable catalogue entries. Stone bypasses this API in a future caller.
+    function getOreProbabilities(oreTier, rebirthLevel, localLevel){
+        integer(oreTier, 1, 4, "oreTier");
+        const weights = getOreWeights(rebirthLevel, localLevel);
+        const total = finite(weights.reduce((sum, weight) => sum + weight, 0));
+        return tiers[oreTier - 1].map((resourceId, index) => ({
+            resourceId, probability: finite(weights[index] / total)
+        }));
+    }
+
+    function selectOreId(oreTier, rebirthLevel, localLevel, roll){
+        if(typeof roll !== "number" || !Number.isFinite(roll) || roll < 0 || roll >= 1)
+            throw new TypeError("Invalid Miner Ore Luck: roll must be in [0, 1)");
+        const distribution = getOreProbabilities(oreTier, rebirthLevel, localLevel);
+        let cumulative = 0;
+        for(const entry of distribution){
+            cumulative += entry.probability;
+            if(roll < cumulative) return entry.resourceId;
+        }
+        // Only a floating-point remainder can reach here. All five weights are
+        // positive at Defined levels; keep the result in the selected tier.
+        return distribution[distribution.length - 1].resourceId;
+    }
+
+    function getRawUpgradeCost(targetLevel){
+        integer(targetLevel, 1, 50, "targetLevel");
+        return finite(1000 * Math.pow(1.25, targetLevel - 1));
+    }
+
+    function getUpgradePrice(targetLevel, discountLevel){
+        return CashPricingModel.calculateCashPrice(getRawUpgradeCost(targetLevel),
+            { category: "minerOreLuck", discountLevel });
+    }
+
+    return Object.freeze({ getFinalOreLuck, getOreWeights, getOreProbabilities,
+        selectOreId, getRawUpgradeCost, getUpgradePrice });
+})();

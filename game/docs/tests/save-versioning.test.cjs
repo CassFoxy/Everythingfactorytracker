@@ -12,6 +12,154 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const oreLuckContext = vm.createContext({});
+vm.runInContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); };', oreLuckContext);
+const minerOreLuck = vm.runInContext("MinerOreLuckModel", oreLuckContext);
+
+test("Miner Ore Luck combines only the independently supplied Defined levels", () => {
+    assert.equal(minerOreLuck.getFinalOreLuck(0, 0), 1);
+    assert.equal(minerOreLuck.getFinalOreLuck(5000, 0), 11);
+    assert.equal(minerOreLuck.getFinalOreLuck(0, 50), 2);
+    assert.equal(minerOreLuck.getFinalOreLuck(5000, 50), 22);
+    assert.equal(minerOreLuck.getFinalOreLuck(250, 25), 2.25);
+    assert.equal(minerOreLuck.getFinalOreLuck(1, 1), 1.002 * 1.02);
+});
+
+test("within-tier weights and full-precision probabilities follow Reference B", () => {
+    const display = [39.59, 25.74, 16.73, 10.87, 7.07];
+    for (const [rebirth, local] of [[0, 0], [1, 1], [250, 25], [5000, 50]]) {
+        const luck = (1 + 0.002 * rebirth) * (1 + 0.02 * local);
+        const expected = Array.from({ length: 5 }, (_, i) => 0.65 ** i * luck ** (0.1 * i));
+        assert.deepEqual(Array.from(minerOreLuck.getOreWeights(rebirth, local)), expected);
+        for (let tier = 1; tier <= 4; tier++) {
+            const p = minerOreLuck.getOreProbabilities(tier, rebirth, local).map(entry => entry.probability);
+            assert.equal(p.length, 5);
+            const total = expected.reduce((a, b) => a + b, 0);
+            p.forEach((value, i) => {
+                assert.ok(Number.isFinite(value) && value > 0 && value < 1);
+                assert.equal(value, expected[i] / total);
+                if (luck === 1) assert.ok(Math.abs(100 * value - display[i]) < 0.01);
+            });
+            assert.ok(Math.abs(p.reduce((a, b) => a + b, 0) - 1) <= 4 * Number.EPSILON);
+        }
+    }
+    const base = minerOreLuck.getOreProbabilities(1, 0, 0), high = minerOreLuck.getOreProbabilities(1, 5000, 50);
+    for (let i = 1; i < 5; i++)
+        assert.ok(high[i].probability / high[0].probability > base[i].probability / base[0].probability);
+});
+
+test("explicit boundary rolls select only the five catalogue ores in the chosen tier", () => {
+    const catalogues = [
+        ["amber", "quartz", "topaz", "amethyst", "malachite"],
+        ["citrine", "garnet", "peridot", "jade", "aquamarine"],
+        ["spinel", "tourmaline", "sapphire", "ruby", "emerald"],
+        ["onyx", "tanzanite", "alexandrite", "blackOpal", "diamond"]
+    ];
+    for (let tier = 1; tier <= 4; tier++) {
+        for (const [rebirth, local] of [[0, 0], [250, 25], [5000, 50]]) {
+            const distribution = minerOreLuck.getOreProbabilities(tier, rebirth, local);
+            assert.deepEqual(Array.from(distribution, entry => entry.resourceId), catalogues[tier - 1]);
+            assert.equal(minerOreLuck.selectOreId(tier, rebirth, local, 0), catalogues[tier - 1][0]);
+            let boundary = 0;
+            for (let i = 0; i < 4; i++) {
+                boundary += distribution[i].probability;
+                assert.equal(minerOreLuck.selectOreId(tier, rebirth, local, boundary - Number.EPSILON), catalogues[tier - 1][i]);
+                assert.equal(minerOreLuck.selectOreId(tier, rebirth, local, boundary), catalogues[tier - 1][i + 1]);
+                assert.equal(minerOreLuck.selectOreId(tier, rebirth, local, boundary + Number.EPSILON), catalogues[tier - 1][i + 1]);
+            }
+            assert.equal(minerOreLuck.selectOreId(tier, rebirth, local, 1 - Number.EPSILON / 2), catalogues[tier - 1][4]);
+        }
+    }
+    // Stone is not an ore tier; the eventual caller must bypass this API.
+    for (const stone of [0, "stone"])
+        assert.throws(() => minerOreLuck.selectOreId(stone, 0, 0, 0), /oreTier/);
+});
+
+test("local Ore Luck prices use original target formula and rounding without Discount", () => {
+    const pricing = vm.runInContext("CashPricingModel", oreLuckContext);
+    assert.equal(minerOreLuck.getRawUpgradeCost(1), 1000);
+    assert.equal(minerOreLuck.getRawUpgradeCost(2), 1250);
+    assert.equal(minerOreLuck.getUpgradePrice(3, 10), 1560);
+    for (let level = 1; level <= 50; level++) {
+        const raw = 1000 * 1.25 ** (level - 1);
+        assert.equal(minerOreLuck.getRawUpgradeCost(level), raw);
+        for (const discount of [0, 1, 10]) {
+            assert.equal(minerOreLuck.getUpgradePrice(level, discount), pricing.roundCashPrice(raw));
+            assert.equal(minerOreLuck.getUpgradePrice(level, discount),
+                pricing.calculateCashPrice(raw, { category: "minerOreLuck", discountLevel: discount }));
+        }
+    }
+    assert.notEqual(minerOreLuck.getUpgradePrice(3, 0) * 1.25, minerOreLuck.getRawUpgradeCost(4));
+});
+
+test("Ore Luck rejects invalid levels, ore tiers, rolls, targets and Discount inputs", () => {
+    const bad = [-1, 0.5, "1", null, true, undefined, NaN, Infinity, -Infinity];
+    for (const value of [...bad, 5001]) {
+        assert.throws(() => minerOreLuck.getFinalOreLuck(value, 0), /rebirthLevel/);
+        assert.throws(() => minerOreLuck.getOreWeights(value, 0), /rebirthLevel/);
+        assert.throws(() => minerOreLuck.getOreProbabilities(1, value, 0), /rebirthLevel/);
+        assert.throws(() => minerOreLuck.selectOreId(1, value, 0, 0), /rebirthLevel/);
+    }
+    for (const value of [...bad, 51]) {
+        assert.throws(() => minerOreLuck.getFinalOreLuck(0, value), /localLevel/);
+        assert.throws(() => minerOreLuck.getOreWeights(0, value), /localLevel/);
+        assert.throws(() => minerOreLuck.getOreProbabilities(1, 0, value), /localLevel/);
+        assert.throws(() => minerOreLuck.selectOreId(1, 0, value, 0), /localLevel/);
+    }
+    for (const tier of [...bad, 0, 5, "tier1", "stone"]) {
+        assert.throws(() => minerOreLuck.getOreProbabilities(tier, 0, 0), /oreTier/);
+        assert.throws(() => minerOreLuck.selectOreId(tier, 0, 0, 0), /oreTier/);
+    }
+    for (const roll of [-1, 1, 1.5, "0", null, true, undefined, NaN, Infinity, -Infinity])
+        assert.throws(() => minerOreLuck.selectOreId(1, 0, 0, roll), /roll/);
+    for (const level of [...bad, 0, 51]) {
+        assert.throws(() => minerOreLuck.getRawUpgradeCost(level), /targetLevel/);
+        assert.throws(() => minerOreLuck.getUpgradePrice(level, 0), /targetLevel/);
+    }
+    for (const discount of [...bad, 11])
+        assert.throws(() => minerOreLuck.getUpgradePrice(1, discount), /discountLevel/);
+});
+
+test("Ore Luck results are independent and preserve the catalogue and Overall Luck model", () => {
+    const snapshot = () => vm.runInContext(`JSON.stringify({ ORES, TIER_1_ORES, TIER_2_ORES, TIER_3_ORES, TIER_4_ORES,
+        tiers: Array.from({length:25}, (_,i)=>MinerTierModel.getTierProbabilities(i+1,11)) })`, oreLuckContext);
+    const before = snapshot();
+    const first = minerOreLuck.getOreProbabilities(4, 5000, 50);
+    const expected = structuredClone(first);
+    first[0].resourceId = "stone"; first[0].probability = 1; first.pop();
+    const weights = minerOreLuck.getOreWeights(0, 0); weights[0] = 999;
+    assert.equal(minerOreLuck.getOreWeights(0, 0)[0], 1);
+    assert.deepEqual(structuredClone(minerOreLuck.getOreProbabilities(4, 5000, 50)), expected);
+    assert.equal(snapshot(), before);
+});
+
+test("pure Ore Luck calls leave live saves, payments, legacy gameplay and timers unchanged", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion,
+        cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), control = ready(raw), before = app.state(), timerCount = app.intervals.length;
+        app.run(`for(let tier=1;tier<=4;tier++) {
+            MinerOreLuckModel.getOreWeights(5000,50);
+            MinerOreLuckModel.getOreProbabilities(tier,5000,50);
+            MinerOreLuckModel.selectOreId(tier,5000,50,0.999);
+            MinerOreLuckModel.getUpgradePrice(50,10);
+        }`);
+        assert.deepEqual(app.state(), before);
+        assert.equal(app.intervals.length, timerCount);
+        assert.equal(app.writes.length, 0);
+        for (const instance of [app, control]) {
+            instance.elements.get("mineButton").onclick();
+            if (raw !== null) for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                instance.elements.get(id).onclick();
+            instance.tick(1000);
+        }
+        assert.deepEqual(app.state(), control.state());
+        const after = app.state();
+        assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 const minerTiers = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; MinerTierModel;');
 const tierProbabilityKeys = ["stone", "tier1", "tier2", "tier3", "tier4"];
 function closeProbability(actual, expected) {
