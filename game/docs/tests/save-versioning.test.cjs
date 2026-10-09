@@ -12,6 +12,115 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const furnaceContext = vm.createContext({});
+vm.runInContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); };', furnaceContext);
+const furnace = vm.runInContext("FurnaceModel", furnaceContext);
+
+test("Furnace tiers have exact capacity, noncumulative value, full-precision speed and automation gates", () => {
+    for (let tier = 1; tier <= 20; tier++) {
+        assert.equal(furnace.getCapacity(tier), 50 * tier);
+        assert.equal(furnace.getTierValueMultiplier(tier), 1 + 0.25 * (tier - 1));
+        assert.equal(furnace.isAutoProcessingEligible(tier), tier >= 3);
+        const normal = Math.max(1, 10 * 0.1 ** ((tier - 1) / 19));
+        assert.equal(furnace.getNormalInterval(tier), normal);
+        for (const speed of [0, 1, 25, 50]) {
+            assert.equal(furnace.getFinalInterval(tier, speed), Math.max(0.5, normal * (1 - 0.01 * speed)));
+            assert.ok(furnace.getFinalInterval(tier, speed) >= 0.5);
+        }
+    }
+    assert.equal(furnace.getCapacity(1), 50); assert.equal(furnace.getCapacity(20), 1000);
+    assert.equal(furnace.getTierValueMultiplier(20), 5.75);
+    assert.equal(furnace.getNormalInterval(1), 10); assert.equal(furnace.getNormalInterval(20), 1);
+    assert.equal(furnace.getFinalInterval(1, 50), 5); assert.equal(furnace.getFinalInterval(20, 50), 0.5);
+    assert.notEqual(furnace.getNormalInterval(2), 8.8587);
+});
+
+test("Furnace sale values apply only tier and Rebirth factors to supplied historical values", () => {
+    assert.equal(furnace.getRebirthValueMultiplier(0), 1);
+    assert.equal(furnace.getRebirthValueMultiplier(5000), 6);
+    for (const level of [0, 1, 2500, 5000]) {
+        assert.equal(furnace.getRebirthValueMultiplier(level), 1 + 0.001 * level);
+        assert.equal(furnace.calculateSaleValue(123.456789, 20, level), 123.456789 * 5.75 * (1 + 0.001 * level));
+    }
+    assert.equal(furnace.calculateSaleValue(0, 20, 5000), 0);
+    assert.equal(furnace.calculateSaleValue(1, 1, 0), 1); // Explicit Stone basis, no modifier policy inferred.
+    const models = vm.runInContext("({InventoryModel,PolisherModel,RefinerModel})", furnaceContext);
+    const polished = models.PolisherModel.createPolishedLot("ruby", 2, 123.456789);
+    const refined = models.RefinerModel.createRefinedLot(polished, 1, 0);
+    const before = structuredClone({ polished, refined });
+    assert.equal(furnace.calculateSaleValue(polished.polishedValue, 2, 0), 123.456789 * 1.25);
+    const refinedValue = refined.preRefinerValue * (1 + refined.refineBonus);
+    assert.equal(furnace.calculateSaleValue(refinedValue, 20, 5000), refinedValue * 5.75 * 6);
+    models.PolisherModel.calculatePolishedValue(40000, 5000);
+    models.RefinerModel.calculateRefinedValue(40000, 1, 5000);
+    assert.deepEqual(structuredClone({ polished, refined }), before);
+    assert.doesNotThrow(() => models.InventoryModel.validateLot(refined));
+    assert.notEqual(furnace.calculateSaleValue(123.456789, 2, 0), Math.round(123.456789 * 1.25 * 100) / 100);
+});
+
+test("Furnace original upgrade curve keeps free Tier 1 separate and discounts before rounding", () => {
+    const pricing = vm.runInContext("CashPricingModel", furnaceContext);
+    for (const [tier, raw] of [[2, 100], [3, 1000], [4, 4000], [5, 16000], [20, 17179869184000]])
+        assert.equal(furnace.getRawTierUpgradeCost(tier), raw);
+    for (let tier = 2; tier <= 20; tier++) {
+        const raw = tier === 2 ? 100 : 1000 * 4 ** (tier - 3);
+        assert.equal(furnace.getRawTierUpgradeCost(tier), raw);
+        for (const discount of [0, 1, 10])
+            assert.equal(furnace.getTierUpgradePrice(tier, discount),
+                pricing.calculateCashPrice(raw, { category: "furnaceTier", discountLevel: discount }));
+    }
+    assert.equal(furnace.getTierUpgradePrice(3, 1), 950);
+    assert.equal(furnace.getTierUpgradePrice(2, 10), 50);
+    assert.equal(furnace.getTierUpgradePrice(8, 1), 972800); // Discount crosses below the million band.
+    assert.notEqual(furnace.getTierUpgradePrice(8, 1) * 4, furnace.getTierUpgradePrice(9, 1));
+    assert.equal(furnace.getRawTierUpgradeCost(9), 4096000);
+    assert.throws(() => furnace.getRawTierUpgradeCost(1));
+    assert.throws(() => furnace.getTierUpgradePrice(1, 0));
+});
+
+test("Furnace rejects invalid tiers, perk levels, resource values and overflow", () => {
+    const bad = [-1, 1.5, "1", null, true, undefined, NaN, Infinity, -Infinity];
+    for (const tier of [...bad, 0, 21]) for (const call of [() => furnace.getCapacity(tier),
+        () => furnace.getTierValueMultiplier(tier), () => furnace.getNormalInterval(tier),
+        () => furnace.getFinalInterval(tier, 0), () => furnace.isAutoProcessingEligible(tier),
+        () => furnace.calculateSaleValue(1, tier, 0), () => furnace.getRawTierUpgradeCost(tier),
+        () => furnace.getTierUpgradePrice(tier, 0)]) assert.throws(call);
+    for (const level of [...bad, 5001]) {
+        assert.throws(() => furnace.getRebirthValueMultiplier(level));
+        assert.throws(() => furnace.calculateSaleValue(1, 1, level));
+    }
+    for (const level of [...bad, 51]) assert.throws(() => furnace.getFinalInterval(1, level));
+    for (const level of [...bad, 11]) assert.throws(() => furnace.getTierUpgradePrice(2, level));
+    for (const value of [-1, "1", null, true, undefined, NaN, Infinity, -Infinity])
+        assert.throws(() => furnace.calculateSaleValue(value, 1, 0));
+    assert.throws(() => furnace.calculateSaleValue(Number.MAX_VALUE, 20, 5000), /sale value/);
+    assert.equal(furnace.calculateSaleValue(Number.MAX_VALUE, 1, 0), Number.MAX_VALUE);
+});
+
+test("Furnace pure eligibility and quotes preserve preferences, live prototype behavior and schema 1", () => {
+    for (const raw of [null, ...[undefined, 0, 1].flatMap(saveVersion => [false, true].map(autoFurnaceEnabled => JSON.stringify({
+        saveVersion, cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0, autoFurnaceEnabled })))]) {
+        const app = ready(raw), control = ready(raw), before = app.state(), timers = app.intervals.length;
+        app.run(`for(let tier=1;tier<=20;tier++) {
+            FurnaceModel.getCapacity(tier); FurnaceModel.isAutoProcessingEligible(tier);
+            FurnaceModel.getFinalInterval(tier,50); FurnaceModel.calculateSaleValue(123.456789,tier,5000);
+            if(tier>1) FurnaceModel.getTierUpgradePrice(tier,10);
+        }`);
+        assert.deepEqual(app.state(), before);
+        assert.equal(app.intervals.length, timers); assert.equal(app.writes.length, 0);
+        for (const instance of [app, control]) {
+            instance.elements.get("mineButton").onclick();
+            if (raw !== null) for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                instance.elements.get(id).onclick();
+            instance.tick(1000);
+        }
+        assert.deepEqual(app.state(), control.state());
+        const after = app.state(); assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 const refiner = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; RefinerModel;');
 const refinerPerks = Object.freeze({ dustChanceLevel: 0, stabilityLevel: 0, yieldLevel: 0, valueLevel: 0 });
 function refinerInput(count = 0, amount = 1) {

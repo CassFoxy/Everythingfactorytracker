@@ -1111,6 +1111,33 @@ Implement exact tiers 1–20 and price table/formulas; capacity 50T, value 1+0.2
 
 **Acceptance:** Reference L checks 16–17.
 
+Pure formulas are complete in V1-081A. The parent remains IN PROGRESS; the current Furnace prototype is not switched to these rules until its integration tickets are ready.
+
+### V1-081A — Pure Furnace Tier, Capacity, Speed and Value Model
+
+**Status:** ✅ COMPLETE (pure model only)
+**Dependencies:** Reference E / Decision 20, V1-050A and V1-016 / V1-070 contracts; existing processed-value models
+
+`FurnaceModel` in `ores.js` supplies:
+
+- `getCapacity(tier)` / `getTierValueMultiplier(tier)`: integer tiers 1…20, capacity 50T and direct noncumulative value 1+0.25(T−1).
+- `getRebirthValueMultiplier(valueLevel)`: integer 0…5000, multiplier 1+0.001L (max 6×).
+- `calculateSaleValue(currentResourceValue,tier,valueLevel)`: supplied finite non-negative applicable raw/Polished/Refined value times the two Furnace multipliers, without display rounding. Reject overflow. No catalogue lookup, repeated Ore Value/processing modifier, historical Lot repricing, new Achievement/Milestone modifier or snapshot timing. An explicit Stone basis does not resolve K.4.
+- `getNormalInterval(tier)` / `getFinalInterval(tier,speedLevel)`: exact full-precision seconds, max(1,10×0.1^((T−1)/19)), then max(0.5,normal×(1−0.01L)), integer Speed 0…50.
+- `isAutoProcessingEligible(tier)`: false at T1/T2, true at T3…20; tier permission only, never changes saved preferences or starts processing.
+- `getRawTierUpgradeCost(targetTier)` / `getTierUpgradePrice(targetTier,discountLevel)`: target 2…20, original $100 for T2 then 1000×4^(T−3). Reuse CashPricingModel category `furnaceTier` for Discount before Cash rounding. Free T1 is not a paid upgrade; no payment or investment ledger.
+
+Furnace remains conceptually a permanent, unsellable singleton. These helpers do not allocate identity, implement ownership or apply Preservation/reset. K.5 Capacity perk and T1 timing remain open; no placeholder state is added.
+
+Five deterministic regressions cover all formulas, speed floors, historical value precision, price bands, invalid inputs/overflow and unchanged saves/preferences/prototype behavior. Local verification: four syntax checks, 314 Node tests and all 12 existing browser smoke scenarios pass. Production saveVersion remains 1.
+
+### V1-081B — Live Furnace Tier and Value Integration
+
+**Status:** ⚪ NOT STARTED
+**Dependencies:** V1-081A, V1-080, V1-050C; V1-070 lifecycle and V1-016 candidate contract; applicable T1 timing/value binding and V1-018 activation gates
+
+Integrate quotes, affordability, atomic tier/Cash updates and value consumers with the permanent Furnace without an investment ledger. Preserve preferences and historical reservations; use tier permission without overriding autoEnabled. Coordinate manual/automatic processing and selection through V1-082–085, not from a pure formula call. V1-080, V1-082–085, V1-050C, V1-017 and V1-018 remain incomplete. No live processing, sale, upgrade, reservation, Rebirth or V2 migration is supplied by V1-081A.
+
 ---
 
 ## V1-082 — Auto Furnace Processing Integration
