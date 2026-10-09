@@ -1178,3 +1178,127 @@ const PolisherModel = (() => {
     return Object.freeze({ getCycleTime, getBatchSize, getProcessedAmount, validateInputLot,
         calculatePolishedValue, createPolishedLot, getRawTierUpgradeCost, getTierUpgradePrice });
 })();
+
+// V1-075A1: pure Reference D mathematics and hypothetical per-item outcomes.
+// No cycle ownership, currency award, inventory removal or timing policy.
+const RefinerModel = (() => {
+    function invalid(field){ throw new TypeError("Invalid Refiner model: " + field); }
+    function integer(value, minimum, maximum, field){
+        if(!Number.isInteger(value) || value < minimum || value > maximum) invalid(field);
+    }
+    function finite(value, field){
+        if(typeof value !== "number" || !Number.isFinite(value)) invalid(field);
+        return value;
+    }
+    function quantity(value, minimum = 0){
+        finite(value, "quantity");
+        if(!Number.isInteger(value) || value < minimum) invalid("quantity");
+    }
+    function roll(value){
+        finite(value, "roll");
+        if(value < 0 || value >= 1) invalid("roll must be in [0, 1)");
+    }
+    function record(value, fields){
+        if(!value || typeof value !== "object" || Array.isArray(value) ||
+            Reflect.ownKeys(value).length !== fields.length) invalid("options record");
+        for(const key of fields){
+            const d = Object.getOwnPropertyDescriptor(value, key);
+            if(!d || !d.enumerable || !("value" in d)) invalid(key);
+        }
+    }
+
+    function getInterval(tier){
+        integer(tier, 1, 10, "tier");
+        return finite(15 * Math.pow(0.2, (tier - 1) / 9), "interval");
+    }
+    function getBatchSize(tier){
+        integer(tier, 1, 10, "tier");
+        return Math.floor(1 + 9 * Math.pow((tier - 1) / 9, 1.2) + 0.5);
+    }
+    function getProcessedAmount(tier, availableQuantity){
+        const capacity = getBatchSize(tier);
+        quantity(availableQuantity);
+        return Math.min(capacity, availableQuantity);
+    }
+    function getNextPass(incomingCount){
+        integer(incomingCount, 0, 14, "incomingCount");
+        return incomingCount + 1;
+    }
+    function validateInputLot(lot){
+        InventoryModel.validateLot(lot);
+        if(lot.stage !== "polished" && lot.stage !== "refined") invalid("input must be processed ore");
+        getNextPass(lot.refineCount);
+    }
+    function getTierBaseDustChance(tier){
+        integer(tier, 1, 10, "tier");
+        return finite(0.02 + (0.08 / 9) * (tier - 1), "base Dust chance");
+    }
+    function getEffectiveBaseDustChance(tier, dustChanceLevel){
+        integer(dustChanceLevel, 0, 30, "dustChanceLevel");
+        return Math.min(0.25, getTierBaseDustChance(tier) + 0.005 * dustChanceLevel);
+    }
+    function getDustChance(tier, incomingCount, dustChanceLevel){
+        getNextPass(incomingCount);
+        return Math.min(0.95, finite(getEffectiveBaseDustChance(tier, dustChanceLevel) *
+            Math.pow(1.25, incomingCount), "Dust chance"));
+    }
+    function getDestructionChance(incomingCount, stabilityLevel){
+        const pass = getNextPass(incomingCount);
+        integer(stabilityLevel, 0, 180, "stabilityLevel");
+        return Math.max(0.05, Math.min(0.95, Math.min(0.95, 0.15 * pass) - 0.005 * stabilityLevel));
+    }
+    function getExpectedDustYield(yieldLevel){
+        integer(yieldLevel, 0, 50, "yieldLevel");
+        return finite(1 + 0.05 * yieldLevel, "expected yield");
+    }
+    function getDustQuantity(yieldLevel, dustSucceeded, fractionalRoll){
+        const expected = getExpectedDustYield(yieldLevel);
+        if(typeof dustSucceeded !== "boolean") invalid("dustSucceeded");
+        roll(fractionalRoll); // Explicit independent roll, validated even on a failed Dust attempt.
+        const whole = Math.floor(expected);
+        return dustSucceeded ? whole + (fractionalRoll < expected - whole ? 1 : 0) : 0;
+    }
+    function getRefineBonus(pass, valueLevel){
+        integer(pass, 1, 15, "pass");
+        integer(valueLevel, 0, 5000, "valueLevel");
+        return finite(pass <= 5 ? (0.50 + 0.0014 * valueLevel) * (5 - pass) / 4 :
+            -0.09 * (pass - 5), "refine bonus");
+    }
+    function calculateRefinedValue(preRefinerValue, pass, valueLevel){
+        finite(preRefinerValue, "preRefinerValue");
+        if(preRefinerValue < 0) invalid("preRefinerValue");
+        return finite(preRefinerValue * (1 + getRefineBonus(pass, valueLevel)), "refined value");
+    }
+    function createRefinedLot(input, successfulQuantity, valueLevel){
+        validateInputLot(input);
+        quantity(successfulQuantity, 1);
+        if(successfulQuantity > input.amount) invalid("quantity exceeds input");
+        const pass = getNextPass(input.refineCount);
+        const basis = input.stage === "polished" ? input.polishedValue : input.preRefinerValue;
+        const bonus = getRefineBonus(pass, valueLevel);
+        return InventoryModel.createLot({ resourceId: input.resourceId, stage: "refined", refineCount: pass,
+            amount: successfulQuantity, polishedValue: null, preRefinerValue: basis, refineBonus: bonus });
+    }
+
+    // Exactly ONE input unit. Future batch callers must independently supply three
+    // rolls per item; they own reservation/splitting and any actual result commit.
+    // perks = {dustChanceLevel, stabilityLevel, yieldLevel, valueLevel}
+    // rolls = {dust, fractionalYield, destruction}
+    function evaluateItem(input, tier, perks, rolls){
+        validateInputLot(input);
+        if(input.amount !== 1) invalid("evaluateItem requires amount 1");
+        record(perks, ["dustChanceLevel", "stabilityLevel", "yieldLevel", "valueLevel"]);
+        record(rolls, ["dust", "fractionalYield", "destruction"]);
+        roll(rolls.dust); roll(rolls.fractionalYield); roll(rolls.destruction);
+        const dustChance = getDustChance(tier, input.refineCount, perks.dustChanceLevel);
+        const destructionChance = getDestructionChance(input.refineCount, perks.stabilityLevel);
+        getRefineBonus(getNextPass(input.refineCount), perks.valueLevel);
+        const dust = getDustQuantity(perks.yieldLevel, rolls.dust < dustChance, rolls.fractionalYield);
+        const destroyed = rolls.destruction < destructionChance;
+        return { dust, destroyed, refinedLot: destroyed ? null : createRefinedLot(input, 1, perks.valueLevel) };
+    }
+
+    return Object.freeze({ getInterval, getBatchSize, getProcessedAmount, getNextPass, validateInputLot,
+        getTierBaseDustChance, getEffectiveBaseDustChance, getDustChance, getDestructionChance,
+        getExpectedDustYield, getDustQuantity, getRefineBonus, calculateRefinedValue, createRefinedLot, evaluateItem });
+})();

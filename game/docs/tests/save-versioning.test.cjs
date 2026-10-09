@@ -12,6 +12,181 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const refiner = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; RefinerModel;');
+const refinerPerks = Object.freeze({ dustChanceLevel: 0, stabilityLevel: 0, yieldLevel: 0, valueLevel: 0 });
+function refinerInput(count = 0, amount = 1) {
+    return { resourceId: "ruby", stage: count === 0 ? "polished" : "refined", refineCount: count, amount,
+        polishedValue: count === 0 ? 123.456789 : null,
+        preRefinerValue: count === 0 ? null : 123.456789, refineBonus: count === 0 ? null : 0.12345 };
+}
+
+test("Refiner throughput uses exact tier formulas and permits empty and partial batches", () => {
+    assert.equal(refiner.getInterval(1), 15); assert.equal(refiner.getInterval(10), 3);
+    assert.equal(refiner.getBatchSize(1), 1); assert.equal(refiner.getBatchSize(10), 10);
+    assert.equal(refiner.getTierBaseDustChance(1), 0.02);
+    assert.equal(refiner.getTierBaseDustChance(10), 0.1);
+    for (let tier = 1; tier <= 10; tier++) {
+        assert.equal(refiner.getInterval(tier), 15 * 0.2 ** ((tier - 1) / 9));
+        const capacity = Math.floor(1 + 9 * ((tier - 1) / 9) ** 1.2 + 0.5);
+        assert.equal(refiner.getBatchSize(tier), capacity);
+        assert.equal(refiner.getTierBaseDustChance(tier), 0.02 + (0.08 / 9) * (tier - 1));
+        for (const count of [0, 1, capacity - 1, capacity, capacity + 1, Number.MAX_VALUE])
+            assert.equal(refiner.getProcessedAmount(tier, count), Math.min(capacity, count));
+    }
+    assert.equal(refiner.getProcessedAmount(10, 4), 4);
+});
+
+test("Refiner accepts canonical processed ore up to count 14 and rejects raw or terminal input", () => {
+    const ids = vm.runInNewContext(ores + '\nORE_KEYS;');
+    for (const resourceId of ids) for (let c = 0; c <= 14; c++) {
+        assert.doesNotThrow(() => refiner.validateInputLot({ ...refinerInput(c), resourceId }));
+        assert.equal(refiner.getNextPass(c), c + 1);
+    }
+    for (const invalid of [null, {}, refinerInput(15), { ...refinerInput(), stage: "raw", polishedValue: null },
+        { ...refinerInput(), polishedValue: null }, { ...refinerInput(1), preRefinerValue: null },
+        { ...refinerInput(1), polishedValue: 1 }, { ...refinerInput(), extra: true }, refinerInput(0, 0),
+        ...["stone", "wood", "scrap", "metal", "missing"].map(resourceId => ({ ...refinerInput(), resourceId }))])
+        assert.throws(() => refiner.validateInputLot(invalid));
+});
+
+test("Refiner Dust uses incoming count and destruction uses the next pass with Defined caps", () => {
+    for (const tier of [1, 5, 10]) for (const level of [0, 1, 30]) for (let c = 0; c <= 14; c++) {
+        const effective = Math.min(0.25, 0.02 + (0.08 / 9) * (tier - 1) + 0.005 * level);
+        assert.equal(refiner.getEffectiveBaseDustChance(tier, level), effective);
+        assert.equal(refiner.getDustChance(tier, c, level), Math.min(0.95, effective * 1.25 ** c));
+    }
+    assert.equal(refiner.getEffectiveBaseDustChance(10, 30), 0.25);
+    assert.equal(refiner.getDustChance(1, 0, 0), 0.02);
+    assert.equal(refiner.getDustChance(1, 1, 0), 0.025);
+    assert.equal(refiner.getDustChance(10, 14, 30), 0.95);
+    for (let c = 0; c <= 14; c++) for (const level of [0, 1, 20, 180])
+        assert.equal(refiner.getDestructionChance(c, level), Math.max(0.05, Math.min(0.95, Math.min(0.95, 0.15 * (c + 1)) - 0.005 * level)));
+    assert.equal(refiner.getDestructionChance(0, 0), 0.15);
+    assert.equal(refiner.getDestructionChance(14, 0), 0.95);
+    assert.equal(refiner.getDestructionChance(0, 180), 0.05);
+    assert.equal(refiner.getDestructionChance(14, 180), 0.05);
+});
+
+test("Gem Dust yield uses independent fractional rolls and survives hypothetical destruction", () => {
+    for (let level = 0; level <= 50; level++) {
+        const expected = 1 + 0.05 * level, whole = Math.floor(expected), fraction = expected - whole;
+        assert.equal(refiner.getExpectedDustYield(level), expected);
+        assert.equal(refiner.getDustQuantity(level, false, 0), 0);
+        assert.equal(refiner.getDustQuantity(level, true, fraction), whole);
+        assert.equal(refiner.getDustQuantity(level, true, 0), whole + (fraction > 0 ? 1 : 0));
+    }
+    const input = Object.freeze(refinerInput()), perks = Object.freeze({ ...refinerPerks, yieldLevel: 50 });
+    const wonDestroyed = refiner.evaluateItem(input, 1, perks, { dust: 0, fractionalYield: 0.499, destruction: 0 });
+    assert.deepEqual(structuredClone(wonDestroyed), { dust: 4, destroyed: true, refinedLot: null });
+    assert.equal(refiner.evaluateItem(input, 1, perks, { dust: 0, fractionalYield: 0.5, destruction: 0 }).dust, 3);
+    const missed = refiner.evaluateItem(input, 1, perks, { dust: 0.02, fractionalYield: 0, destruction: 0.15 });
+    assert.equal(missed.dust, 0); assert.equal(missed.destroyed, false); assert.equal(missed.refinedLot.amount, 1);
+    const wonSurvived = refiner.evaluateItem(input, 1, perks, { dust: 0, fractionalYield: 0, destruction: 0.15 });
+    assert.equal(wonSurvived.dust, 4); assert.equal(wonSurvived.destroyed, false);
+    assert.throws(() => refiner.evaluateItem(refinerInput(0, 2), 1, perks, { dust: 0, fractionalYield: 0, destruction: 0 }), /amount 1/);
+});
+
+test("Refiner value follows all 15 passes without compounding or revaluing historical inputs", () => {
+    const inventory = vm.runInNewContext(ores + '\nInventoryModel;');
+    for (const level of [0, 1, 2500, 5000]) for (let n = 1; n <= 15; n++) {
+        const bonus = n <= 5 ? (0.5 + 0.0014 * level) * (5 - n) / 4 : -0.09 * (n - 5);
+        assert.equal(refiner.getRefineBonus(n, level), bonus);
+        assert.equal(refiner.calculateRefinedValue(123.456789, n, level), 123.456789 * (1 + bonus));
+    }
+    assert.equal(refiner.getRefineBonus(1, 5000), 7.5);
+    assert.equal(refiner.getRefineBonus(6, 5000), -0.09);
+    assert.ok(Math.abs(refiner.getRefineBonus(15, 0) + 0.9) < Number.EPSILON);
+    let input = refinerInput(); const original = structuredClone(input);
+    for (let n = 1; n <= 15; n++) {
+        const previous = structuredClone(input);
+        const output = refiner.createRefinedLot(input, 1, 0);
+        assert.deepEqual(input, previous);
+        assert.equal(output.preRefinerValue, original.polishedValue);
+        assert.equal(output.refineCount, n);
+        assert.equal(output.polishedValue, null);
+        assert.equal(output.refineBonus, refiner.getRefineBonus(n, 0));
+        assert.doesNotThrow(() => inventory.validateLot(output));
+        input = structuredClone(output);
+    }
+    assert.throws(() => refiner.createRefinedLot(input, 1, 0));
+    const historical = Object.freeze(refinerInput(4, 3));
+    const output = refiner.createRefinedLot(historical, 2, 5000);
+    assert.equal(output.preRefinerValue, historical.preRefinerValue);
+    assert.equal(output.refineBonus, 0); // Pass 5 ignores prior applied bonus.
+    output.amount = 1;
+    assert.equal(historical.amount, 3);
+    assert.equal(refiner.calculateRefinedValue(0, 1, 5000), 0);
+});
+
+test("Refiner rejects invalid scalar inputs, explicit rolls, metadata and computed overflow", () => {
+    const bad = [-1, 0.5, "1", null, true, undefined, NaN, Infinity, -Infinity];
+    for (const tier of [...bad, 0, 11]) for (const fn of [() => refiner.getInterval(tier), () => refiner.getBatchSize(tier),
+        () => refiner.getTierBaseDustChance(tier), () => refiner.getDustChance(tier, 0, 0)]) assert.throws(fn);
+    for (const q of bad) assert.throws(() => refiner.getProcessedAmount(10, q));
+    for (const c of [...bad, 15]) for (const fn of [() => refiner.getNextPass(c), () => refiner.getDustChance(1, c, 0),
+        () => refiner.getDestructionChance(c, 0)]) assert.throws(fn);
+    for (const [key, cap, call] of [["dustChanceLevel", 30, l => refiner.getDustChance(1, 0, l)],
+        ["stabilityLevel", 180, l => refiner.getDestructionChance(0, l)],
+        ["yieldLevel", 50, l => refiner.getExpectedDustYield(l)], ["valueLevel", 5000, l => refiner.getRefineBonus(1, l)]])
+        for (const level of [...bad, cap + 1]) {
+            assert.throws(() => call(level));
+            assert.throws(() => refiner.evaluateItem(refinerInput(), 1, { ...refinerPerks, [key]: level },
+                { dust: 0.9, fractionalYield: 0, destruction: 0 }));
+        }
+    for (const n of [...bad, 0, 16]) assert.throws(() => refiner.getRefineBonus(n, 0));
+    for (const value of [-1, "1", null, true, undefined, NaN, Infinity])
+        assert.throws(() => refiner.calculateRefinedValue(value, 1, 0));
+    assert.throws(() => refiner.calculateRefinedValue(Number.MAX_VALUE, 1, 5000));
+    assert.throws(() => refiner.createRefinedLot({ ...refinerInput(), polishedValue: Number.MAX_VALUE }, 1, 5000));
+    for (const q of [...bad, 0, 2]) assert.throws(() => refiner.createRefinedLot(refinerInput(), q, 0));
+    for (const r of [-1, 1, "0", null, true, undefined, NaN, Infinity]) {
+        assert.throws(() => refiner.getDustQuantity(0, false, r));
+        for (const key of ["dust", "fractionalYield", "destruction"])
+            assert.throws(() => refiner.evaluateItem(refinerInput(), 1, refinerPerks,
+                { dust: 0, fractionalYield: 0, destruction: 0, [key]: r }));
+    }
+    assert.throws(() => refiner.getDustQuantity(0, 1, 0));
+    assert.throws(() => refiner.evaluateItem(refinerInput(), 1, null, {}));
+});
+
+test("Refiner per-item outcomes return independent Lots and do not mutate frozen inputs or options", () => {
+    const input = Object.freeze(refinerInput(1));
+    const before = structuredClone(input);
+    const rolls = Object.freeze({ dust: 0, fractionalYield: 0, destruction: 0.999 });
+    const a = refiner.evaluateItem(input, 1, refinerPerks, rolls);
+    const b = refiner.evaluateItem(input, 1, refinerPerks, rolls);
+    assert.deepEqual(structuredClone(a), structuredClone(b));
+    assert.notEqual(a.refinedLot, b.refinedLot);
+    a.refinedLot.preRefinerValue = 0;
+    assert.equal(b.refinedLot.preRefinerValue, input.preRefinerValue);
+    assert.deepEqual(input, before);
+});
+
+test("Refiner calculations and hypothetical outcomes preserve live saves, Dust, inventory and timers", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion,
+        cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), control = ready(raw), before = app.state(), timers = app.intervals.length;
+        app.run(`for(let tier=1;tier<=10;tier++) {
+            RefinerModel.getInterval(tier); RefinerModel.getProcessedAmount(tier,7);
+            RefinerModel.evaluateItem(PolisherModel.createPolishedLot("ruby",1,30000),tier,
+                {dustChanceLevel:30,stabilityLevel:180,yieldLevel:50,valueLevel:5000},
+                {dust:0,fractionalYield:0,destruction:0});
+        }`);
+        assert.deepEqual(app.state(), before);
+        assert.equal(app.intervals.length, timers); assert.equal(app.writes.length, 0);
+        for (const instance of [app, control]) {
+            instance.elements.get("mineButton").onclick();
+            if (raw !== null) for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                instance.elements.get(id).onclick();
+            instance.tick(1000);
+        }
+        assert.deepEqual(app.state(), control.state());
+        const after = app.state(); assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 const polisherContext = vm.createContext({});
 vm.runInContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); };', polisherContext);
 const polisher = vm.runInContext("PolisherModel", polisherContext);
