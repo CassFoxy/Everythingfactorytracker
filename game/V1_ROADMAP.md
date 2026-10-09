@@ -296,11 +296,13 @@ Unlock Miner costs $100, requires Mining Power I and produces nothing. Purchase 
 
 ## V1-026 — Default Pickaxe and Manual Access
 
-**Status:** ⚪ NOT STARTED
-**Design:** DESIGN COMPLETE
+**Status:** ✅ COMPLETE (bounded Default-only runtime/manual access)
+**Design:** Implemented and tested for Default Tier 0 only
 **Dependencies:** V1-021A and documented V1-016 contract. Default-only manual access can proceed in schema 1; crafted copies and first-action history are separate gated work
 
 Infinite Default Pickaxe, source-specific accessible tiers, locked weights zero before Luck; default reaches T2. Establish the runtime boundary without implementing future tiers. Legacy mapping/defaults must be explicit before persisted additions.
+
+Implemented unconditional runtime Default (Tier 0, raw Power 4, Luck 1×, infinite durability). Manual gameplay filters Reference A base weights to Stone/T1/T2, zeros T3/T4 and normalizes the accessible pool without an automated Stone floor. Existing within-tier selection, one-resource output, awards/discovery and automated Dropper behavior are preserved. No new persisted fields, migration or saveVersion change; schema 1 remains active. Verified four syntax checks, 230 Node tests and 12 browser scenarios. This does not complete V1-021B, V1-027, V1-028, V1-029 or V1-031; first-action history remains gated by M1.
 
 **Acceptance:** Reference L checks 1–2, 7–8.
 

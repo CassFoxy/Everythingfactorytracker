@@ -2072,13 +2072,53 @@ addFactoryXP(1);
 }
 
 
+// Unconditional runtime definition: no owned/equipped Pickaxe state in schema 1.
+const DEFAULT_PICKAXE = Object.freeze({
+    name: "Default",
+    tier: 0,
+    rawPower: 4,
+    luck: 1,
+    durability: Infinity
+});
+const MANUAL_BASE_TIER_WEIGHTS = Object.freeze([239744, 10000, 250, 5, 1]);
+
+function getManualPickaxe(){
+    return DEFAULT_PICKAXE;
+}
+
+function getMaxManualOreTier(pickaxe = getManualPickaxe()){
+    return Math.min(4, pickaxe.tier + 2);
+}
+
+function getAccessibleManualTierWeights(pickaxe = getManualPickaxe(), weights = MANUAL_BASE_TIER_WEIGHTS){
+    const maxTier = getMaxManualOreTier(pickaxe);
+    return weights.map((weight, tier) => tier <= maxTier ? weight : 0);
+}
+
+function normalizeManualTierWeights(weights){
+    const total = weights.reduce((sum, weight) => sum + weight, 0);
+    // Manual mining has no automated Stone floor. V1-029 owns Luck adjustments.
+    return weights.map(weight => weight / total);
+}
+
+function rollManualTier(roll = Math.random()){
+    const probabilities = normalizeManualTierWeights(getAccessibleManualTierWeights());
+    let cumulative = 0;
+    // Keep rare-to-common roll order; within-tier selection remains unchanged.
+    for(let tier = probabilities.length - 1; tier >= 0; tier--){
+        cumulative += probabilities[tier];
+        if(probabilities[tier] > 0 && roll < cumulative) return tier;
+    }
+    return 0; // Floating-point remainder belongs to the final Stone bucket.
+}
+
 function mineOre(){
 
-    const roll = Math.random();
+    const tier = rollManualTier();
 
-// Tier 4 (1 in 250,000)
+// Tier 4
 
-if(roll < 0.000004){
+if(tier === 4){
 
 const ore =
     getRandomOre(
@@ -2121,9 +2161,9 @@ addFactoryXP(
 
     }
 
-// Tier 3 (1 in 50,000)
+// Tier 3
 
-else if(roll < 0.000024){
+else if(tier === 3){
 
 const ore =
     getRandomOre(
@@ -2167,9 +2207,9 @@ addFactoryXP(
 
     }
 
-// Tier 2 (1 in 1,000)
+// Tier 2
 
-else if(roll < 0.001024){
+else if(tier === 2){
 
 const ore =
     getRandomOre(
@@ -2212,9 +2252,9 @@ addFactoryXP(
 
     }
 
-// Tier 1 (1 in 25)
+// Tier 1
 
-else if(roll < 0.041024){
+else if(tier === 1){
 
 const ore =
     getRandomOre(
@@ -2258,7 +2298,7 @@ addFactoryXP(
 
     }
 
-// Stone (~95.9%)
+// Stone
 
     else{
 

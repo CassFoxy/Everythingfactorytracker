@@ -12,6 +12,101 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+test("Default Pickaxe is unconditional runtime state for fresh and legacy/current saves", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({
+        cash: 137, factoryXP: 400, droppers: 2, adders: 1, multipliers: 1, saveVersion,
+        inventory: { diamond: 7 }, extra: { keep: true }
+    }))]) {
+        let app = ready(raw);
+        const before = app.state();
+        for (let cycle = 0; cycle < 3; cycle++) {
+            assert.deepEqual(JSON.parse(app.run(`JSON.stringify((({name, tier, rawPower, luck}) =>
+                ({name, tier, rawPower, luck}))(getManualPickaxe()))`)),
+                { name: "Default", tier: 0, rawPower: 4, luck: 1 });
+            assert.equal(app.run("getManualPickaxe().durability"), Infinity);
+            assert.equal(app.run("getMaxManualOreTier()"), 2);
+            app = saveAndReload(app);
+            assert.deepEqual(app.state(), before);
+            assert.equal(app.state().saveVersion, 1);
+            for (const key of ["manualProgress", "manual", "firstActionCompleted", "pickaxes",
+                "pickaxeId", "equippedPickaxeId", "durability", "identity", "materials"])
+                assert.equal(Object.hasOwn(app.state(), key), false, key);
+        }
+    }
+});
+
+test("Default weights remove locked tiers before normalization without a manual Stone clamp", () => {
+    const app = ready();
+    const weights = JSON.parse(app.run("JSON.stringify(getAccessibleManualTierWeights())"));
+    assert.deepEqual(weights, [239744, 10000, 250, 0, 0]);
+    const probabilities = JSON.parse(app.run("JSON.stringify(normalizeManualTierWeights(getAccessibleManualTierWeights()))"));
+    assert.deepEqual(probabilities, weights.map(w => w / 249994));
+    assert.ok(Math.abs(probabilities.reduce((a, b) => a + b, 0) - 1) < 1e-15);
+    // Synthetic weights test the reusable boundary, not an implemented Luck formula.
+    const adjusted = JSON.parse(app.run(`JSON.stringify(normalizeManualTierWeights(
+        getAccessibleManualTierWeights(getManualPickaxe(), [1, 100, 100, 1e12, 1e12])))`));
+    assert.deepEqual(adjusted, [1 / 201, 100 / 201, 100 / 201, 0, 0]);
+    assert.ok(adjusted[0] < 0.25);
+});
+
+test("Default manual boundary rolls select only Stone, T1 or T2 including former rare-tier rolls", () => {
+    const app = ready();
+    const t2End = 250 / 249994;
+    const oreEnd = t2End + 10000 / 249994;
+    const cases = [[0, 2], [Number.MIN_VALUE, 2], [0.000004, 2], [0.000024, 2],
+        [t2End - Number.EPSILON, 2], [t2End, 1], [t2End + Number.EPSILON, 1],
+        [oreEnd - Number.EPSILON, 1], [oreEnd, 0], [oreEnd + Number.EPSILON, 0],
+        [0.5, 0], [1 - Number.EPSILON, 0]];
+    for (const [roll, tier] of cases) {
+        assert.equal(app.run(`rollManualTier(${roll})`), tier, String(roll));
+        app.run(`Math.random = () => ${roll};`);
+        app.elements.get("mineButton").onclick();
+    }
+    const state = app.state();
+    assert.equal(state.stoneOres, cases.filter(c => c[1] === 0).length);
+    assert.equal(state.tier1Ores, cases.filter(c => c[1] === 1).length);
+    assert.equal(state.tier2Ores, cases.filter(c => c[1] === 2).length);
+    assert.equal(state.tier3Ores, 0);
+    assert.equal(state.tier4Ores, 0);
+    assert.equal(state.totalOres, cases.length);
+    assert.equal(state.achievementStats.totalOresMined, cases.length);
+    assert.equal(app.run("[...TIER_3_ORES, ...TIER_4_ORES].every(key => save.inventory[key] === 0 && save.oreCollection[key] === 0)"), true);
+});
+
+test("accessible T2 award retains quantity, discovery, XP, achievements and reload", () => {
+    let app = ready();
+    // First action still rolls normally; no first-Stone lifecycle is introduced.
+    app.run("Math.random = () => 0; mineOre(); updateUI();");
+    assert.equal(app.state().inventory.citrine, 1);
+    assert.equal(app.state().oreCollection.citrine, 1);
+    assert.equal(app.state().factoryXP, 25);
+    assert.equal(app.state().achievementStats.oresDiscovered, 1);
+    assert.equal(app.state().achievements.firstDiscovery.unlocked, true);
+    assert.equal(app.elements.get("discoveryPopup").style.display, "block");
+    for (let i = 0; i < 3; i++) app.run("mineOre(); updateUI();");
+    assert.equal(app.state().inventory.citrine, 4);
+    assert.equal(app.state().oreCollection.citrine, 4);
+    assert.equal(app.state().achievementStats.oresDiscovered, 1);
+    assert.equal(app.state().factoryXP, 100);
+    assert.equal(app.state().factoryLevel, 1);
+    const before = app.state();
+    app = saveAndReload(app);
+    assert.deepEqual(app.state(), before);
+});
+
+test("manual access does not change automated Stone production or duplication", () => {
+    const app = ready(JSON.stringify({ cash: 100, factoryXP: 0, droppers: 2, adders: 0, multipliers: 1 }));
+    app.run("Math.random = () => 0; produceStone();");
+    assert.equal(app.state().inventory.stone, 4);
+    app.run("Math.random = () => 0.5; produceStone();");
+    assert.equal(app.state().inventory.stone, 6);
+    assert.equal(app.state().totalOres, 6);
+    assert.equal(app.state().factoryXP, 6);
+    assert.equal(app.state().achievementStats.totalOresMined, 0);
+    assert.equal(app.state().achievementStats.oresDiscovered, 0);
+    assert.equal(app.run("ORE_KEYS.every(key => save.inventory[key] === 0)"), true);
+});
+
 test("canonical factory creates the complete fresh state and a valid round trip", () => {
     const app = ready();
     const defaults = JSON.parse(app.run("JSON.stringify(createDefaultSave())"));
@@ -844,10 +939,12 @@ test("full-batch mode survives idle reload and starts only when enough resources
 });
 
 test("deterministic 100-mine sequence preserves purchases, discoveries, smelting and milestones through 20 reloads", () => {
-    let app = ready();
+    // Existing progress retains higher-tier inventory; Default can no longer mine it.
+    let app = ready(JSON.stringify({ cash: 6000, factoryXP: 9000, droppers: 0, adders: 0,
+        multipliers: 0, inventory: { spinel: 20, onyx: 20 } }));
     app.run('save.regressionMetadata = { retained: ["sequence", 1] };');
     for (let cycle = 0; cycle < 20; cycle++) {
-        // One resource from each existing tier plus Stone, without changing production rules.
+        // Three T2, one T1 and one Stone with the Default-accessible pool.
         for (const roll of [0, 0.00001, 0.0005, 0.01, 0.5]) {
             app.run("Math.random = () => " + roll);
             app.elements.get("mineButton").onclick();
@@ -873,13 +970,16 @@ test("deterministic 100-mine sequence preserves purchases, discoveries, smelting
         }
         const state = app.state();
         assert.equal(state.achievementStats.totalOresMined, (cycle + 1) * 5);
-        for (const tier of [1, 2, 3, 4]) assert.equal(state["tier" + tier + "Ores"], cycle + 1);
-        assert.equal(state.achievementStats.oresDiscovered, 4);
+        assert.equal(state.tier1Ores, cycle + 1);
+        assert.equal(state.tier2Ores, (cycle + 1) * 3);
+        assert.equal(state.tier3Ores, 0);
+        assert.equal(state.tier4Ores, 0);
+        assert.equal(state.achievementStats.oresDiscovered, 2);
         assert.equal(state.achievements.firstDiscovery.claimed, true);
         app = saveAndReload(app);
     }
     assert.equal(app.state().factoryMilestones["10"], true);
-    assert.equal(app.state().achievementStats.oresSmelted, 119);
+    assert.equal(app.state().achievementStats.oresSmelted, 159);
     assert.equal(app.state().inventory.stone, 0);
     assert.deepEqual(app.state().regressionMetadata, { retained: ["sequence", 1] });
     app.run("validateSaveData(save)");
