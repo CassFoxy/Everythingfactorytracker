@@ -405,3 +405,166 @@ function getRarityText(rarity){
         rarity.toLocaleString();
 
 }
+
+// V1-041A: pure candidate models only. No save, UI, RNG or processing ownership.
+// Canonical records use exactly the fields below; live schema-1 validation is separate.
+const InventoryModel = (() => {
+    const lotFields = ["resourceId", "stage", "refineCount", "amount",
+        "polishedValue", "preRefinerValue", "refineBonus"];
+    const identityFields = lotFields.filter(key => key !== "amount");
+    const materialFields = ["wood", "scrap", "metal"];
+    const pickaxeFields = ["id", "tier", "remainingDurability", "lastManualEquipOrder"];
+
+    function invalid(path, rule){
+        throw new TypeError("Invalid inventory model: " + path + " " + rule);
+    }
+
+    function record(value, fields, path){
+        if(value === null || typeof value !== "object" || Array.isArray(value))
+            invalid(path, "must be a record");
+        const prototype = Object.getPrototypeOf(value);
+        if(prototype !== null && Object.getPrototypeOf(prototype) !== null)
+            invalid(path, "must be a plain data record");
+        if(Reflect.ownKeys(value).length !== fields.length)
+            invalid(path, "must contain exactly the canonical fields");
+        for(const key of fields){
+            const descriptor = Object.getOwnPropertyDescriptor(value, key);
+            if(!descriptor || !descriptor.enumerable || !("value" in descriptor))
+                invalid(path + "." + key, "must be an own data field");
+        }
+    }
+
+    function number(value, path, minimum = 0, integer = false){
+        if(typeof value !== "number" || !Number.isFinite(value) || value < minimum ||
+            (integer && !Number.isInteger(value)))
+            invalid(path, "must be a finite " + (integer ? "integer " : "number ") + ">= " + minimum);
+    }
+
+    function validateLot(lot){
+        record(lot, lotFields, "lot");
+        if(!["raw", "polished", "refined"].includes(lot.stage))
+            invalid("lot.stage", "must be raw, polished or refined");
+        if(!ORE_KEYS.includes(lot.resourceId) && !(lot.stage === "raw" && lot.resourceId === "stone"))
+            invalid("lot.resourceId", "must identify an allowed current resource");
+        number(lot.amount, "lot.amount", 1, true);
+        number(lot.refineCount, "lot.refineCount", lot.stage === "refined" ? 1 : 0, true);
+        if(lot.refineCount > (lot.stage === "refined" ? 15 : 0))
+            invalid("lot.refineCount", "is outside the stage range");
+        if(lot.stage === "polished") number(lot.polishedValue, "lot.polishedValue");
+        else if(lot.polishedValue !== null) invalid("lot.polishedValue", "must be null");
+        if(lot.stage === "refined"){
+            number(lot.preRefinerValue, "lot.preRefinerValue");
+            // Historical negative bonuses are valid. Do not recompute perk/pass formulas.
+            number(lot.refineBonus, "lot.refineBonus", -1);
+            number(lot.preRefinerValue * (1 + lot.refineBonus), "lot derived value");
+        } else if(lot.preRefinerValue !== null || lot.refineBonus !== null){
+            invalid("lot", "must have null preRefinerValue and refineBonus at this stage");
+        }
+    }
+
+    function createLot(data){
+        validateLot(data);
+        return { ...data };
+    }
+
+    function sameCohort(a, b){
+        return identityFields.every(key => a[key] === b[key]);
+    }
+
+    function lotsCompatible(a, b){
+        validateLot(a);
+        validateLot(b);
+        return sameCohort(a, b);
+    }
+
+    function mergeLots(a, b){
+        if(!lotsCompatible(a, b)) invalid("merge", "requires compatible lots");
+        const amount = a.amount + b.amount;
+        number(amount, "merged amount", 1, true);
+        // Counts are not capped at MAX_SAFE_INTEGER, but an operation must not lose units.
+        if(amount - a.amount !== b.amount || amount - b.amount !== a.amount)
+            invalid("merged amount", "cannot be represented without quantity loss");
+        return { ...a, amount };
+    }
+
+    function splitLot(lot, quantity){
+        validateLot(lot);
+        number(quantity, "split quantity", 1, true);
+        if(quantity > lot.amount) invalid("split quantity", "exceeds available amount");
+        const rest = lot.amount - quantity;
+        if(rest + quantity !== lot.amount || lot.amount - rest !== quantity)
+            invalid("split quantity", "cannot be represented without quantity loss");
+        return {
+            taken: { ...lot, amount: quantity },
+            remaining: rest === 0 ? null : { ...lot, amount: rest }
+        };
+    }
+
+    function createProcessedInventory(){
+        return { polished: [], refined: [] };
+    }
+
+    function validateProcessedInventory(inventory){
+        record(inventory, ["polished", "refined"], "processed inventory");
+        for(const stage of ["polished", "refined"]){
+            if(!Array.isArray(inventory[stage])) invalid(stage, "must be an array");
+            for(const lot of inventory[stage]){
+                validateLot(lot);
+                if(lot.stage !== stage) invalid(stage, "contains a lot of the wrong stage");
+            }
+        }
+    }
+
+    function addProcessedLot(inventory, lot){
+        validateProcessedInventory(inventory);
+        validateLot(lot);
+        if(lot.stage === "raw") invalid("processed inventory", "cannot contain raw lots");
+        const result = createProcessedInventory();
+        let merged = createLot(lot);
+        let insertionIndex = null;
+        for(const stage of ["polished", "refined"]){
+            for(const existing of inventory[stage]){
+                if(stage === lot.stage && sameCohort(existing, lot)){
+                    if(insertionIndex === null) insertionIndex = result[stage].length;
+                    merged = mergeLots(merged, existing);
+                } else result[stage].push(createLot(existing));
+            }
+        }
+        result[lot.stage].splice(insertionIndex ?? result[lot.stage].length, 0, merged);
+        return result;
+    }
+
+    function createMaterials(){
+        return { wood: 0, scrap: 0, metal: 0 };
+    }
+
+    function validateMaterials(materials){
+        record(materials, materialFields, "materials");
+        for(const key of materialFields) number(materials[key], "materials." + key, 0, true);
+    }
+
+    function validatePickaxeCopy(copy, maximumDurability){
+        record(copy, pickaxeFields, "pickaxe copy");
+        if(typeof copy.id !== "string" || !/^pickaxe:[1-9][0-9]*$/.test(copy.id) ||
+            !Number.isSafeInteger(Number(copy.id.slice(8))) ||
+            copy.id !== "pickaxe:" + String(Number(copy.id.slice(8))))
+            invalid("pickaxe.id", "must be a canonical positive safe sequence ID");
+        number(copy.tier, "pickaxe.tier", 1, true);
+        if(copy.tier > 8) invalid("pickaxe.tier", "must be <= 8");
+        number(maximumDurability, "maximumDurability", 0, true);
+        number(copy.remainingDurability, "pickaxe.remainingDurability", 0, true);
+        if(copy.remainingDurability > maximumDurability)
+            invalid("pickaxe.remainingDurability", "exceeds the supplied current maximum");
+        if(!Number.isSafeInteger(copy.lastManualEquipOrder) || copy.lastManualEquipOrder < 0)
+            invalid("pickaxe.lastManualEquipOrder", "must be a non-negative safe integer");
+    }
+
+    function createPickaxeCopy(data, maximumDurability){
+        validatePickaxeCopy(data, maximumDurability);
+        return { ...data };
+    }
+
+    return Object.freeze({ createLot, validateLot, lotsCompatible, mergeLots, splitLot,
+        createProcessedInventory, validateProcessedInventory, addProcessedLot,
+        createMaterials, validateMaterials, createPickaxeCopy, validatePickaxeCopy });
+})();

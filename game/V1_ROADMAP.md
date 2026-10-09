@@ -409,13 +409,35 @@ Current inventory tracks quantities of base resources.
 
 ## V1-041 — Pickaxe and Processed Inventory Model
 
-**Status:** ⚪ NOT STARTED
-**Design:** DESIGN COMPLETE behavior; technical field contract required
+**Status:** 🟠 IN PROGRESS
+**Design:** Defined behavior and V1-016 field contract; pure model complete, integration gated
 **Dependencies:** V1-016
 
 Independent Pickaxe copies/materials and raw/Polished/Refined cohorts. Preserve resource identity, Refine Count and immutable value metadata; merge only compatible cohorts. Model reserved inputs separately from available stock. No mutations, capacity rules or future ore placeholders in this change.
 
+Consumer tickets depending on V1-041 may use completed V1-041A to build/test candidate models before persisted integration. They do not wait for V1-041B activation to implement their consumers; 041B is integrated alongside those consumers and must satisfy V1-018 before enabling V2 writes.
+
 **Acceptance:** Reference L checks 11–15, 26.
+
+---
+
+## V1-041A — Pickaxe and Processed Inventory Pure Model
+
+**Status:** ✅ COMPLETE (pure model only)
+**Dependencies:** V1-016; existing resource catalogue and regression harness
+
+`InventoryModel` in `ores.js` validates/constructs canonical Lots, material balances, processed inventories and crafted Pickaxe copies with a caller-supplied durability maximum. Compatibility compares all six identity/value fields exactly; pure merge/split/add operations preserve snapshots and return independent records, with null for an exhausted remainder. Invalid records, incompatible merges, numeric overflow and quantity-loss arithmetic reject explicitly. Counts retain finite-integer compatibility beyond safe-integer size when the requested operation is representable; IDs/equip sequences remain safe integers. Refined historical bonuses may be negative; validation checks structural value safety, not a new Refiner/perk formula.
+
+Existing raw inventory remains an integer map. No model object is attached to live state; defaults, validators, migrations and saveVersion 1 are unchanged. Verified four syntax checks, 243 Node regressions (13 focused model/boundary tests added) and the unchanged 12 browser smoke scenarios. This does not complete Pickaxe gameplay, material awards, machine processing, Furnace modernization or V2 activation.
+
+---
+
+## V1-041B — Persisted Inventory Integration
+
+**Status:** ⚪ NOT STARTED — BLOCKED by applicable integration/activation gates
+**Dependencies:** V1-041A; owning V1-027/028/074/075/080+ consumers; V1-017/018 for V2 structures; applicable V1-016 decision gates
+
+Integrate only records with working consumers and approved lifetime/migration semantics. Any additive schema-1 manual path must follow the explicit contract and its owning ticket; it must not change the raw resource-count map. Processed inventory and incompatible structures wait for the adjacent V1→V2 conversion, validation/recovery coverage and complete activation gate. Preserve snapshot metadata without resolving T1 repricing or other Open rules. No partial V2 writes. V1-041 remains incomplete until the required integration is implemented and tested.
 
 ---
 

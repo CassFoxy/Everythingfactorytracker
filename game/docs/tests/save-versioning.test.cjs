@@ -12,6 +12,254 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+// Load the model with only its catalogue: no game, DOM, storage, clock or RNG harness.
+const inventoryModel = vm.runInNewContext(ores + "\nInventoryModel;");
+function lotFixture(overrides = {}) {
+    return { resourceId: "ruby", stage: "raw", refineCount: 0, amount: 7,
+        polishedValue: null, preRefinerValue: null, refineBonus: null, ...overrides };
+}
+function polishedFixture(overrides = {}) {
+    return lotFixture({ stage: "polished", polishedValue: 27500, ...overrides });
+}
+function refinedFixture(overrides = {}) {
+    return lotFixture({ stage: "refined", refineCount: 4, preRefinerValue: 27500,
+        refineBonus: 0.125, ...overrides });
+}
+function pickaxeFixture(overrides = {}) {
+    return { id: "pickaxe:1", tier: 1, remainingDurability: 500, lastManualEquipOrder: 0, ...overrides };
+}
+
+test("pure Lot constructors accept raw resources and preserve supplied processed snapshots", () => {
+    for (const resourceId of ["stone", ...vm.runInNewContext(ores + "\nORE_KEYS;")]) {
+        const input = Object.freeze(lotFixture({ resourceId }));
+        const result = inventoryModel.createLot(input);
+        assert.notEqual(result, input);
+        assert.deepEqual(structuredClone(result), input);
+    }
+    for (const input of [polishedFixture({ polishedValue: 0 }), polishedFixture(),
+        refinedFixture(), refinedFixture({ refineCount: 15, refineBonus: -0.9 }),
+        refinedFixture({ refineCount: 1, refineBonus: 7.5 })]) {
+        assert.deepEqual(structuredClone(inventoryModel.createLot(input)), input);
+        assert.equal(inventoryModel.validateLot(input), undefined);
+    }
+});
+
+test("Lot validation rejects malformed records, quantities, resource IDs and stages", () => {
+    for (const value of [null, [], false, "lot", {}, Object.create(lotFixture()),
+        lotFixture({ extra: 1 }), Object.assign(new Date(), lotFixture()),
+        Object.defineProperty(lotFixture(), "amount", { get() { throw Error("getter executed"); } })])
+        assert.throws(() => inventoryModel.validateLot(value), /Invalid inventory model/);
+    for (const field of Object.keys(lotFixture())) {
+        const partial = lotFixture(); delete partial[field];
+        assert.throws(() => inventoryModel.validateLot(partial), /Invalid inventory model/);
+    }
+    for (const amount of [0, -1, 1.5, "7", null, undefined, NaN, Infinity, -Infinity])
+        assert.throws(() => inventoryModel.validateLot(lotFixture({ amount })), /amount/);
+    for (const resourceId of ["wood", "unknown", "toString", "__proto__", 1, null])
+        assert.throws(() => inventoryModel.validateLot(lotFixture({ resourceId })), /resourceId/);
+    for (const stage of ["Raw", "mutated", "", 0, null])
+        assert.throws(() => inventoryModel.validateLot(lotFixture({ stage })), /stage/);
+});
+
+test("Lot stage metadata is required and cannot be mixed or silently defaulted", () => {
+    const invalid = [
+        polishedFixture({ resourceId: "stone" }), refinedFixture({ resourceId: "stone" }),
+        lotFixture({ refineCount: 1 }), polishedFixture({ refineCount: 1 }),
+        lotFixture({ polishedValue: 0 }), lotFixture({ preRefinerValue: 0 }),
+        lotFixture({ refineBonus: 0 }), polishedFixture({ preRefinerValue: 0 }),
+        polishedFixture({ refineBonus: 0 }), refinedFixture({ polishedValue: 0 })
+    ];
+    for (const refineCount of [0, -1, 16, 1.1, "4", null, NaN, Infinity])
+        invalid.push(refinedFixture({ refineCount }));
+    for (const value of [null, undefined, "1", true, -1, NaN, Infinity]) {
+        invalid.push(polishedFixture({ polishedValue: value }));
+        invalid.push(refinedFixture({ preRefinerValue: value }));
+    }
+    for (const refineBonus of [null, undefined, "0.5", true, -1.01, NaN, Infinity])
+        invalid.push(refinedFixture({ refineBonus }));
+    invalid.push(refinedFixture({ preRefinerValue: Number.MAX_VALUE, refineBonus: 1 }));
+    for (const value of invalid)
+        assert.throws(() => inventoryModel.validateLot(value), /Invalid inventory model/);
+    for (let refineCount = 1; refineCount <= 15; refineCount++) {
+        const refineBonus = refineCount <= 5 ? 0.5 * (5 - refineCount) / 4 : -0.09 * (refineCount - 5);
+        assert.doesNotThrow(() => inventoryModel.validateLot(refinedFixture({ refineCount, refineBonus })));
+    }
+});
+
+test("cohort compatibility uses every exact identity field and ignores only amount", () => {
+    for (const input of [lotFixture(), polishedFixture(), refinedFixture()])
+        assert.equal(inventoryModel.lotsCompatible(input, { ...input, amount: 99 }), true);
+    for (const [a, b] of [
+        [lotFixture(), lotFixture({ resourceId: "amber" })],
+        [lotFixture(), polishedFixture()],
+        [polishedFixture(), polishedFixture({ polishedValue: 27500.01 })],
+        [refinedFixture(), refinedFixture({ refineCount: 5 })],
+        [refinedFixture(), refinedFixture({ preRefinerValue: 27500.01 })],
+        [refinedFixture(), refinedFixture({ refineBonus: 0.12501 })],
+        // Identical final Cash values still describe different cohorts.
+        [refinedFixture({ preRefinerValue: 100, refineBonus: 0.5 }),
+            refinedFixture({ preRefinerValue: 150, refineBonus: 0 })]
+    ]) {
+        assert.equal(inventoryModel.lotsCompatible(a, b), false);
+        assert.equal(inventoryModel.lotsCompatible(b, a), false);
+        assert.throws(() => inventoryModel.mergeLots(a, b), /compatible/);
+    }
+    assert.throws(() => inventoryModel.lotsCompatible(lotFixture(), lotFixture({ amount: 0 })), /amount/);
+});
+
+test("merge and split preserve snapshots, conserve quantity and never mutate inputs", () => {
+    for (const template of [lotFixture(), polishedFixture(), refinedFixture({ refineCount: 15, refineBonus: -0.9 })]) {
+        const a = Object.freeze({ ...template, amount: 7 });
+        const b = Object.freeze({ ...template, amount: 5 });
+        const merged = inventoryModel.mergeLots(a, b);
+        assert.deepEqual(structuredClone(merged), { ...template, amount: 12 });
+        const split = inventoryModel.splitLot(merged, 5);
+        assert.deepEqual(structuredClone(split), { taken: b, remaining: a });
+        assert.notEqual(split.taken, split.remaining);
+        assert.notEqual(split.taken, merged);
+        assert.deepEqual(structuredClone(inventoryModel.splitLot(a, 7)), { taken: a, remaining: null });
+        merged.amount = 100;
+        split.taken.preRefinerValue = 1;
+        assert.deepEqual(a, { ...template, amount: 7 });
+        assert.deepEqual(b, { ...template, amount: 5 });
+        assert.deepEqual(structuredClone(split.remaining), a);
+    }
+});
+
+test("quantity operations reject invalid splits, overflow and unrepresentable transfers", () => {
+    for (const quantity of [0, -1, 0.1, 8, "2", null, undefined, NaN, Infinity])
+        assert.throws(() => inventoryModel.splitLot(lotFixture(), quantity), /split quantity/);
+    const huge = lotFixture({ amount: Number.MAX_VALUE });
+    assert.doesNotThrow(() => inventoryModel.validateLot(huge)); // Count is not a safe-integer cap.
+    assert.throws(() => inventoryModel.mergeLots(huge, huge), /merged amount/);
+    assert.throws(() => inventoryModel.mergeLots(huge, lotFixture({ amount: 1 })), /quantity loss/);
+    assert.throws(() => inventoryModel.splitLot(huge, 1), /quantity loss/);
+    const large = lotFixture({ amount: 2 ** 54 });
+    assert.equal(inventoryModel.mergeLots(large, large).amount, 2 ** 55);
+    assert.equal(inventoryModel.splitLot(large, 2 ** 53).remaining.amount, 2 ** 53);
+});
+
+test("processed inventory creation is isolated and stage validation is strict", () => {
+    const a = inventoryModel.createProcessedInventory();
+    const b = inventoryModel.createProcessedInventory();
+    a.polished.push(polishedFixture());
+    assert.deepEqual(structuredClone(b), { polished: [], refined: [] });
+    assert.doesNotThrow(() => inventoryModel.validateProcessedInventory(a));
+    for (const value of [null, [], {}, { polished: [], refined: [], raw: [] },
+        { polished: null, refined: [] }, { polished: [], refined: {} },
+        { polished: [lotFixture()], refined: [] }, { polished: [refinedFixture()], refined: [] },
+        { polished: [], refined: [polishedFixture()] }, { polished: Array(1), refined: [] },
+        { polished: [], refined: [refinedFixture({ amount: 0 })] }])
+        assert.throws(() => inventoryModel.validateProcessedInventory(value), /Invalid inventory model/);
+    assert.throws(() => inventoryModel.addProcessedLot(b, lotFixture()), /raw lots/);
+});
+
+test("processed additions coalesce exact cohorts and return independent records and arrays", () => {
+    const polished = Object.freeze(polishedFixture());
+    const refined = Object.freeze(refinedFixture());
+    const original = Object.freeze({ polished: Object.freeze([polished]), refined: Object.freeze([refined]) });
+    const added = inventoryModel.addProcessedLot(original, polished);
+    assert.equal(added.polished.length, 1);
+    assert.equal(added.polished[0].amount, 14);
+    assert.equal(added.refined[0].amount, 7);
+    added.refined[0].amount = 42;
+    added.polished[0].polishedValue = 0;
+    assert.equal(original.refined[0].amount, 7);
+    assert.equal(original.polished[0].polishedValue, 27500);
+    const other = inventoryModel.addProcessedLot(original, polishedFixture({ polishedValue: 27500.01 }));
+    assert.equal(other.polished.length, 2);
+    const withRefined = inventoryModel.addProcessedLot(other, refinedFixture({ refineCount: 5, refineBonus: 0 }));
+    assert.equal(withRefined.refined.length, 2);
+    const coalesced = inventoryModel.addProcessedLot({ polished: [polished, polished], refined: [] }, polished);
+    assert.equal(coalesced.polished.length, 1);
+    assert.equal(coalesced.polished[0].amount, 21);
+    const refinedAdded = inventoryModel.addProcessedLot(original, refined);
+    assert.equal(refinedAdded.refined.length, 1);
+    assert.equal(refinedAdded.refined[0].amount, 14);
+    assert.deepEqual(structuredClone(original), { polished: [polishedFixture()], refined: [refinedFixture()] });
+});
+
+test("invalid processed additions fail without changing the original inventory", () => {
+    const input = { polished: [polishedFixture()], refined: [refinedFixture()] };
+    const before = structuredClone(input);
+    for (const lot of [lotFixture(), polishedFixture({ polishedValue: null }), refinedFixture({ amount: 0 })])
+        assert.throws(() => inventoryModel.addProcessedLot(input, lot), /Invalid inventory model/);
+    assert.deepEqual(input, before);
+    const huge = { polished: [polishedFixture({ amount: Number.MAX_VALUE })], refined: [] };
+    assert.throws(() => inventoryModel.addProcessedLot(huge, polishedFixture({ amount: Number.MAX_VALUE })), /merged amount/);
+    assert.equal(huge.polished[0].amount, Number.MAX_VALUE);
+});
+
+test("material models are independent and require only the three canonical counts", () => {
+    const a = inventoryModel.createMaterials();
+    const b = inventoryModel.createMaterials();
+    a.wood = 5;
+    assert.deepEqual(structuredClone(b), { wood: 0, scrap: 0, metal: 0 });
+    inventoryModel.validateMaterials({ wood: 5, scrap: 10, metal: 2 ** 54 });
+    for (const value of [null, [], {}, { wood: 0, scrap: 0 }, { wood: 0, scrap: 0, metal: 0, stone: 0 }])
+        assert.throws(() => inventoryModel.validateMaterials(value), /Invalid inventory model/);
+    for (const key of ["wood", "scrap", "metal"])
+        for (const value of [-1, 0.5, "1", null, undefined, NaN, Infinity])
+            assert.throws(() => inventoryModel.validateMaterials({ wood: 0, scrap: 0, metal: 0, [key]: value }), /materials/);
+});
+
+test("crafted Pickaxe models accept tiers 1–8, broken copies and supplied maximums", () => {
+    for (let tier = 1; tier <= 8; tier++) {
+        for (const remainingDurability of [0, 1, 500 * tier]) {
+            const original = Object.freeze(pickaxeFixture({ tier, id: "pickaxe:" + tier, remainingDurability }));
+            const result = inventoryModel.createPickaxeCopy(original, 500 * tier);
+            assert.deepEqual(structuredClone(result), original);
+            assert.notEqual(result, original);
+            result.remainingDurability = 0;
+            assert.equal(original.remainingDurability, remainingDurability);
+        }
+    }
+    assert.doesNotThrow(() => inventoryModel.validatePickaxeCopy(pickaxeFixture({ remainingDurability: 3000,
+        id: "pickaxe:9007199254740991", lastManualEquipOrder: Number.MAX_SAFE_INTEGER }), 3000));
+});
+
+test("crafted Pickaxe validation rejects reserved IDs, malformed fields and invalid maxima", () => {
+    const invalid = [null, [], {}, pickaxeFixture({ extra: 1 }), Object.create(pickaxeFixture())];
+    for (const key of Object.keys(pickaxeFixture())) {
+        const partial = pickaxeFixture(); delete partial[key]; invalid.push(partial);
+    }
+    for (const id of ["pickaxe:default", "miner:1", "pickaxe:0", "pickaxe:01", "pickaxe:-1",
+        "pickaxe:1.0", "pickaxe:1e2", "pickaxe:1\n", "pickaxe:9007199254740992", "", null, 1])
+        invalid.push(pickaxeFixture({ id }));
+    for (const tier of [0, 9, 1.5, "1", null, NaN, Infinity]) invalid.push(pickaxeFixture({ tier }));
+    for (const remainingDurability of [-1, 501, 0.1, "0", null, NaN, Infinity])
+        invalid.push(pickaxeFixture({ remainingDurability }));
+    for (const lastManualEquipOrder of [-1, 0.1, "0", null, NaN, Infinity, 2 ** 53])
+        invalid.push(pickaxeFixture({ lastManualEquipOrder }));
+    for (const value of invalid)
+        assert.throws(() => inventoryModel.validatePickaxeCopy(value, 500), /Invalid inventory model/);
+    for (const maximum of [undefined, null, -1, 0.1, "500", NaN, Infinity])
+        assert.throws(() => inventoryModel.validatePickaxeCopy(pickaxeFixture(), maximum), /maximumDurability/);
+});
+
+test("unused candidate models leave fresh and existing schema-1 saves and gameplay unchanged", () => {
+    const legacy = JSON.stringify({ cash: 100, factoryXP: 0, droppers: 1, adders: 0, multipliers: 0,
+        inventory: { diamond: 3 }, extension: { keep: [1, 2] } });
+    for (const raw of [null, legacy, JSON.stringify({ ...JSON.parse(legacy), saveVersion: 1 })]) {
+        let app = ready(raw);
+        const before = app.state();
+        app.run(`InventoryModel.createMaterials(); InventoryModel.createProcessedInventory();
+            InventoryModel.createPickaxeCopy({id:"pickaxe:1",tier:1,remainingDurability:500,lastManualEquipOrder:0},500);`);
+        assert.deepEqual(app.state(), before);
+        app = saveAndReload(app);
+        assert.deepEqual(app.state(), before);
+        app.run("mineOre(); produceStone(); saveGame();");
+        const after = app.state();
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        assert.equal(after.saveVersion, 1);
+        assert.ok(Object.values(after.inventory).every(Number.isInteger));
+        for (const key of ["manual", "manualProgress", "pickaxes", "materials", "processedInventory", "identity", "factory", "compatibility"])
+            assert.equal(Object.hasOwn(after, key), false, key);
+        app = saveAndReload(app);
+        assert.deepEqual(app.state(), after);
+    }
+});
+
 test("Default Pickaxe is unconditional runtime state for fresh and legacy/current saves", () => {
     for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({
         cash: 137, factoryXP: 400, droppers: 2, adders: 1, multipliers: 1, saveVersion,
