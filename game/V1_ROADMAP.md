@@ -481,12 +481,12 @@ Replace unnecessary manually duplicated HTML with data-driven rendering where pr
 ## V1-050 — Cash Price and Investment Rules
 
 **Status:** 🟠 IN PROGRESS
-**Design:** DESIGN COMPLETE; pure pricing complete, payment/investment integration pending
+**Design:** DESIGN COMPLETE; pure pricing and investment models complete, transaction integration pending
 **Dependencies:** Accepted tests; Reference E
 
 Centralize original-formula → eligible discount → discounted-band half-up rounding. Never scale a previously rounded cost. Track actual Cash paid separately from refunds; retained free Preservation tiers add no investment. Do not implement Recommended Discount purchase pricing.
 
-Consumers may use completed V1-050A for candidate price calculations before transaction integration. V1-050B is implemented alongside the owning transactions; it is not permission to change legacy prototype prices or activate partial V2 state.
+Consumers may use completed V1-050A for candidate price calculations and V1-050B for recorded-payment accounting before transaction integration. V1-050C is implemented alongside the owning transactions; it is not permission to change legacy prototype prices or activate partial V2 state.
 
 **Acceptance:** Reference L checks 17–18.
 
@@ -503,13 +503,26 @@ Eligible factor is 1−0.05L. Choose $1/$10/$1,000/$1,000,000 step from discount
 
 ---
 
-## V1-050B — Transaction / Investment Integration
+## V1-050B — Pure Payment, Investment and Refund Model
+
+**Status:** ✅ COMPLETE (pure model only)
+**Dependencies:** V1-050A; V1-016 Payment/Investment contract
+
+`InvestmentModel` in `ores.js` validates exact `{kind, targetLevel, cashPaid, basis}` Payments and `{entries}` Investments. Context `{machineType, owned}` distinguishes an empty unowned candidate from an owned ledger with exactly one purchase. Tier targets are 2–25 for Miners and 2–10 for Polishers/Refiners; Miner-only Ore Luck targets are 1–50. Duplicate purchase/tier/Ore Luck targets reject. Different kinds may share a numeric target. Missing upgrade entries are never inferred from a preserved/current tier.
+
+`createActualPayment` and `appendActualPayment` accept only new `actual` records; structural validation can read supplied `legacyEquivalentV1` candidates and retain historical entries when appending an actual payment. This validates structure, not migration provenance or historical prices. Appending clones the ledger and each record. `sumInvestment` and `calculateRefund` use recorded amounts only; refund is floor(50% × total), with no persisted refund total. Zero purchases and fractional recorded Cash are retained exactly. Non-finite or non-reversible additions reject without rounding, an epsilon or an arbitrary safe-integer Cash cap; this also rejects fractional combinations whose exact sum cannot be represented.
+
+Verified four syntax checks, 265 Node tests (12 focused accounting/boundary regressions added), and the unchanged 12 browser scenarios. No live ledgers, Cash debits/credits, machine ownership/resale, save fields or migrations were added. Production saveVersion remains 1. K.2 reconstruction and compensation remain DESIGN REQUIRED.
+
+---
+
+## V1-050C — Transaction / Investment Integration
 
 **Status:** ⚪ NOT STARTED
 **Design:** Actual-payment/refund rules Defined; K.2 reconstruction remains DESIGN REQUIRED
-**Dependencies:** V1-050A; V1-016 Payment/Investment contract; applicable transaction consumers and persistence gates for live integration
+**Dependencies:** V1-050A/B; V1-016 Payment/Investment contract; applicable transaction consumers and persistence gates for live integration
 
-First implement pure Payment/Investment validation and recorded-payment refund primitives in a bounded step. Then integrate successful actual debits with the owning machine transactions under their approved schema boundaries. Include only qualifying purchase, paid tier and Miner-local Ore Luck costs; free/preserved tiers create no payment. Refund floor(50% × recorded qualifying total), never current catalogue replacement cost. Furnace is not sellable. Do not introduce Recommended Discount-perk purchase pricing or invent K.2 reconstruction. No ledgers, refunds, transactions or migration are implemented by 050A; the V1-050 parent remains incomplete until required integration is tested.
+Integrate the completed pure pricing/accounting models with successful actual debits in the owning machine transactions under their approved schema boundaries. Quote → validate affordability/eligibility/ownership → debit and update ownership → append actual payment → atomically commit the complete transaction. A quote is not proof of payment. Include only qualifying purchase, paid tier and Miner-local Ore Luck costs; free/preserved tiers create no payment. Resale must remove the machine and credit floor(50% × recorded qualifying total) exactly once, never use current catalogue replacement cost. Furnace is not sellable. Test transaction failures and reloads without duplicate debits/refunds. Do not introduce Recommended Discount-perk purchase pricing or invent K.2 reconstruction. Live integration waits for its owning consumers and safe persistence boundary; the V1-050 parent remains incomplete until that integration is tested.
 
 ---
 

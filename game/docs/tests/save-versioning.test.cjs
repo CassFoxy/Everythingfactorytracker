@@ -12,6 +12,223 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const investmentModel = vm.runInNewContext(ores + "\nInvestmentModel;");
+function paymentFixture(overrides = {}) {
+    return { kind: "purchase", targetLevel: null, cashPaid: 100.25, basis: "actual", ...overrides };
+}
+function investmentContext(machineType = "miner", owned = true) {
+    return { machineType, owned };
+}
+
+test("actual Payment records retain exact Cash, zero purchases and machine-specific targets", () => {
+    for (const [machineType, cap] of [["miner", 25], ["polisher", 10], ["refiner", 10]]) {
+        for (const input of [paymentFixture(), paymentFixture({ cashPaid: 0 }),
+            paymentFixture({ kind: "tier", targetLevel: 2 }), paymentFixture({ kind: "tier", targetLevel: cap })]) {
+            Object.freeze(input);
+            const result = investmentModel.createActualPayment(input, machineType);
+            assert.notEqual(result, input);
+            assert.deepEqual(structuredClone(result), input);
+        }
+    }
+    for (const targetLevel of [1, 50])
+        assert.doesNotThrow(() => investmentModel.validatePayment(paymentFixture({ kind: "oreLuck", targetLevel }), "miner"));
+    // Validation does not round even fractional historical actual payments.
+    assert.equal(investmentModel.createActualPayment(paymentFixture({ cashPaid: 0.1 }), "miner").cashPaid, 0.1);
+});
+
+test("Payment validation rejects malformed fields, nonqualifying kinds and invalid machines", () => {
+    const invalid = [null, [], {}, paymentFixture({ extra: 1 }), Object.create(paymentFixture()),
+        Object.defineProperty(paymentFixture(), "cashPaid", { get() { throw Error("getter executed"); } })];
+    for (const key of Object.keys(paymentFixture())) {
+        const partial = paymentFixture(); delete partial[key]; invalid.push(partial);
+    }
+    for (const kind of ["minerSlot", "unlockMiner", "normalShop", "pickaxeCrafting", "pickaxeRepair",
+        "materials", "stardust", "rebirthPerk", "inscription", "preservation", "furnaceTier", "unknown", null])
+        invalid.push(paymentFixture({ kind }));
+    for (const basis of ["migration", "Actual", "", null, true]) invalid.push(paymentFixture({ basis }));
+    for (const cashPaid of [-1, "100", null, undefined, false, NaN, Infinity, -Infinity])
+        invalid.push(paymentFixture({ cashPaid }));
+    for (const value of invalid)
+        assert.throws(() => investmentModel.validatePayment(value, "miner"), /Invalid investment model/);
+    for (const machineType of ["furnace", "dropper", "Miner", "toString", "__proto__", null, 1])
+        assert.throws(() => investmentModel.validatePayment(paymentFixture(), machineType), /machineType/);
+});
+
+test("Payment targets enforce null purchase, machine tier caps and Miner-only Ore Luck", () => {
+    for (const targetLevel of [0, 1, 2, "null", undefined, NaN])
+        assert.throws(() => investmentModel.validatePayment(paymentFixture({ targetLevel }), "miner"), /targetLevel/);
+    for (const [machineType, cap] of [["miner", 25], ["polisher", 10], ["refiner", 10]]) {
+        for (const targetLevel of [null, 0, 1, cap + 1, 2.5, "2", NaN, Infinity])
+            assert.throws(() => investmentModel.validatePayment(paymentFixture({ kind: "tier", targetLevel }), machineType), /targetLevel/);
+    }
+    for (const targetLevel of [null, 0, 51, 1.5, "1", NaN, Infinity])
+        assert.throws(() => investmentModel.validatePayment(paymentFixture({ kind: "oreLuck", targetLevel }), "miner"), /targetLevel/);
+    for (const machineType of ["polisher", "refiner"])
+        assert.throws(() => investmentModel.validatePayment(paymentFixture({ kind: "oreLuck", targetLevel: 1 }), machineType), /Miner-only/);
+});
+
+test("migration candidates validate structurally but cannot be created or appended as new runtime payments", () => {
+    const historical = Object.freeze(paymentFixture({ cashPaid: 137.5, basis: "legacyEquivalentV1" }));
+    const ledger = { entries: [historical] };
+    const context = investmentContext();
+    investmentModel.validatePayment(historical, "miner");
+    investmentModel.validateInvestment(ledger, context);
+    assert.equal(investmentModel.sumInvestment(ledger, context), 137.5);
+    assert.equal(investmentModel.calculateRefund(ledger, context), 68);
+    assert.throws(() => investmentModel.createActualPayment(historical, "miner"), /must be actual/);
+    assert.throws(() => investmentModel.appendActualPayment(investmentModel.createInvestment(), historical,
+        investmentContext("miner", false)), /must be actual/);
+    assert.throws(() => investmentModel.appendActualPayment(ledger,
+        paymentFixture({ kind: "tier", targetLevel: 2, basis: "legacyEquivalentV1" }), context), /must be actual/);
+    const updated = investmentModel.appendActualPayment(ledger,
+        paymentFixture({ kind: "tier", targetLevel: 2, cashPaid: 12.5 }), context);
+    assert.deepEqual(structuredClone(updated.entries[0]), historical);
+    assert.equal(investmentModel.calculateRefund(updated, context), 75);
+    assert.equal(ledger.entries.length, 1);
+});
+
+test("investment ownership context distinguishes empty candidates from complete purchased ledgers", () => {
+    const empty = investmentModel.createInvestment();
+    const second = investmentModel.createInvestment();
+    assert.notEqual(empty.entries, second.entries);
+    const candidate = investmentContext("miner", false);
+    investmentModel.validateInvestment(empty, candidate);
+    assert.equal(investmentModel.sumInvestment(empty, candidate), 0);
+    assert.equal(investmentModel.calculateRefund(empty, candidate), 0);
+    assert.throws(() => investmentModel.validateInvestment(empty, investmentContext()), /exactly one purchase/);
+    const purchased = investmentModel.appendActualPayment(empty, paymentFixture({ cashPaid: 0 }), candidate);
+    investmentModel.validateInvestment(purchased, investmentContext());
+    assert.equal(investmentModel.calculateRefund(purchased, investmentContext()), 0);
+    assert.deepEqual(structuredClone(empty), { entries: [] });
+    assert.throws(() => investmentModel.validateInvestment(purchased, candidate), /unowned candidate/);
+    assert.throws(() => investmentModel.appendActualPayment(empty,
+        paymentFixture({ kind: "tier", targetLevel: 2 }), candidate), /exactly one purchase/);
+    assert.throws(() => investmentModel.validateInvestment({ entries: [paymentFixture({ kind: "tier", targetLevel: 2 })] },
+        investmentContext()), /exactly one purchase/);
+});
+
+test("investment duplicates reject by kind and target regardless of amount or basis", () => {
+    const purchase = paymentFixture();
+    const tier = paymentFixture({ kind: "tier", targetLevel: 2, cashPaid: 10 });
+    const luck = paymentFixture({ kind: "oreLuck", targetLevel: 2, cashPaid: 5 });
+    const context = investmentContext();
+    const valid = { entries: [purchase, tier, luck] };
+    investmentModel.validateInvestment(valid, context);
+    assert.equal(investmentModel.sumInvestment(valid, context), 115.25);
+    for (const duplicate of [purchase, tier, luck]) {
+        const changed = { ...duplicate, cashPaid: 0, basis: "legacyEquivalentV1" };
+        assert.throws(() => investmentModel.validateInvestment({ entries: [...valid.entries, changed] }, context), /duplicate/);
+        assert.throws(() => investmentModel.appendActualPayment(valid, duplicate, context), /duplicate/);
+    }
+    assert.equal(valid.entries.length, 3);
+});
+
+test("actual payment append returns independent records without mutating historical amounts or context", () => {
+    const existing = Object.freeze(paymentFixture());
+    const original = Object.freeze({ entries: Object.freeze([existing]) });
+    const input = Object.freeze(paymentFixture({ kind: "tier", targetLevel: 25, cashPaid: 25.5 }));
+    const context = Object.freeze(investmentContext());
+    const result = investmentModel.appendActualPayment(original, input, context);
+    assert.deepEqual(structuredClone(result), { entries: [existing, input] });
+    result.entries[0].cashPaid = 0;
+    result.entries[1].targetLevel = 2;
+    assert.equal(existing.cashPaid, 100.25);
+    assert.equal(input.targetLevel, 25);
+    assert.equal(original.entries.length, 1);
+    assert.deepEqual(context, investmentContext());
+    assert.throws(() => investmentModel.appendActualPayment({ entries: [] }, input, context), /exactly one purchase/);
+});
+
+test("investment records and validation contexts reject incomplete or malformed structures", () => {
+    for (const investment of [null, [], {}, { entries: null }, { entries: {} }, { entries: Array(1) },
+        { entries: [paymentFixture()], refund: 50 }, { entries: [null] }])
+        assert.throws(() => investmentModel.validateInvestment(investment, investmentContext()), /Invalid investment model/);
+    for (const context of [null, {}, [], { machineType: "miner" }, { owned: true },
+        { machineType: "miner", owned: 1 }, { machineType: "miner", owned: true, tier: 25 },
+        Object.create(investmentContext()), investmentContext("furnace")])
+        assert.throws(() => investmentModel.validateInvestment({ entries: [paymentFixture()] }, context), /Invalid investment model/);
+});
+
+test("recorded refund floors half the exact total and retains fractional Cash unchanged", () => {
+    const ledger = { entries: [paymentFixture({ cashPaid: 100.25 }),
+        paymentFixture({ kind: "tier", targetLevel: 7, cashPaid: 25.5 }),
+        paymentFixture({ kind: "oreLuck", targetLevel: 1, cashPaid: 3.75 })] };
+    const before = structuredClone(ledger);
+    assert.equal(investmentModel.sumInvestment(ledger, investmentContext()), 129.5);
+    assert.equal(investmentModel.calculateRefund(ledger, investmentContext()), 64);
+    for (const [cashPaid, expected] of [[0, 0], [1, 0], [2, 1], [3.5, 1], [0.1, 0], [2 ** 54, 2 ** 53]])
+        assert.equal(investmentModel.calculateRefund({ entries: [paymentFixture({ cashPaid })] }, investmentContext()), expected);
+    assert.deepEqual(ledger, before);
+    assert.deepEqual(Object.keys(ledger), ["entries"]);
+});
+
+test("investment arithmetic rejects overflow, absorbed payments and non-representable sums", () => {
+    for (const [first, next] of [[Number.MAX_VALUE, Number.MAX_VALUE], [1e30, 1], [1, 1e30],
+        [2 ** 53, 3], [0.1, 0.2]]) {
+        const ledger = { entries: [paymentFixture({ cashPaid: first })] };
+        const payment = paymentFixture({ kind: "tier", targetLevel: 2, cashPaid: next });
+        const before = structuredClone(ledger);
+        assert.throws(() => investmentModel.appendActualPayment(ledger, payment, investmentContext()), /total/);
+        const combined = { entries: [...ledger.entries, payment] };
+        assert.throws(() => investmentModel.validateInvestment(combined, investmentContext()), /total/);
+        assert.throws(() => investmentModel.sumInvestment(combined, investmentContext()), /total/);
+        assert.throws(() => investmentModel.calculateRefund(combined, investmentContext()), /total/);
+        assert.deepEqual(ledger, before);
+    }
+    const huge = { entries: [paymentFixture({ cashPaid: 2 ** 54 })] };
+    const valid = investmentModel.appendActualPayment(huge,
+        paymentFixture({ kind: "tier", targetLevel: 2, cashPaid: 2 ** 54 }), investmentContext());
+    assert.equal(investmentModel.sumInvestment(valid, investmentContext()), 2 ** 55);
+    assert.equal(investmentModel.calculateRefund(valid, investmentContext()), 2 ** 54);
+});
+
+test("free Preservation tiers and new Discount quotes never change recorded investment", () => {
+    const machine = { tier: 1, investment: { entries: [paymentFixture({ cashPaid: 95 })] } };
+    const context = investmentContext();
+    const original = structuredClone(machine.investment);
+    const pricing = vm.runInNewContext(ores + "\nCashPricingModel;");
+    assert.equal(pricing.calculateCashPrice(100, { category: "minerPurchase", discountLevel: 1 }), 95);
+    for (const tier of [1, 6, 25]) {
+        machine.tier = tier;
+        for (const discountLevel of [0, 10]) {
+            pricing.calculateCashPrice(100, { category: "minerPurchase", discountLevel });
+            investmentModel.validateInvestment(machine.investment, context);
+            assert.equal(investmentModel.calculateRefund(machine.investment, context), 47);
+        }
+    }
+    assert.deepEqual(machine.investment, original);
+    assert.equal(machine.investment.entries.length, 1); // No free tier or Ore Luck entries.
+});
+
+test("candidate investment operations leave live schema-1 saves and legacy transactions untouched", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion,
+        cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0, unknown: { keep: true } }))]) {
+        let app = ready(raw);
+        const before = app.state();
+        app.run(`InvestmentModel.appendActualPayment(InvestmentModel.createInvestment(),
+            {kind:"purchase",targetLevel:null,cashPaid:50,basis:"actual"}, {machineType:"miner",owned:false});`);
+        assert.deepEqual(app.state(), before);
+        assert.equal(app.writes.length, 0);
+        app = saveAndReload(app);
+        assert.deepEqual(app.state(), before);
+        if(raw !== null) {
+            for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                app.elements.get(id).onclick();
+            assert.equal(app.state().cash, 390);
+            assert.equal(app.state().droppers, 1);
+            assert.equal(app.state().adders, 1);
+            assert.equal(app.state().multipliers, 1);
+            assert.equal(app.state().furnaceTier, 1);
+        }
+        const after = app.state();
+        assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        for (const field of ["investment", "entries", "payments", "refund", "factory", "shop", "identity", "compatibility"])
+            assert.equal(Object.hasOwn(after, field), false, field);
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 // Pricing executes with no game, DOM, storage, RNG or timer context.
 const cashPricingModel = vm.runInNewContext(ores + "\nCashPricingModel;");
 

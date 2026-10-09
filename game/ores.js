@@ -635,3 +635,120 @@ const CashPricingModel = (() => {
 
     return Object.freeze({ getCashRoundingStep, roundCashPrice, getDiscountFactor, calculateCashPrice });
 })();
+
+// V1-050B: recorded-payment models only; no quote lookup, debit, resale or persistence.
+const InvestmentModel = (() => {
+    const tierCaps = Object.freeze({ miner: 25, polisher: 10, refiner: 10 });
+    const paymentFields = ["kind", "targetLevel", "cashPaid", "basis"];
+
+    function invalid(field, rule){
+        throw new TypeError("Invalid investment model: " + field + " " + rule);
+    }
+
+    function record(value, fields, path){
+        if(value === null || typeof value !== "object" || Array.isArray(value))
+            invalid(path, "must be a record");
+        const prototype = Object.getPrototypeOf(value);
+        if(prototype !== null && Object.getPrototypeOf(prototype) !== null)
+            invalid(path, "must be a plain data record");
+        if(Reflect.ownKeys(value).length !== fields.length)
+            invalid(path, "must contain exactly the canonical fields");
+        for(const key of fields){
+            const descriptor = Object.getOwnPropertyDescriptor(value, key);
+            if(!descriptor || !descriptor.enumerable || !("value" in descriptor))
+                invalid(path + "." + key, "must be an own data field");
+        }
+    }
+
+    function machineCap(machineType){
+        if(typeof machineType !== "string" || !Object.prototype.hasOwnProperty.call(tierCaps, machineType))
+            invalid("machineType", "must be miner, polisher or refiner");
+        return tierCaps[machineType];
+    }
+
+    // Structural reading accepts approved historical records, but does not reconstruct
+    // prices or certify migration provenance. New runtime entries use createActualPayment.
+    function validatePayment(payment, machineType){
+        const cap = machineCap(machineType);
+        record(payment, paymentFields, "payment");
+        if(!["actual", "legacyEquivalentV1"].includes(payment.basis))
+            invalid("payment.basis", "must be actual or legacyEquivalentV1");
+        if(typeof payment.cashPaid !== "number" || !Number.isFinite(payment.cashPaid) || payment.cashPaid < 0)
+            invalid("payment.cashPaid", "must be a finite non-negative number");
+        if(payment.kind === "purchase"){
+            if(payment.targetLevel !== null) invalid("purchase targetLevel", "must be null");
+        } else if(payment.kind === "tier" || payment.kind === "oreLuck"){
+            const localLuck = payment.kind === "oreLuck";
+            if(localLuck && machineType !== "miner") invalid("oreLuck", "is Miner-only");
+            const minimum = localLuck ? 1 : 2;
+            const maximum = localLuck ? 50 : cap;
+            if(!Number.isInteger(payment.targetLevel) || payment.targetLevel < minimum || payment.targetLevel > maximum)
+                invalid("payment.targetLevel", "must be an integer from " + minimum + " through " + maximum);
+        } else invalid("payment.kind", "must be purchase, tier or Miner oreLuck");
+    }
+
+    function createActualPayment(payment, machineType){
+        validatePayment(payment, machineType);
+        if(payment.basis !== "actual") invalid("new payment.basis", "must be actual");
+        return { ...payment };
+    }
+
+    function createInvestment(){
+        return { entries: [] };
+    }
+
+    // Context is explicit and never stored: { machineType, owned: Boolean }.
+    // No current tier/perk input: missing paid tiers must not be fabricated.
+    function inspectInvestment(investment, context){
+        record(context, ["machineType", "owned"], "context");
+        machineCap(context.machineType);
+        if(typeof context.owned !== "boolean") invalid("context.owned", "must be a Boolean");
+        record(investment, ["entries"], "investment");
+        if(!Array.isArray(investment.entries)) invalid("entries", "must be an array");
+        if(!context.owned && investment.entries.length !== 0)
+            invalid("unowned candidate", "must have an empty ledger");
+        const seen = new Set();
+        let purchases = 0;
+        let total = 0;
+        for(const payment of investment.entries){
+            validatePayment(payment, context.machineType);
+            const key = payment.kind + ":" + payment.targetLevel;
+            if(seen.has(key)) invalid("entries", "contains duplicate " + key);
+            seen.add(key);
+            if(payment.kind === "purchase") purchases++;
+            const next = total + payment.cashPaid;
+            if(!Number.isFinite(next)) invalid("total", "must remain finite");
+            // No arbitrary Cash cap/epsilon. Reject non-reversible additions rather
+            // than silently absorbing or changing a recorded amount (including fractions).
+            if(next - total !== payment.cashPaid || next - payment.cashPaid !== total)
+                invalid("total", "cannot represent the recorded payments without precision loss");
+            total = next;
+        }
+        if(context.owned && purchases !== 1) invalid("owned investment", "must have exactly one purchase");
+        return total;
+    }
+
+    function validateInvestment(investment, context){
+        inspectInvestment(investment, context);
+    }
+
+    function appendActualPayment(investment, payment, context){
+        validateInvestment(investment, context);
+        const added = createActualPayment(payment, context.machineType);
+        const result = { entries: investment.entries.map(entry => ({ ...entry })).concat(added) };
+        // The first purchase produces an owned-ready ledger, not a live machine.
+        validateInvestment(result, { machineType: context.machineType, owned: true });
+        return result;
+    }
+
+    function sumInvestment(investment, context){
+        return inspectInvestment(investment, context);
+    }
+
+    function calculateRefund(investment, context){
+        return Math.floor(0.50 * sumInvestment(investment, context));
+    }
+
+    return Object.freeze({ validatePayment, createActualPayment, createInvestment,
+        validateInvestment, appendActualPayment, sumInvestment, calculateRefund });
+})();
