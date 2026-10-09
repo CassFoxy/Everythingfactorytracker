@@ -176,7 +176,7 @@ Define exact canonical instance fields and ownership for machines, slots, invest
 
 **Status:** ⚪ NOT STARTED
 **Design:** DESIGN REQUIRED: Reference K.2 blocks complete migration
-**Dependencies:** V1-016, owner-approved unsupported reconstruction policy, V1-070/041 runtime contracts
+**Dependencies:** V1-016, completed V1-070 lifecycle contract and V1-041A/V1-050B pure models; owner-approved unsupported reconstruction policy for affected conversion. Candidate adapters/tests do not require already-active V2; full release still waits on V1-018 consumer/activation gates
 
 Convert legacy Dropper counts to ≤5 Miners, Adders to ≤3 Polishers and positive Multiplier ownership to one Refiner. Deterministic slot order/IDs, compatible record ranking, slot reconstruction, zero default local Ore Luck. Reconstruct before clamping; overflow half full investment, retained above-cap half lost investment, unsupported progress per approved policy; never double-compensate. Preserve XP, claims, milestones, discovery, statistics, unknown safe data and active Furnace reservations. No fake Version 2 without the actual instance transition.
 
@@ -188,7 +188,7 @@ Convert legacy Dropper counts to ≤5 Miners, Adders to ≤3 Polishers and posit
 
 **Status:** ⚪ NOT STARTED
 **Design:** DESIGN COMPLETE contract; depends on migration resolution
-**Dependencies:** V1-017; runtime consumers from V1-041/070/071A–C, V1-074A/B, V1-075A/B and V1-080–085; all applicable [activation gates](docs/V2_STATE_CONTRACT.md#12-activation-gate-for-v1-018). Consumers may be built/tested against candidate V2 records before activation; activation must not precede them.
+**Dependencies:** V1-017; completed V1-070 contract; runtime integration from V1-041B/V1-050C/071A–C, V1-074A/B, V1-075A/B and V1-080–085; all applicable [activation gates](docs/V2_STATE_CONTRACT.md#12-activation-gate-for-v1-018). Consumers and validators may be built/tested against candidate V2 records before activation; activation must not precede them.
 
 Validate after adjacent migrations; complete canonical defaults before runtime. Run full V0/V1/V2 fixtures, caps, IDs, investments, active cycles, retry, export, exactly-once compensation and rejection-with-original-bytes tests. Activate schema 2 only when all supported data can load into functional consumers safely; do not ship partial destructive conversion.
 
@@ -700,13 +700,15 @@ Save:
 
 ## V1-070 — Independent Machine Lifecycle Contract
 
-**Status:** ⚪ NOT STARTED
-**Design:** DESIGN COMPLETE behavior; technical contract work
-**Dependencies:** V1-016, V1-050
+**Status:** ✅ COMPLETE (technical contract/documentation only)
+**Design:** Shared lifecycle specified; listed gameplay/migration gates remain DESIGN REQUIRED
+**Dependencies:** V1-016, V1-041A, V1-050A/B. Live V1-050C integration is subsequent work, not a prerequisite for defining its contract
 
-Define per-instance IDs/slots/tiers, independent upgrades/state/queues, creation/removal, investment and reservation boundaries. Separate simulator from DOM/grid. Reuse accepted save pipeline; no conveyor assumptions. This contract precedes concrete Miner/processor code and V2 activation.
+**Contract:** [V1_MACHINE_LIFECYCLE_CONTRACT.md](docs/V1_MACHINE_LIFECYCLE_CONTRACT.md). Reuses exact V2 entity/slot/ID/queue/cycle fields; defines atomic purchase/upgrade and reserve/resolve/commit boundaries, existing pure-model calls, write failure/reload handling, resale and central Rebirth ownership. Separates UI/grid integration from authoritative simulation. Records K.2/M1/P1/R1/T1/B1, grid and applicable value/perk/challenge gates without inventing resolutions. Future adapters must reconcile exact pure-model records with V2 inert-extension preservation.
 
-**Acceptance:** Reference L checks 5, 18, 26.
+Documentation verification: existing four syntax checks, 265 Node tests and 12 browser scenarios pass; no new gameplay tests or runtime code. This does not certify future entity transactions/cycles. V1-050A/B remain COMPLETE, V1-050C remains outstanding and parent V1-050 remains IN PROGRESS. Next bounded implementation is V1-071A's non-writing candidate-state portion; no production instances or V2 activation yet.
+
+**Future implementation acceptance:** Reference L checks 5, 18, 26 and the lifecycle contract's transition/crash-boundary checklist.
 
 ---
 
@@ -726,9 +728,11 @@ Replace final-design ownership semantics through the planned V2 transition, not 
 
 **Status:** ⚪ NOT STARTED
 **Design:** DESIGN COMPLETE
-**Dependencies:** V1-070, V1-050, V1-016; activation with V1-018
+**Dependencies:** V1-070, V1-050A/B, V1-016 for candidate slot/entity/purchase preparation; V1-050C durable transaction integration and V1-018 gates before live writes/activation
 
 Five slots: free / $10,000 / $1,000,000 / $10,000,000,000 / $1,000,000,000,000, retained after resale/Rebirth and not discounted. Separate unlock and $100 machine purchase; independent entities with tier/local level/state/investment. Enforce caps in handlers.
+
+Begin with pure candidate validation/purchase preparation under the [lifecycle contract](docs/V1_MACHINE_LIFECYCLE_CONTRACT.md#12-implementation-handoff-and-future-acceptance). Do not convert live legacy counts, start production, add grid activation rules or write instance records into schema 1. Completing that bounded portion alone does not complete all live V1-071A integration.
 
 **Acceptance:** Reference L checks 4–6, 17, 26.
 
@@ -823,7 +827,7 @@ Legacy Adder effects are migration context, not final Polisher behavior. Separat
 
 **Status:** ⚪ NOT STARTED
 **Design:** DESIGN COMPLETE
-**Dependencies:** V1-070, V1-041, V1-050 and V1-016 candidate-state contract; affected lifecycle gate T1. Implement/test consumer before V1-018 activation
+**Dependencies:** V1-070, V1-041A, V1-050A/B and V1-016 for candidate processing; V1-041B/V1-050C for applicable persisted/transaction integration and gate T1 before affected activation. Implement/test consumer before V1-018 activation
 
 Reference C raw-ore-only input, no Stone/repolishing; 1–10 tiers, exact time/capacity/value, partial batches, selected ore and independent queue/reservation state.
 
@@ -859,7 +863,7 @@ Legacy Multiplier ownership migrates to a Refiner; old duplication and compoundi
 
 **Status:** ⚪ NOT STARTED
 **Design:** DESIGN COMPLETE
-**Dependencies:** V1-074A, V1-041, V1-070 and V1-016 candidate-state contract; affected lifecycle gate T1. Implement/test consumer before V1-018 activation
+**Dependencies:** V1-074A, V1-041A, V1-070 and V1-016 for candidate processing; V1-041B for persisted integration and gate T1 before affected activation. R1 continues to block active resale in V1-075B. Implement/test consumer before V1-018 activation
 
 One Refiner; polished or refined 1–14 inputs only. Reserve inputs, exact time/capacity/probability formulas, Dust roll/award before destruction, integer probabilistic yield; survivor count ≤15 and immutable pre-Refiner value. Separate metadata/cohorts and preserve Dust on destruction.
 
