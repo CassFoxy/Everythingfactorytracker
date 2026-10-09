@@ -12,6 +12,162 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const polisherContext = vm.createContext({});
+vm.runInContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); };', polisherContext);
+const polisher = vm.runInContext("PolisherModel", polisherContext);
+const polisherInventory = vm.runInContext("InventoryModel", polisherContext);
+function polisherRaw(resourceId = "ruby", amount = 1) {
+    return { resourceId, stage: "raw", refineCount: 0, amount,
+        polishedValue: null, preRefinerValue: null, refineBonus: null };
+}
+
+test("Polisher tiers retain exact source coefficients, full-precision seconds and half-up capacities", () => {
+    assert.equal(polisher.getCycleTime(1), 7.5);
+    assert.equal(polisher.getBatchSize(1), 1);
+    assert.equal(polisher.getBatchSize(10), 100);
+    assert.ok(Math.abs(polisher.getCycleTime(10) - 1) < 0.0001);
+    assert.notEqual(polisher.getCycleTime(10), 1); // Do not retune the coefficient to force an endpoint.
+    for (let tier = 1; tier <= 10; tier++) {
+        assert.equal(polisher.getCycleTime(tier), 7.5 * 0.799413 ** (tier - 1));
+        assert.equal(polisher.getBatchSize(tier), Math.floor(1.668101 ** (tier - 1) + 0.5));
+        const capacity = polisher.getBatchSize(tier);
+        for (const available of [0, 1, capacity - 1, capacity, capacity + 1, Number.MAX_VALUE]) {
+            const quantity = polisher.getProcessedAmount(tier, available);
+            assert.equal(quantity, Math.min(capacity, available));
+            assert.ok(quantity <= capacity && quantity <= available);
+        }
+    }
+    assert.equal(polisher.getProcessedAmount(10, 37), 37);
+    assert.equal(polisher.getProcessedAmount(10, 0), 0);
+});
+
+test("Polisher accepts every canonical raw ore but rejects Stone, materials and processed Lots", () => {
+    const ids = vm.runInContext("ORE_KEYS", polisherContext);
+    assert.equal(ids.length, 20);
+    for (const id of ids) assert.doesNotThrow(() => polisher.validateInputLot(polisherRaw(id)));
+    for (const id of ["stone", "wood", "scrap", "metal", "unknown", "toString", null, 1])
+        assert.throws(() => polisher.validateInputLot(polisherRaw(id)));
+    const polished = polisher.createPolishedLot("ruby", 1, 30000);
+    const refined = { ...polisherRaw(), stage: "refined", refineCount: 1,
+        preRefinerValue: 30000, refineBonus: -0.5 };
+    assert.doesNotThrow(() => polisherInventory.validateLot(refined));
+    for (const invalid of [polished, refined, null, {}, { ...polisherRaw(), stage: "queued" },
+        { ...polisherRaw(), polishedValue: 10 }, { ...polisherRaw(), extra: true }, polisherRaw("ruby", 0)])
+        assert.throws(() => polisher.validateInputLot(invalid));
+});
+
+test("Polisher uses the supplied adjusted value once and preserves historical Lot precision", () => {
+    assert.equal(polisher.calculatePolishedValue(20000, 0), 30000);
+    assert.equal(polisher.calculatePolishedValue(20000, 5000), 45000);
+    assert.equal(polisher.calculatePolishedValue(0, 5000), 0);
+    for (const level of [0, 1, 2500, 5000])
+        assert.equal(polisher.calculatePolishedValue(123.456789, level), 123.456789 * 1.5 * (1 + 0.0001 * level));
+    // Supplied Ruby basis already includes an external 2x modifier; do not reapply it.
+    assert.equal(polisher.calculatePolishedValue(40000, 0), 60000);
+    const value = polisher.calculatePolishedValue(123.456789, 1);
+    const historical = polisher.createPolishedLot("ruby", 3, value);
+    const before = structuredClone(historical);
+    assert.deepEqual(before, { resourceId: "ruby", stage: "polished", refineCount: 0, amount: 3,
+        polishedValue: value, preRefinerValue: null, refineBonus: null });
+    assert.doesNotThrow(() => polisherInventory.validateLot(historical));
+    assert.notEqual(value, Math.round(value * 100) / 100);
+    polisher.calculatePolishedValue(40000, 5000);
+    assert.deepEqual(structuredClone(historical), before);
+    const other = polisher.createPolishedLot("ruby", 3, value);
+    other.amount = 99;
+    assert.equal(historical.amount, 3);
+});
+
+test("Polisher tier quotes use original formula independently of slot purchase prices", () => {
+    const pricing = vm.runInContext("CashPricingModel", polisherContext);
+    for (const [tier, expected] of [[2, 50000], [3, 500000], [4, 5000000], [10, 5000000000000]])
+        assert.equal(polisher.getRawTierUpgradeCost(tier), expected);
+    for (let tier = 2; tier <= 10; tier++) {
+        const raw = 5000 * 10 ** (tier - 1);
+        assert.equal(polisher.getRawTierUpgradeCost(tier), raw);
+        for (const discount of [0, 1, 10]) {
+            assert.equal(polisher.getTierUpgradePrice(tier, discount), pricing.roundCashPrice(raw * (1 - 0.05 * discount)));
+            assert.equal(polisher.getTierUpgradePrice(tier, discount),
+                pricing.calculateCashPrice(raw, { category: "polisherTier", discountLevel: discount }));
+        }
+    }
+    assert.equal(polisher.getTierUpgradePrice(2, 10), 25000);
+    for (const slotCost of [5000, 100000, 2000000]) {
+        pricing.calculateCashPrice(slotCost, { category: "polisherPurchase", discountLevel: 10 });
+        assert.equal(polisher.getRawTierUpgradeCost(2), 50000);
+        assert.equal(polisher.getTierUpgradePrice(2, 1), 47500);
+    }
+});
+
+test("Polisher rejects malformed tiers, quantities, values, perks, Lots and Discount levels", () => {
+    const bad = [-1, 1.5, "1", null, true, undefined, NaN, Infinity, -Infinity];
+    for (const tier of [...bad, 0, 11])
+        for (const call of [() => polisher.getCycleTime(tier), () => polisher.getBatchSize(tier),
+            () => polisher.getProcessedAmount(tier, 5)]) assert.throws(call, /tier/);
+    for (const quantity of bad) {
+        assert.throws(() => polisher.getProcessedAmount(10, quantity), /availableQuantity/);
+        assert.throws(() => polisher.createPolishedLot("ruby", quantity, 10));
+    }
+    assert.throws(() => polisher.createPolishedLot("ruby", 0, 10));
+    for (const value of [-1, "1", null, true, undefined, NaN, Infinity, -Infinity]) {
+        assert.throws(() => polisher.calculatePolishedValue(value, 0), /currentOreValue/);
+        assert.throws(() => polisher.createPolishedLot("ruby", 1, value));
+    }
+    assert.throws(() => polisher.calculatePolishedValue(Number.MAX_VALUE, 0), /polishedValue/);
+    for (const level of [...bad, 5001])
+        assert.throws(() => polisher.calculatePolishedValue(10, level), /rebirthValueLevel/);
+    for (const tier of [...bad, 0, 1, 11]) {
+        assert.throws(() => polisher.getRawTierUpgradeCost(tier), /targetTier/);
+        assert.throws(() => polisher.getTierUpgradePrice(tier, 0), /targetTier/);
+    }
+    for (const level of [...bad, 11]) assert.throws(() => polisher.getTierUpgradePrice(2, level), /discountLevel/);
+    for (const id of ["stone", "wood", "scrap", "metal", "unknown"])
+        assert.throws(() => polisher.createPolishedLot(id, 1, 10));
+});
+
+test("Polisher helpers do not mutate input Lots or existing catalogue and Miner models", () => {
+    const snapshot = () => vm.runInContext(`JSON.stringify({ ORES,
+        tiers: Array.from({length:25},(_,i)=>MinerTierModel.getTierProbabilities(i+1,11)),
+        ores: MinerOreLuckModel.getOreProbabilities(4,5000,50),
+        candidate: MinerCandidateModel.createSlotAccess(),
+        inventory: InventoryModel.createProcessedInventory() })`, polisherContext);
+    const before = snapshot();
+    const raw = Object.freeze(polisherRaw("ruby", 500));
+    const original = structuredClone(raw);
+    polisher.validateInputLot(raw);
+    const value = polisher.calculatePolishedValue(20000, 5000);
+    const output = polisher.createPolishedLot(raw.resourceId, polisher.getProcessedAmount(10, raw.amount), value);
+    output.amount = 7;
+    assert.deepEqual(raw, original);
+    assert.equal(snapshot(), before);
+});
+
+test("pure Polisher calls leave schema-1 saves, inventory, Cash and legacy gameplay unchanged", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion,
+        cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), control = ready(raw), before = app.state(), timers = app.intervals.length;
+        app.run(`for(let tier=1;tier<=10;tier++) {
+            PolisherModel.getCycleTime(tier); PolisherModel.getProcessedAmount(tier,37);
+            PolisherModel.createPolishedLot("ruby",1,PolisherModel.calculatePolishedValue(20000,5000));
+            if(tier>1) PolisherModel.getTierUpgradePrice(tier,10);
+        }`);
+        assert.deepEqual(app.state(), before);
+        assert.equal(app.intervals.length, timers);
+        assert.equal(app.writes.length, 0);
+        for (const instance of [app, control]) {
+            instance.elements.get("mineButton").onclick();
+            if (raw !== null) for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                instance.elements.get(id).onclick();
+            instance.tick(1000);
+        }
+        assert.deepEqual(app.state(), control.state());
+        const after = app.state();
+        assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 const oreLuckContext = vm.createContext({});
 vm.runInContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); };', oreLuckContext);
 const minerOreLuck = vm.runInContext("MinerOreLuckModel", oreLuckContext);

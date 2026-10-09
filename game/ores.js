@@ -1110,3 +1110,71 @@ const MinerOreLuckModel = (() => {
     return Object.freeze({ getFinalOreLuck, getOreWeights, getOreProbabilities,
         selectOreId, getRawUpgradeCost, getUpgradePrice });
 })();
+
+// V1-074A1: Reference C calculations and Lot construction only. No reservation,
+// cycle, award or snapshot-timing policy is implied by calling these helpers.
+const PolisherModel = (() => {
+    function integer(value, minimum, maximum, field){
+        if(!Number.isInteger(value) || value < minimum || value > maximum)
+            throw new TypeError("Invalid Polisher model: " + field + " must be an integer from " + minimum + " through " + maximum);
+    }
+
+    function amount(value, field){
+        if(typeof value !== "number" || !Number.isFinite(value) || value < 0)
+            throw new TypeError("Invalid Polisher model: " + field + " must be finite and non-negative");
+        return value;
+    }
+
+    function getCycleTime(tier){
+        integer(tier, 1, 10, "tier");
+        return amount(7.5 * Math.pow(0.799413, tier - 1), "cycle seconds");
+    }
+
+    function getBatchSize(tier){
+        integer(tier, 1, 10, "tier");
+        // Positive-value half-up; retain the approved rounded source coefficient.
+        return amount(Math.floor(Math.pow(1.668101, tier - 1) + 0.5), "batch size");
+    }
+
+    function getProcessedAmount(tier, availableQuantity){
+        const capacity = getBatchSize(tier);
+        amount(availableQuantity, "availableQuantity");
+        if(!Number.isInteger(availableQuantity))
+            throw new TypeError("Invalid Polisher model: availableQuantity must be an integer");
+        return Math.min(capacity, availableQuantity);
+    }
+
+    function validateInputLot(lot){
+        InventoryModel.validateLot(lot);
+        if(lot.stage !== "raw" || !ORE_KEYS.includes(lot.resourceId))
+            throw new TypeError("Invalid Polisher model: input must be a raw ore Lot, not Stone or processed input");
+    }
+
+    function calculatePolishedValue(currentOreValue, rebirthValueLevel){
+        amount(currentOreValue, "currentOreValue");
+        integer(rebirthValueLevel, 0, 5000, "rebirthValueLevel");
+        // Caller supplies the already Ore-Value-adjusted basis. Never look up a
+        // second modifier or reprice historical Lots; T1 owns evaluation timing.
+        return amount(currentOreValue * 1.50 * (1 + 0.0001 * rebirthValueLevel), "polishedValue");
+    }
+
+    function createPolishedLot(resourceId, processedQuantity, polishedValue){
+        // InventoryModel enforces ore-only identity, positive integer quantity
+        // and exact canonical metadata. Accept the calculated snapshot unchanged.
+        return InventoryModel.createLot({ resourceId, stage: "polished", refineCount: 0,
+            amount: processedQuantity, polishedValue, preRefinerValue: null, refineBonus: null });
+    }
+
+    function getRawTierUpgradeCost(targetTier){
+        integer(targetTier, 2, 10, "targetTier");
+        return amount(5000 * Math.pow(10, targetTier - 1), "raw upgrade cost");
+    }
+
+    function getTierUpgradePrice(targetTier, discountLevel){
+        return CashPricingModel.calculateCashPrice(getRawTierUpgradeCost(targetTier),
+            { category: "polisherTier", discountLevel });
+    }
+
+    return Object.freeze({ getCycleTime, getBatchSize, getProcessedAmount, validateInputLot,
+        calculatePolishedValue, createPolishedLot, getRawTierUpgradeCost, getTierUpgradePrice });
+})();
