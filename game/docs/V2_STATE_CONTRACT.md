@@ -4,6 +4,8 @@
 
 Follow [AGENTS.md](../AGENTS.md), the synchronized [Game Bible](GAME_BIBLE.md), its [owner handoff](TEFI_Consolidated_Development_Specification.md), and [SAVE_VERSIONING.md](SAVE_VERSIONING.md). References A–L below mean the handoff/Bible references. Gameplay **Defined**, **Recommended**, **Open / DESIGN REQUIRED**, and **Deferred** retain their meanings. Field names and record layouts here are technical choices; they do not settle an Open gameplay rule. The [decision gates](#decision-gates) are part of this contract.
 
+The [V1-070 Independent Machine Lifecycle Contract](V1_MACHINE_LIFECYCLE_CONTRACT.md) binds these existing fields to future purchase/upgrade, reservation/result, resale and Rebirth transactions, maps the implemented pure models, and identifies blocked transitions. It adds no serialized fields or production behavior; this document remains the V2 field authority. V1-070 completion does not resolve the decision gates or activate V2.
+
 ## 1. Scope and schema boundary
 
 V2 replaces aggregate machine ownership with individual entities and represents the Defined opening/manual state, Pickaxe copies, materials and processed resources needed by those entities. It retains the accepted validation/default/recovery pipeline. It does not define grid coordinates, conveyors, mutations, offline production, settings, Inscriptions or challenge records. Those systems need their own bounded contracts when implemented; a V2 shape must not be expanded silently after activation.
