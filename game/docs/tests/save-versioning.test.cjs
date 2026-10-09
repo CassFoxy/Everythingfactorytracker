@@ -12,6 +12,152 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+// Pricing executes with no game, DOM, storage, RNG or timer context.
+const cashPricingModel = vm.runInNewContext(ores + "\nCashPricingModel;");
+
+test("Cash rounding selects all four bands from the unrounded amount", () => {
+    for (const [amount, step] of [[0, 1], [10.5, 1], [999.75, 1],
+        [1000, 10], [1000.25, 10], [999999.75, 10],
+        [1000000, 1000], [1000000.25, 1000], [999999999.75, 1000],
+        [1000000000, 1000000], [1000000000.25, 1000000], [1e15, 1000000]])
+        assert.equal(cashPricingModel.getCashRoundingStep(amount), step, String(amount));
+    for (const [amount, rounded] of [[999.75, 1000], [1000, 1000],
+        [999999.75, 1000000], [1000000, 1000000],
+        [999999999.75, 1000000000], [1000000000, 1000000000]])
+        assert.equal(cashPricingModel.roundCashPrice(amount), rounded);
+});
+
+test("Cash rounding uses positive half-up on every band without epsilon adjustments", () => {
+    // Binary-exact quarter offsets on both sides of each half-step.
+    for (const [half, down, up] of [[10.5, 10, 11], [1005, 1000, 1010],
+        [1000500, 1000000, 1001000], [1000500000, 1000000000, 1001000000]]) {
+        assert.equal(cashPricingModel.roundCashPrice(half - 0.25), down);
+        assert.equal(cashPricingModel.roundCashPrice(half), up);
+        assert.equal(cashPricingModel.roundCashPrice(half + 0.25), up);
+    }
+    assert.equal(cashPricingModel.roundCashPrice(10.49), 10);
+    assert.equal(cashPricingModel.roundCashPrice(1004), 1000);
+    assert.equal(cashPricingModel.roundCashPrice(0), 0);
+});
+
+test("Factory Purchase Discount accepts only Defined levels and factors", () => {
+    for (const [level, factor] of [[0, 1], [1, 0.95], [2, 0.9], [5, 0.75], [8, 0.6], [10, 0.5]])
+        assert.equal(cashPricingModel.getDiscountFactor(level), factor);
+    for (const discountLevel of [-1, 11, 0.5, "1", null, undefined, true, NaN, Infinity, -Infinity]) {
+        assert.throws(() => cashPricingModel.getDiscountFactor(discountLevel), /discountLevel/);
+        for (const category of ["minerPurchase", "unlockMiner"])
+            assert.throws(() => cashPricingModel.calculateCashPrice(100, { category, discountLevel }), /discountLevel/);
+    }
+});
+
+test("Cash categories enforce Discount eligibility independently of Cash rounding", () => {
+    for (const category of ["minerPurchase", "minerTier", "polisherPurchase", "polisherTier",
+        "refinerPurchase", "refinerTier", "furnaceTier"]) {
+        assert.equal(cashPricingModel.calculateCashPrice(1005, { category, discountLevel: 10 }), 503, category);
+        assert.equal(cashPricingModel.calculateCashPrice(1005, { category, discountLevel: 0 }), 1010);
+    }
+    for (const category of ["unlockMiner", "minerSlot", "minerOreLuck", "oreValue", "miningPower",
+        "miningLuck", "miningDuplication"]) {
+        assert.equal(cashPricingModel.calculateCashPrice(1005, { category, discountLevel: 10 }), 1010, category);
+        assert.equal(cashPricingModel.calculateCashPrice(1005, { category, discountLevel: 0 }), 1010);
+    }
+});
+
+test("Discount crosses each rounding band before step selection and before rounding", () => {
+    for (const [rawPrice, expected] of [[1997, 999], [1998990, 999500],
+        [1999001000, 999501000], [2009, 1000]]) {
+        assert.equal(cashPricingModel.calculateCashPrice(rawPrice,
+            { category: "minerTier", discountLevel: 10 }), expected);
+    }
+    // 2009 rounds to 2010 first under the WRONG order, then discounts to 1005 -> 1010.
+    // Correct order is 2009 * 0.5 = 1004.5 -> 1000.
+    assert.equal(cashPricingModel.calculateCashPrice(1000,
+        { category: "furnaceTier", discountLevel: 1 }), 950);
+});
+
+test("Defined purchase examples use explicit categories without implementing transactions", () => {
+    for (const [category, rawPrice, discountLevel, expected] of [
+        ["unlockMiner", 100, 10, 100], ["minerPurchase", 100, 10, 50],
+        ["polisherPurchase", 5000, 10, 2500], ["polisherPurchase", 100000, 10, 50000],
+        ["polisherPurchase", 2000000, 10, 1000000], ["refinerPurchase", 25000, 1, 23750],
+        ["furnaceTier", 100, 1, 95], ["miningPower", 250, 10, 250],
+        ["minerOreLuck", 1000 * 1.25 ** 3, 10, 1950]]) {
+        assert.equal(cashPricingModel.calculateCashPrice(rawPrice, { category, discountLevel }), expected);
+    }
+});
+
+test("original target formulas give prices independent of previous rounded quotes", () => {
+    const options = Object.freeze({ category: "minerOreLuck", discountLevel: 10 });
+    const rawCost = level => 1000 * 1.25 ** (level - 1);
+    const eighth = cashPricingModel.calculateCashPrice(rawCost(8), options);
+    assert.equal(eighth, 4770);
+    const seventh = cashPricingModel.calculateCashPrice(rawCost(7), options);
+    assert.equal(seventh, 3810);
+    assert.equal(cashPricingModel.calculateCashPrice(rawCost(8), options), eighth);
+    // Document why the caller must supply its original formula, not lastPaid * growth.
+    assert.equal(cashPricingModel.calculateCashPrice(seventh * 1.25, options), 4760);
+    assert.deepEqual(options, { category: "minerOreLuck", discountLevel: 10 });
+});
+
+test("Cash pricing rejects malformed amounts and calculation overflow while allowing free quotes", () => {
+    const options = { category: "minerPurchase", discountLevel: 0 };
+    for (const value of [-1, -0.1, "100", null, undefined, false, {}, [], NaN, Infinity, -Infinity]) {
+        assert.throws(() => cashPricingModel.getCashRoundingStep(value), /Invalid Cash pricing/);
+        assert.throws(() => cashPricingModel.roundCashPrice(value), /Invalid Cash pricing/);
+        assert.throws(() => cashPricingModel.calculateCashPrice(value, options), /Invalid Cash pricing/);
+    }
+    assert.throws(() => cashPricingModel.roundCashPrice(Number.MAX_VALUE), /rounded price/);
+    assert.throws(() => cashPricingModel.calculateCashPrice(Number.MAX_VALUE, options), /rounded price/);
+    assert.throws(() => cashPricingModel.calculateCashPrice(1000 * 4 ** 512, options), /rawPrice/);
+    assert.ok(Number.isFinite(cashPricingModel.calculateCashPrice(Number.MAX_VALUE,
+        { category: "minerPurchase", discountLevel: 10 })));
+    for (const category of ["minerPurchase", "unlockMiner"])
+        assert.equal(cashPricingModel.calculateCashPrice(0, { category, discountLevel: 10 }), 0);
+});
+
+test("Cash pricing rejects category overrides, non-Cash costs and missing explicit options", () => {
+    for (const category of ["pickaxeCrafting", "pickaxeRepair", "materials", "stardustPerk", "rebirthPerk",
+        "inscription", "unknown", "toString", "__proto__", "minerPurchase\n", true, null, 1])
+        assert.throws(() => cashPricingModel.calculateCashPrice(100, { category, discountLevel: 10 }), /category/);
+    for (const options of [undefined, null, [], {}, { category: "minerPurchase" }, { discountLevel: 0 },
+        { category: "unlockMiner", discountLevel: 10, discountEligible: true },
+        Object.create({ category: "minerPurchase", discountLevel: 0 }),
+        { get category() { throw Error("getter executed"); }, discountLevel: 0 }])
+        assert.throws(() => cashPricingModel.calculateCashPrice(100, options), /Invalid Cash pricing/);
+});
+
+test("pure Cash quotes preserve schema-1 state and legacy purchase behavior", () => {
+    for (const raw of [null, JSON.stringify({ cash: 6000, factoryXP: 100, droppers: 0, adders: 0,
+        multipliers: 0, retained: { unknown: true } }), JSON.stringify({ saveVersion: 1, cash: 6000,
+        factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 })]) {
+        let app = ready(raw);
+        const before = app.state();
+        app.run("CashPricingModel.calculateCashPrice(100, {category:'minerPurchase',discountLevel:10});");
+        assert.deepEqual(app.state(), before);
+        assert.equal(app.writes.length, 0);
+        assert.equal(app.run("getDropperCost()"), 10);
+        assert.equal(app.run("getAdderCost()"), 100);
+        assert.equal(app.run("getMultiplierCost()"), 5000);
+        app = saveAndReload(app);
+        assert.deepEqual(app.state(), before);
+        if(raw !== null) {
+            for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                app.elements.get(id).onclick();
+            assert.equal(app.state().cash, 390);
+            assert.equal(app.state().droppers, 1);
+            assert.equal(app.state().adders, 1);
+            assert.equal(app.state().multipliers, 1);
+            assert.equal(app.state().furnaceTier, 1);
+        }
+        const after = app.state();
+        assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        for (const key of ["shop", "investment", "payments", "discountLevel", "factoryPurchaseDiscount", "factory"])
+            assert.equal(Object.hasOwn(after, key), false, key);
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 // Load the model with only its catalogue: no game, DOM, storage, clock or RNG harness.
 const inventoryModel = vm.runInNewContext(ores + "\nInventoryModel;");
 function lotFixture(overrides = {}) {
