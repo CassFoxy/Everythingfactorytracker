@@ -568,3 +568,70 @@ const InventoryModel = (() => {
         createProcessedInventory, validateProcessedInventory, addProcessedLot,
         createMaterials, validateMaterials, createPickaxeCopy, validatePickaxeCopy });
 })();
+
+// V1-050A: pure Reference E pricing; not connected to legacy purchase handlers.
+const CashPricingModel = (() => {
+    // Only Defined Cash categories belong here. Non-Cash costs have their own rules.
+    const discountEligibility = Object.freeze({
+        minerPurchase: true, minerTier: true,
+        polisherPurchase: true, polisherTier: true,
+        refinerPurchase: true, refinerTier: true, furnaceTier: true,
+        unlockMiner: false, minerSlot: false, minerOreLuck: false,
+        oreValue: false, miningPower: false, miningLuck: false, miningDuplication: false
+    });
+
+    function invalid(field, rule){
+        throw new TypeError("Invalid Cash pricing: " + field + " " + rule);
+    }
+
+    function validateAmount(value, field){
+        if(typeof value !== "number" || !Number.isFinite(value) || value < 0)
+            invalid(field, "must be a finite non-negative number");
+    }
+
+    function getCashRoundingStep(discountedRaw){
+        validateAmount(discountedRaw, "discountedRaw");
+        if(discountedRaw < 1000) return 1;
+        if(discountedRaw < 1000000) return 10;
+        if(discountedRaw < 1000000000) return 1000;
+        return 1000000;
+    }
+
+    function roundCashPrice(discountedRaw){
+        const step = getCashRoundingStep(discountedRaw);
+        const price = step * Math.floor(discountedRaw / step + 0.5);
+        validateAmount(price, "rounded price");
+        return price;
+    }
+
+    function getDiscountFactor(level){
+        if(!Number.isInteger(level) || level < 0 || level > 10)
+            invalid("discountLevel", "must be an integer from 0 through 10");
+        return 1 - 0.05 * level;
+    }
+
+    // rawPrice must be freshly evaluated from the ORIGINAL target-level formula.
+    // No previous payable price, save state or perk ownership is read or retained.
+    // options = { category: a key above, discountLevel: integer 0..10 }.
+    // Returns a quote; only a successful future transaction may record ActualPaid.
+    function calculateCashPrice(rawPrice, options){
+        validateAmount(rawPrice, "rawPrice");
+        if(options === null || typeof options !== "object" || Array.isArray(options) ||
+            Reflect.ownKeys(options).length !== 2)
+            invalid("options", "must contain only category and discountLevel");
+        for(const key of ["category", "discountLevel"]){
+            const descriptor = Object.getOwnPropertyDescriptor(options, key);
+            if(!descriptor || !descriptor.enumerable || !("value" in descriptor))
+                invalid(key, "must be an explicit own data field");
+        }
+        if(typeof options.category !== "string" ||
+            !Object.prototype.hasOwnProperty.call(discountEligibility, options.category))
+            invalid("category", "must identify a supported Cash purchase");
+        // Validate the supplied level even when the category receives no Discount.
+        const factor = getDiscountFactor(options.discountLevel);
+        const discountedRaw = rawPrice * (discountEligibility[options.category] ? factor : 1);
+        return roundCashPrice(discountedRaw);
+    }
+
+    return Object.freeze({ getCashRoundingStep, roundCashPrice, getDiscountFactor, calculateCashPrice });
+})();

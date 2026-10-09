@@ -481,12 +481,35 @@ Replace unnecessary manually duplicated HTML with data-driven rendering where pr
 ## V1-050 — Cash Price and Investment Rules
 
 **Status:** 🟠 IN PROGRESS
-**Design:** DESIGN COMPLETE
+**Design:** DESIGN COMPLETE; pure pricing complete, payment/investment integration pending
 **Dependencies:** Accepted tests; Reference E
 
 Centralize original-formula → eligible discount → discounted-band half-up rounding. Never scale a previously rounded cost. Track actual Cash paid separately from refunds; retained free Preservation tiers add no investment. Do not implement Recommended Discount purchase pricing.
 
+Consumers may use completed V1-050A for candidate price calculations before transaction integration. V1-050B is implemented alongside the owning transactions; it is not permission to change legacy prototype prices or activate partial V2 state.
+
 **Acceptance:** Reference L checks 17–18.
+
+---
+
+## V1-050A — Cash Pricing and Rounding Model
+
+**Status:** ✅ COMPLETE (pure pricing only)
+**Dependencies:** Accepted regression harness; Reference E and Defined Discount eligibility
+
+`CashPricingModel` in `ores.js` provides `getCashRoundingStep`, `roundCashPrice`, `getDiscountFactor` and `calculateCashPrice(rawPrice, {category, discountLevel})`. The caller supplies the original target formula's raw price and explicit level 0–10. Eligible categories are `minerPurchase`, `minerTier`, `polisherPurchase`, `polisherTier`, `refinerPurchase`, `refinerTier`, `furnaceTier`. Cash categories `unlockMiner`, `minerSlot`, `minerOreLuck`, `oreValue`, `miningPower`, `miningLuck`, `miningDuplication` still round but receive no Discount. Unknown/non-Cash categories and eligibility overrides reject; Pickaxe recipes, materials and Stardust/Rebirth costs must use their own future rules.
+
+Eligible factor is 1−0.05L. Choose $1/$10/$1,000/$1,000,000 step from discounted raw values at the $1,000/$1M/$1B boundaries, then apply step × floor(amount/step+0.5). No epsilon adjustment, previous-price compounding, hidden save state or actual debit. Invalid inputs and non-finite calculated prices reject; legitimate zero quotes are allowed without creating investment entries. Verified four syntax checks, 253 Node tests (10 focused pricing/boundary regressions added), and the unchanged 12 browser scenarios. No production save fields or legacy purchase behavior changed.
+
+---
+
+## V1-050B — Transaction / Investment Integration
+
+**Status:** ⚪ NOT STARTED
+**Design:** Actual-payment/refund rules Defined; K.2 reconstruction remains DESIGN REQUIRED
+**Dependencies:** V1-050A; V1-016 Payment/Investment contract; applicable transaction consumers and persistence gates for live integration
+
+First implement pure Payment/Investment validation and recorded-payment refund primitives in a bounded step. Then integrate successful actual debits with the owning machine transactions under their approved schema boundaries. Include only qualifying purchase, paid tier and Miner-local Ore Luck costs; free/preserved tiers create no payment. Refund floor(50% × recorded qualifying total), never current catalogue replacement cost. Furnace is not sellable. Do not introduce Recommended Discount-perk purchase pricing or invent K.2 reconstruction. No ledgers, refunds, transactions or migration are implemented by 050A; the V1-050 parent remains incomplete until required integration is tested.
 
 ---
 
