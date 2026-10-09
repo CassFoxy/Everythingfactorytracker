@@ -12,6 +12,260 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+// Candidate models execute without gameplay, DOM, storage, clocks or RNG.
+const minerModel = vm.runInNewContext(ores + "\nMinerCandidateModel;");
+const minerOptions = Object.freeze({ discountLevel: 0, preservationLevel: 0 });
+function minerCandidateFixture() {
+    return { cash: 1000, shop: { minerUnlocked: true },
+        factory: { minerSlots: [true, false, false, false, false], miners: [] },
+        identity: { nextEntitySequence: 1, nextManualEquipSequence: 7 } };
+}
+function idleMinerFixture(overrides = {}) {
+    return { id: "miner:1", slot: 1, tier: 1, oreLuckLevel: 0,
+        investment: { entries: [{ kind: "purchase", targetLevel: null, cashPaid: 100, basis: "actual" }] },
+        nextCycleSequence: 1, cycle: null, ...overrides };
+}
+function freezeCandidate(value) {
+    if (value && typeof value === "object") { Object.values(value).forEach(freezeCandidate); Object.freeze(value); }
+    return value;
+}
+
+test("Miner slots require five own Booleans and permanent first access; fresh arrays are independent", () => {
+    const first = minerModel.createSlotAccess(), second = minerModel.createSlotAccess();
+    assert.deepEqual(structuredClone(first), [true, false, false, false, false]);
+    first[4] = true;
+    assert.equal(second[4], false);
+    assert.doesNotThrow(() => minerModel.validateSlots(first));
+    for (const invalid of [null, {}, [], [true], Array(5), [false, true, true, true, true],
+        [true, false, false, false, 1], [true, false, false, false, null],
+        [true, true, true, true, true, true], Object.assign([true, false, false, false, false], { extra: 1 })])
+        assert.throws(() => minerModel.validateSlots(invalid), /Invalid Miner candidate/);
+});
+
+test("slot quotes use fixed identity prices without Discount; unlock candidates do not buy Miners", () => {
+    for (const discount of [0, 1, 10]) {
+        for (const [index, expected] of [0, 10000, 1000000, 10000000000, 1000000000000].entries())
+            assert.equal(minerModel.getSlotPrice(index + 1, discount), expected);
+    }
+    const state = minerCandidateFixture(); state.cash = 1000000000025.5; state.shop.minerUnlocked = false;
+    const before = structuredClone(state);
+    const next = minerModel.prepareSlotUnlock(state, 5, 10, []);
+    assert.equal(next.cash, 25.5);
+    assert.deepEqual(structuredClone(next.factory.minerSlots), [true, false, false, false, true]);
+    assert.deepEqual(structuredClone(next.factory.miners), []);
+    assert.deepEqual(structuredClone(next.identity), state.identity);
+    assert.equal(next.shop.minerUnlocked, false);
+    assert.deepEqual(state, before);
+    assert.deepEqual(structuredClone(minerModel.getSlotState([], next.factory.minerSlots, 5)),
+        { unlocked: true, occupied: false });
+    assert.deepEqual(structuredClone(minerModel.getSlotState([], next.factory.minerSlots, 2)),
+        { unlocked: false, occupied: false });
+});
+
+test("slot unlock rejects repeated access, malformed options, insufficient Cash and unsafe debits without mutation", () => {
+    for (const [slot, discount, cash] of [[1, 0, 10000], [2, 0, 9999], [0, 0, 10000],
+        [6, 0, 10000], [2.5, 0, 10000], ["2", 0, 10000], [2, 11, 10000], [2, "0", 10000],
+        [2, 0, 1e30], [2, 0, Infinity]]) {
+        const state = minerCandidateFixture(); state.cash = cash;
+        const before = structuredClone(state);
+        assert.throws(() => minerModel.prepareSlotUnlock(state, slot, discount, []));
+        assert.deepEqual(state, before);
+    }
+    let state = minerCandidateFixture(); state.cash = 20000;
+    state = minerModel.prepareSlotUnlock(state, 2, 0, []);
+    assert.throws(() => minerModel.prepareSlotUnlock(state, 2, 0, []), /already unlocked/);
+    assert.equal(state.cash, 10000);
+});
+
+test("idle Miner validation permits preserved tiers and historical ledgers without inventing payments", () => {
+    for (const [tier, oreLuckLevel] of [[1, 0], [6, 15], [25, 50]]) {
+        const miner = idleMinerFixture({ tier, oreLuckLevel, nextCycleSequence: 25 });
+        miner.investment.entries[0].cashPaid = 137.5;
+        miner.investment.entries[0].basis = "legacyEquivalentV1";
+        const before = structuredClone(miner);
+        minerModel.validateIdleMiner(miner);
+        assert.deepEqual(miner, before);
+        assert.equal(miner.investment.entries.length, 1);
+    }
+    minerModel.validateCollection([], minerModel.createSlotAccess());
+});
+
+test("idle Miner validation rejects malformed fields and explicitly refuses uncertified active cycles", () => {
+    const cases = [null, [], {}, idleMinerFixture({ extra: 1 })];
+    for (const key of Object.keys(idleMinerFixture())) {
+        const miner = idleMinerFixture(); delete miner[key]; cases.push(miner);
+    }
+    for (const id of ["miner:0", "miner:01", "miner:1e2", "miner:-1", "miner:9007199254740992",
+        "polisher:1", "miner:default", null]) cases.push(idleMinerFixture({ id }));
+    for (const [key, values] of Object.entries({ slot: [0, 6, 1.5, "1"], tier: [0, 26, 1.5, "1", Infinity],
+        oreLuckLevel: [-1, 51, 0.5, "0", NaN], nextCycleSequence: [0, -1, 1.5, "1", Infinity, 2 ** 53] }))
+        for (const value of values) cases.push(idleMinerFixture({ [key]: value }));
+    for (const miner of cases) assert.throws(() => minerModel.validateIdleMiner(miner), /Invalid Miner candidate/);
+    for (const cycle of [{}, false, [], { phase: "reserved" }, { phase: "resolved", result: {} }])
+        assert.throws(() => minerModel.validateIdleMiner(idleMinerFixture({ cycle })), /active-cycle validation is not supported/);
+});
+
+test("Miner ledger validation reuses investment rules and rejects payments beyond the owned upgrade", () => {
+    for (const entries of [[], [paymentFixture(), paymentFixture()],
+        [paymentFixture(), paymentFixture({ kind: "tier", targetLevel: 2 })],
+        [paymentFixture(), paymentFixture({ kind: "oreLuck", targetLevel: 1 })],
+        [paymentFixture({ cashPaid: Infinity })], [paymentFixture({ kind: "slot" })]]) {
+        assert.throws(() => minerModel.validateIdleMiner(idleMinerFixture({ investment: { entries } })));
+    }
+    const miner = idleMinerFixture({ tier: 6, oreLuckLevel: 2 });
+    miner.investment.entries.push(paymentFixture({ kind: "tier", targetLevel: 2, cashPaid: 400 }),
+        paymentFixture({ kind: "oreLuck", targetLevel: 2, cashPaid: 1250 }));
+    minerModel.validateIdleMiner(miner); // Gaps do not fabricate a payment history.
+});
+
+test("Miner collections enforce caps, unique identities, unique slots and slot access", () => {
+    const slots = [true, true, true, true, true];
+    const miners = slots.map((_, index) => idleMinerFixture({ id: "miner:" + (index + 1), slot: index + 1 }));
+    minerModel.validateCollection(miners, slots);
+    assert.deepEqual(structuredClone(minerModel.getSlotState(miners, slots, 4)), { unlocked: true, occupied: true });
+    for (const bad of [[...miners, idleMinerFixture({ id: "miner:6" })],
+        [miners[0], idleMinerFixture({ slot: 2 })], [miners[0], idleMinerFixture({ id: "miner:2" })]])
+        assert.throws(() => minerModel.validateCollection(bad, slots));
+    assert.throws(() => minerModel.validateCollection(miners, minerModel.createSlotAccess()), /locked slot/);
+});
+
+test("candidate identity checks supplied non-Miner sequences and preserves the independent equip counter", () => {
+    const state = minerCandidateFixture(); state.identity.nextEntitySequence = 40;
+    const ids = Object.freeze(["pickaxe:3", "polisher:8", "refiner:11"]);
+    const next = minerModel.preparePurchase(state, 1, minerOptions, ids);
+    assert.equal(next.factory.miners[0].id, "miner:40");
+    assert.equal(next.identity.nextEntitySequence, 41);
+    assert.equal(next.identity.nextManualEquipSequence, 7);
+    assert.equal(state.identity.nextEntitySequence, 40);
+    for (const otherIds of [undefined, null, ["miner:2"], ["pickaxe:default"], ["furnace:permanent"],
+        ["pickaxe:40"], ["refiner:41"], ["pickaxe:3", "polisher:3"], ["pickaxe:03"], ["pickaxe:3", "pickaxe:3"]])
+        assert.throws(() => minerModel.validateCandidate(state, otherIds));
+    const collision = structuredClone(next); collision.identity.nextEntitySequence = 50;
+    assert.throws(() => minerModel.validateCandidate(collision, ["pickaxe:40"]), /reused entity sequence/);
+    assert.throws(() => minerModel.validateCandidate(next, ["pickaxe:41"]), /must exceed/);
+});
+
+test("Miner purchase uses canonical quote, explicit unlock and one actual purchase Payment", () => {
+    for (const [discountLevel, price] of [[0, 100], [1, 95], [10, 50]]) {
+        const state = minerCandidateFixture(); state.cash = price + 0.5;
+        const next = minerModel.preparePurchase(state, 1, { discountLevel, preservationLevel: 0 }, []);
+        assert.equal(minerModel.getMinerPrice(discountLevel), price);
+        assert.equal(next.cash, 0.5);
+        assert.deepEqual(structuredClone(next.factory.miners[0]), idleMinerFixture({
+            investment: { entries: [{ kind: "purchase", targetLevel: null, cashPaid: price, basis: "actual" }] }
+        }));
+        assert.equal(next.identity.nextEntitySequence, 2);
+        assert.deepEqual(state.factory.miners, []);
+    }
+    const state = minerCandidateFixture(); state.shop.minerUnlocked = false;
+    assert.throws(() => minerModel.preparePurchase(state, 1, minerOptions, []), /Unlock Miner purchase/);
+    const missing = minerCandidateFixture(); delete missing.shop.minerUnlocked;
+    assert.throws(() => minerModel.preparePurchase(missing, 1, minerOptions, []));
+});
+
+test("Preservation applies only at creation and purchases retain independent entity and ledger state", () => {
+    const state = minerCandidateFixture(); state.factory.minerSlots[4] = true;
+    let first = minerModel.preparePurchase(state, 1, { discountLevel: 1, preservationLevel: 6 }, []);
+    first.factory.miners[0].oreLuckLevel = 3;
+    first.factory.miners[0].nextCycleSequence = 9;
+    const before = structuredClone(first);
+    freezeCandidate(first);
+    const options = Object.freeze({ discountLevel: 10, preservationLevel: 25 });
+    const second = minerModel.preparePurchase(first, 5, options, Object.freeze([]));
+    assert.deepEqual(structuredClone(second.factory.miners[0]), before.factory.miners[0]);
+    assert.equal(second.factory.miners[1].tier, 25);
+    assert.equal(second.factory.miners[1].oreLuckLevel, 0);
+    assert.equal(second.factory.miners[1].investment.entries.length, 1);
+    assert.equal(second.cash, 855);
+    assert.notEqual(second.factory.miners[0].investment, second.factory.miners[1].investment);
+    second.factory.miners[0].investment.entries[0].cashPaid = 0;
+    assert.equal(second.factory.miners[1].investment.entries[0].cashPaid, 50);
+    assert.deepEqual(structuredClone(first), before);
+    const another = minerModel.preparePurchase(state, 1, minerOptions, []);
+    another.factory.minerSlots[4] = false;
+    another.factory.miners[0].investment.entries[0].cashPaid = 1;
+    assert.equal(first.factory.miners[0].investment.entries[0].cashPaid, 95);
+    assert.equal(state.factory.minerSlots[4], true);
+    for (const preservationLevel of [0, 1, 25]) {
+        const next = minerModel.preparePurchase(state, 1, { discountLevel: 0, preservationLevel }, []);
+        assert.equal(next.factory.miners[0].tier, Math.max(1, preservationLevel));
+        assert.equal(next.factory.miners[0].investment.entries.length, 1);
+    }
+});
+
+test("candidate purchases reject invalid state, slots and perks without partial Cash, ownership or ID changes", () => {
+    const badStates = [];
+    for (const cash of [99, -1, "100", null, NaN, Infinity, 1e30]) { const s = minerCandidateFixture(); s.cash = cash; badStates.push(s); }
+    for (const n of [0, -1, 1.5, "1", 2 ** 53, Number.MAX_SAFE_INTEGER]) {
+        const s = minerCandidateFixture(); s.identity.nextEntitySequence = n; badStates.push(s);
+    }
+    for (const n of [0, "7", 2 ** 53]) { const s = minerCandidateFixture(); s.identity.nextManualEquipSequence = n; badStates.push(s); }
+    const occupied = minerModel.preparePurchase(minerCandidateFixture(), 1, minerOptions, []);
+    badStates.push(occupied);
+    const invalidLedger = structuredClone(occupied); invalidLedger.factory.miners[0].investment.entries = [];
+    badStates.push(invalidLedger);
+    const malformed = structuredClone(occupied); delete malformed.factory.miners[0].tier; badStates.push(malformed);
+    const extra = minerCandidateFixture(); extra.saveVersion = 2; badStates.push(extra); // Projection, not a full save.
+    const getter = Object.defineProperty(minerCandidateFixture(), "cash", { get() { throw Error("getter called"); } });
+    assert.throws(() => minerModel.preparePurchase(getter, 1, minerOptions, []), /own data field/);
+    for (const state of badStates) {
+        const before = structuredClone(state);
+        assert.throws(() => minerModel.preparePurchase(state, 1, minerOptions, []));
+        assert.deepEqual(structuredClone(state), before);
+    }
+    const state = minerCandidateFixture(), before = structuredClone(state);
+    for (const slot of [0, 2, 6, 1.5, "1", null]) assert.throws(() => minerModel.preparePurchase(state, slot, minerOptions, []));
+    for (const bad of [-1, 26, 1.5, "1", null, NaN, Infinity])
+        assert.throws(() => minerModel.preparePurchase(state, 1, { discountLevel: 0, preservationLevel: bad }, []));
+    for (const bad of [-1, 11, 0.5, "0", null, NaN, Infinity])
+        assert.throws(() => minerModel.preparePurchase(state, 1, { discountLevel: bad, preservationLevel: 0 }, []));
+    for (const options of [null, {}, { ...minerOptions, price: 0 }, { discountLevel: 0 }])
+        assert.throws(() => minerModel.preparePurchase(state, 1, options, []));
+    assert.deepEqual(state, before);
+});
+
+test("five sequential candidate purchases allocate once each and an exhausted or full candidate cannot buy", () => {
+    let state = minerCandidateFixture(); state.factory.minerSlots.fill(true);
+    for (const slot of [5, 2, 4, 1, 3]) state = minerModel.preparePurchase(state, slot, minerOptions, []);
+    assert.deepEqual(Array.from(state.factory.miners, miner => miner.id), ["miner:1", "miner:2", "miner:3", "miner:4", "miner:5"]);
+    assert.equal(state.identity.nextEntitySequence, 6);
+    assert.equal(state.cash, 500);
+    const before = structuredClone(state);
+    assert.throws(() => minerModel.preparePurchase(state, 1, minerOptions, []), /already owns five/);
+    assert.deepEqual(structuredClone(state), before);
+    const edge = minerCandidateFixture(); edge.identity.nextEntitySequence = Number.MAX_SAFE_INTEGER - 1;
+    const last = minerModel.preparePurchase(edge, 1, minerOptions, []);
+    assert.equal(last.identity.nextEntitySequence, Number.MAX_SAFE_INTEGER);
+    last.factory.minerSlots[1] = true;
+    assert.throws(() => minerModel.preparePurchase(last, 2, minerOptions, []), /exhausted/);
+});
+
+test("candidate helpers never attach machine entities to fresh or legacy/current production saves", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion,
+        cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0, unknown: { retained: true } }))]) {
+        let app = ready(raw);
+        const before = app.state();
+        app.run(`MinerCandidateModel.preparePurchase({cash:100,shop:{minerUnlocked:true},
+            factory:{minerSlots:[true,false,false,false,false],miners:[]},
+            identity:{nextEntitySequence:1,nextManualEquipSequence:1}},1,{discountLevel:0,preservationLevel:0},[]);`);
+        assert.deepEqual(app.state(), before);
+        assert.equal(app.writes.length, 0);
+        app = saveAndReload(app);
+        assert.deepEqual(app.state(), before);
+        if (raw !== null) {
+            for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"]) app.elements.get(id).onclick();
+            assert.equal(app.state().cash, 390);
+            for (const key of ["droppers", "adders", "multipliers", "furnaceTier"]) assert.equal(app.state()[key], 1);
+        }
+        const after = app.state();
+        assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        for (const field of ["factory", "identity", "shop", "investment", "miners", "minerSlots"])
+            assert.equal(Object.hasOwn(after, field), false);
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 const investmentModel = vm.runInNewContext(ores + "\nInvestmentModel;");
 function paymentFixture(overrides = {}) {
     return { kind: "purchase", targetLevel: null, cashPaid: 100.25, basis: "actual", ...overrides };
