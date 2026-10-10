@@ -781,6 +781,19 @@ The reserved Cycle contains only canonical fields, null result/sale values and c
 
 Six regressions cover partial/full available batches, explicit queue transfers/splitting, conservation, identities, bound effects, malformed/active state, numeric failures and unchanged schema-1 saves. Four syntax checks, 352 Node tests and all 12 existing browser scenarios pass locally. Polisher lifecycle, other machine reservations, V1-050C2 durable coordination and V1-017/V1-018 remain outstanding. Next bounded work: pure Polisher cycle resolution candidates using retained context, with no live awards or commits.
 
+### V1-070E3 — Pure Polisher Cycle Resolution Candidates
+
+**Status:** ✅ COMPLETE (pure unapplied-result scope only)
+**Dependencies:** V1-070E2/E1 and existing InventoryModel/PolisherModel
+
+`PolisherResolutionCandidateModel` supports the same exact `{polisher,inventory}` projection as reservation preparation. Its active validator checks actual reserved work without removing a cycle to pass idle validation. It validates canonical owner/queue/investment records, cycle fields and shared operation sequences, then delegates captured context/input/duration checks to CycleEffectContextModel. A sequence is below nextCycleSequence, not necessarily adjacent if later queue operations occurred. Current valid selection/tier may differ from the reservation.
+
+`prepareResolution(state,polisherId,cycleId,nowMs)` requires matching explicit owner/cycle IDs and a canonical integer-millisecond clock at or beyond the captured deadline. It returns the same independent projection with only phase/result changed. Bound value inputs produce one canonical Polished Lot conserving total reserved quantity, plus one `polished` event with output stage/count/amount. Cash, XP and Dust deltas are zero: no separate Polisher processing XP award is Defined. Original inputs, duration, context, queue, selection, investment and counter remain intact.
+
+The result is unapplied. No stock debit, output insertion, award, event dispatch, timer, write or new ID occurs. Resolved/null cycles, existing results, stale IDs, mixed/invalid input, incompatible duration/capacity, invalid clock and non-finite value reject. Independent repeated proposals from the same unchanged reserved snapshot are deterministic; cross-call replay/durable provenance requires the future single writer, not a hidden global registry here. Global ownership is outside this narrow projection.
+
+Six regressions cover reservation-helper interoperability, full/partial batches, exact/overdue deadlines, active tier/selection changes, preserved metadata, stale/replay rejection, malformed state, independent result records and schema-1 compatibility. Four syntax checks, 358 Node tests and all 12 browser scenarios pass locally. Result commit, durable coordination, live Polisher/other machine integration and V1-017/V1-018 remain incomplete. Next bounded work: pure Polisher result-commit candidates; no live activation.
+
 
 ---
 

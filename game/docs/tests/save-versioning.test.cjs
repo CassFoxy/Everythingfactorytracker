@@ -12,6 +12,112 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const resolutionModel = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; Date.now = () => { throw Error("unexpected clock"); }; PolisherResolutionCandidateModel;');
+function resolutionFixture(tier = 1, quantity = 1) {
+    return structuredClone(reservationModels.reserve.prepareReservation(reservationFixture(tier, quantity), "polisher:8",
+        { kind: "inventory" }, reservationEffects));
+}
+function resolveFixture(state, now = Math.ceil(state.polisher.cycle.startedAtMs + state.polisher.cycle.durationMs)) {
+    return resolutionModel.prepareResolution(state, "polisher:8", "polisher:8/cycle:3", now);
+}
+
+test("Polisher resolution conserves full/partial output and produces only canonical unapplied result", () => {
+    for (const [tier, quantity] of [[1, 1], [5, 2], [10, 37], [10, 100]]) {
+        const state = resolutionFixture(tier, quantity), before = structuredClone(state); freezeCandidate(state);
+        for (const late of [0, 1000000]) {
+            const result = resolveFixture(state, Math.ceil(state.polisher.cycle.startedAtMs + state.polisher.cycle.durationMs) + late);
+            const cycle = result.polisher.cycle, value = reservationEffects.currentOreValue * 1.5 * (1 + 0.0001 * reservationEffects.valueLevel);
+            assert.equal(cycle.phase, "resolved");
+            assert.deepEqual(structuredClone(cycle.result), {
+                outputs: [{ resourceId: "ruby", stage: "polished", refineCount: 0, amount: quantity,
+                    polishedValue: value, preRefinerValue: null, refineBonus: null }],
+                cashDelta: 0, factoryXPDelta: 0, gemDustDelta: 0,
+                events: [{ type: "polished", resourceId: "ruby", stage: "polished", refineCount: 0, amount: quantity }]
+            });
+            const expected = structuredClone(before); expected.polisher.cycle.phase = "resolved"; expected.polisher.cycle.result = structuredClone(cycle.result);
+            assert.deepEqual(structuredClone(result), expected); assert.deepEqual(state, before);
+        }
+    }
+    const exact = resolutionFixture();
+    assert.equal(resolveFixture(exact, exact.polisher.cycle.startedAtMs + exact.polisher.cycle.durationMs).polisher.cycle.phase, "resolved");
+});
+
+test("Polisher resolution retains reservation effects after tier and selection changes", () => {
+    const state = resolutionFixture(1);
+    state.polisher.tier = 10; state.polisher.selectedOreId = null;
+    state.polisher.queue = [{ id: "polisher:8/queue:4", lot: rawReservationLot(7, "amber") }];
+    state.polisher.nextCycleSequence = 5;
+    const before = structuredClone(state), result = resolveFixture(state);
+    assert.equal(result.polisher.tier, 10); assert.equal(result.polisher.selectedOreId, null);
+    assert.equal(result.polisher.cycle.durationMs, 7500); assert.equal(result.polisher.cycle.effectContext.tier, 1);
+    assert.equal(result.polisher.cycle.result.outputs[0].polishedValue,
+        reservationModels.polisher.calculatePolishedValue(reservationEffects.currentOreValue, reservationEffects.valueLevel));
+    assert.deepEqual(structuredClone(result.polisher.queue), before.polisher.queue);
+    assert.equal(result.polisher.nextCycleSequence, 5); assert.deepEqual(state, before);
+    const multi = resolutionFixture(10, 4);
+    multi.polisher.cycle.inputs = [rawReservationLot(1), rawReservationLot(3)];
+    assert.equal(resolveFixture(multi).polisher.cycle.result.outputs[0].amount, 4);
+});
+
+test("Polisher resolution rejects premature clocks, replay and mismatched operation identity", () => {
+    const state = resolutionFixture(), deadline = state.polisher.cycle.startedAtMs + 7500;
+    for (const now of [deadline - 1, -1, NaN, Infinity, "1700000007500", 1.5, 8640000000000001])
+        assert.throws(() => resolveFixture(state, now));
+    for (const [owner, cycle] of [["polisher:9", state.polisher.cycle.id], ["polisher:8", "polisher:8/cycle:2"],
+        ["polisher:8", "polisher:8:cycle:3"], [null, null]])
+        assert.throws(() => resolutionModel.prepareResolution(state, owner, cycle, deadline));
+    const resolved = resolveFixture(state), before = structuredClone(resolved);
+    assert.throws(() => resolveFixture(resolved)); assert.deepEqual(structuredClone(resolved), before);
+    const future = resolutionFixture(); future.polisher.cycle.startedAtMs = 1800000000000;
+    assert.throws(() => resolveFixture(future, deadline)); assert.equal(future.polisher.cycle.startedAtMs, 1800000000000);
+});
+
+test("Polisher resolution rejects malformed cycles, owners, inputs and arithmetic without mutation", () => {
+    for (const mutate of [s => { s.polisher.cycle = null; }, s => { s.polisher.cycle.result = {}; },
+        s => { s.polisher.cycle.phase = "idle"; }, s => { s.polisher.cycle.id = "polisher:9/cycle:3"; },
+        s => { s.polisher.cycle.id = "polisher:8/cycle:03"; }, s => { s.polisher.cycle.id = "polisher:8/cycle:4"; },
+        s => { s.polisher.cycle.extra = true; }, s => { s.polisher.cycle.durationMs = 7000; },
+        s => { s.polisher.cycle.inputs[0].resourceId = "stone"; }, s => { s.polisher.cycle.inputs[0].stage = "polished"; },
+        s => { s.polisher.cycle.inputs[0].amount = 0; }, s => { s.polisher.cycle.inputs[0].amount = 2; },
+        s => { s.polisher.cycle.inputs.push(rawReservationLot(1, "amber")); },
+        s => { s.polisher.cycle.effectContext.version = 2; }, s => { s.polisher.cycle.effectContext.currentOreValue = Number.MAX_VALUE; },
+        s => { s.polisher.cycle.saleUnitValues = []; }, s => { s.polisher.slot = 0; }, s => { s.polisher.tier = 11; },
+        s => { s.polisher.id = "polisher:08"; }, s => { s.polisher.investment.entries = []; },
+        s => { s.polisher.queue = [{ id: "polisher:8/queue:3", lot: rawReservationLot(1) }]; },
+        s => { s.inventory.ruby = -1; }, s => { s.extra = true; }]) {
+        const state = resolutionFixture(); mutate(state); const before = structuredClone(state);
+        assert.throws(() => resolutionModel.prepareResolution(state, "polisher:8", "polisher:8/cycle:3", 1800000000000));
+        assert.deepEqual(state, before);
+    }
+    let accessed = false;
+    const state = resolutionFixture(); Object.defineProperty(state.polisher.cycle, "inputs", { enumerable: true, get() { accessed = true; return []; } });
+    assert.throws(() => resolutionModel.prepareResolution(state, "polisher:8", "polisher:8/cycle:3", 1800000000000));
+    assert.equal(accessed, false);
+});
+
+test("Polisher resolution copies context, inputs, events, output and unchanged projection records independently", () => {
+    const state = resolutionFixture(); freezeCandidate(state);
+    const a = resolveFixture(state), b = resolveFixture(state);
+    assert.deepEqual(structuredClone(a), structuredClone(b));
+    a.inventory.stone = 0; a.polisher.investment.entries[0].cashPaid = 0;
+    a.polisher.cycle.inputs[0].amount = 99; a.polisher.cycle.effectContext.currentOreValue = 0;
+    a.polisher.cycle.result.outputs[0].polishedValue = 0; a.polisher.cycle.result.events[0].amount = 99;
+    assert.equal(state.inventory.stone, 7); assert.equal(b.inventory.stone, 7);
+    assert.equal(b.polisher.investment.entries[0].cashPaid, 2000000); assert.equal(b.polisher.cycle.inputs[0].amount, 1);
+    assert.equal(b.polisher.cycle.result.events[0].amount, 1); assert.notEqual(b.polisher.cycle.result.outputs[0].polishedValue, 0);
+    assert.equal(state.polisher.cycle.result, null); assert.equal(state.polisher.nextCycleSequence, 4);
+});
+
+test("Polisher resolution proposals leave schema-1 inventory, balances, timers and storage unchanged", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion, cash: 6000,
+        factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), before = app.state(), timers = app.intervals.length;
+        app.run(`PolisherResolutionCandidateModel.prepareResolution(${JSON.stringify(resolutionFixture())},"polisher:8","polisher:8/cycle:3",1800000000000);`);
+        assert.deepEqual(app.state(), before); assert.equal(app.intervals.length, timers); assert.equal(app.writes.length, 0);
+        assert.equal(before.saveVersion, 1); assert.deepEqual(saveAndReload(app).state(), before);
+    }
+});
+
 const reservationModels = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; ({ reserve: PolisherReservationCandidateModel, polisher: PolisherModel, context: CycleEffectContextModel });');
 function rawReservationLot(amount, resourceId = "ruby") {
     return { resourceId, stage: "raw", refineCount: 0, amount, polishedValue: null, preRefinerValue: null, refineBonus: null };
