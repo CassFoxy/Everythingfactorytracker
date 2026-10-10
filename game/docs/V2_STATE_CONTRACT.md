@@ -205,7 +205,7 @@ All recognized fields are R: `{resourceId, stage, refineCount, amount, polishedV
 | `polished` | Ore only; count 0; positive Count amount | `polishedValue`: finite non-negative value from the approved Polisher producer; `preRefinerValue:null`, `refineBonus:null` |
 | `refined` | Ore only; count 1…15; positive Count amount | `polishedValue:null`; immutable `preRefinerValue` and finite applied `refineBonus` from Reference D; resulting value is derived as basis × (1+bonus), never previous refined value × next bonus |
 
-`preRefinerValue` is first captured from the applicable polished input value on its first pass and is carried unchanged into every later pass. Cohorts with different value-defining metadata are never merged. `refineBonus` records the applicable historical successful-pass result so a reload does not revalue a saved result using a different owned perk level. `polishedValue` preserves a producer's value snapshot; whether an explicit later upgrade reprices an unreserved processed stack, and which perk basis applies to an uncompleted process, must be settled at gate T1. Mere loading never reprices it. This contract does not prematurely capture a pre-Refiner basis before the first pass.
+`preRefinerValue` is first captured from the applicable polished input value on its first pass and is carried unchanged into every later pass. Cohorts with different value-defining metadata are never merged. `refineBonus` records the applicable historical successful-pass result so a reload does not revalue a saved result using a different owned perk level. Under approved T1 3A/4A, `polishedValue` and Refined historical metadata stay unchanged on load and after subsequent upgrades; new process effects bind at reservation through section 7a. This contract does not prematurely add a pre-Refiner field to Polished inventory before the first pass.
 
 Polished/refined arrays contain only their corresponding stage. Raw available amounts continue in `inventory`; raw lots are used only for queued/reserved inputs. Zero-amount lots are not emitted. Compatible lots may combine by exact resource/stage/count/value metadata, never by rounded display value. No new resource/ore-tier IDs or mutation metadata are accepted automatically.
 
@@ -238,6 +238,7 @@ The common record is technical ownership/commit structure, not a generic factory
 | `durationMs` | R finite number >0 | Captured applicable cycle duration, not repeatedly recalculated after reload; preserve V1 batch duration 10,000 ms |
 | `inputs` | R Lot[] | Already removed from available inventory/queue; empty only for Miner; enforce each machine's input restrictions |
 | `saleUnitValues` | R null, or Cash[] for Furnace | Same order/length as Furnace inputs; exact reserved values, including historical batch values; total must remain finite |
+| `effectContext` | R versioned record | Future T1-FINAL union in section 7a; never reconstruct from newer perks |
 | `result` | R null or CycleResult | Null while reserved; required while resolved. Previously resolved RNG/outcomes cannot reroll on retry |
 
 `CycleResult` is R `{outputs: Lot[], cashDelta: Cash, factoryXPDelta: Count, gemDustDelta: Count, events: Event[]}`. It is an unapplied result, not a second inventory/balance. Zero deltas are explicit for inapplicable awards. An Event is R `{type, resourceId, stage, refineCount, amount}`; fields irrelevant to its type are null, `amount` is a positive Count. Recognized types are `resourceAcquired`, `polished`, `refineAttempt`, `refineSurvived`, `refineDestroyed`, `smelted`; validate source/resource/stage/count against the inputs/results. These facts feed only approved existing statistics/discovery/achievement handlers. Do not serialize arbitrary destination field paths or executable effects. Refiner challenge credit remains gated even when a destruction fact exists.
@@ -259,7 +260,51 @@ Crash boundaries are explicit: before reserve persistence, input is still availa
 
 The existing Auto Furnace restores its original timestamp and may settle its one already-reserved overdue batch. Preserve that behavior and its saved values. Do not simulate missed repeated cycles, backdate newly started work, or generate offline Miner output from elapsed wall time.
 
-For new Miner/Polisher/Refiner work, stored start/duration identify work, but whether downtime advances that single cycle, and how an in-flight upgrade/perk change binds its duration/value/roll parameters, are not fully stated by the handoff. **Gate T1:** approve those lifecycle semantics before activating affected cycles. A timestamp layout is not approval of offline progression. The serialization/ownership/resolved-result machinery can be implemented and tested with controlled clocks before that decision; it cannot silently choose wall-clock catch-up or pause-on-close as gameplay.
+T1 choices 1A/2A/3A/4A/5A are owner-approved. One saved cycle per entity advances to its original deadline during absence; no chained unattended work. All effects bind at reservation; active paid upgrades affect subsequent cycles. See section 7a and the final lifecycle coordination contract. This specifies future behavior, not an activated writer.
+
+## 7a. T1-FINAL durable effect context (future V2 only)
+
+**Technical contract for implementation; no runtime schema change in this ticket.** Add required `effectContext` to future Cycle records, in both reserved and resolved phases. All existing fields, IDs, phases and ownership rules remain. Context version is independent of saveVersion: production remains 1; planned schema 2 will first write this representation only after activation gates pass.
+
+Use one exact discriminated union. Every listed field is required, no optional/defaulted context fields, no arbitrary modifiers or executable values. The `kind` must match the owning machine collection (except the explicitly allowed legacy Furnace branch). Integer ranges below are inclusive; numbers must be finite and values non-negative unless stated otherwise.
+
+| kind | Exact effectContext fields beyond `version:1, kind` | Types/ranges |
+|---|---|---|
+| `miner` | `tier, overallLuck, rebirthOreLuckLevel, localOreLuckLevel, speedLevel` | tier integer 1–25; overallLuck positive finite effective multiplier; Rebirth Ore Luck integer 0–5000, local 0–50; speed integer 0–50 |
+| `polisher` | `tier, currentOreValue, valueLevel` | tier integer 1–10; already-adjusted currentOreValue finite ≥0; Polisher Value integer 0–5000 |
+| `refiner` | `tier, dustChanceLevel, stabilityLevel, yieldLevel, valueLevel` | tier integer 1–10; Dust Chance integer 0–30; Stability 0–180; Dust Yield 0–50; Refiner Value 0–5000 |
+| `furnace` | `tier, speedLevel, valueLevel, activation` | tier integer 1–20; speed integer 0–50; Furnace Value integer 0–5000; activation enum `manual` / `automatic` |
+| `legacyFurnaceV1` | none | Only the named V1 batch adapter may originate this tag; Furnace owner only |
+
+For example, a modern Miner context has exactly:
+```js
+{ version: 1, kind: "miner", tier: 6, overallLuck: 1,
+  rebirthOreLuckLevel: 0, localOreLuckLevel: 0, speedLevel: 0 }
+```
+
+The producer captures validated **levels**, except Overall Luck and Polisher's already-adjusted ore basis, which are explicit effective inputs. Overall Luck's pure model supports positive finite multipliers; the reservation producer must compute it only from Defined owned effects, not caller claims or invented modifiers. No probability arrays, final Ore Luck multiplier, base-output field, capacity cache or duplicate input IDs/counts are stored. Version 1 fixes the existing approved formula/catalogue interpretation, fixed Inscription multiplier 1 and Miner base output 1. Future formula/catalogue changes require an explicit context interpretation/version adapter; never run an old context through changed rules silently.
+
+### Authoritative binding and model mapping
+
+| Machine | Existing fields that bind quantity/identity/basis | Derived checks and resolution using context version 1 |
+|---|---|---|
+| Miner | `inputs:[]`, `saleUnitValues:null`; original duration | MinerTierModel distribution from bound tier/overallLuck; T4 exactly zero below tier 6, Stone floor 25%. Then MinerOreLuckModel from bound Rebirth/local levels for non-Stone. Production interval from bound tier/speed; exactly one base output. No final ore or RNG result at reservation. |
+| Polisher | Nonempty raw-ore input Lots all matching the selected resource; counts sum to selected quantity; `saleUnitValues:null` | PolisherModel validates input; positive total ≤ bound tier batch capacity. Duration from bound tier. Calculate output polishedValue from bound currentOreValue/valueLevel once; no second Ore Value modifier. Output amount conserves input. |
+| Refiner | Nonempty eligible processed Lots; selected cohort metadata matches across reserved inputs; counts sum to batch quantity; `saleUnitValues:null` | RefinerModel validates input counts 0–14 and capacity. Duration from bound tier. Resolve each unit using bound chance/stability/yield/value levels and independent explicit rolls. First basis is input polishedValue; later basis is input preRefinerValue; carry count forward once. Dust precedes destruction and survives it. |
+| Furnace | Nonempty eligible Lots; their amounts are quantity; parallel `saleUnitValues` are exact final unit-price snapshots | Capacity from bound tier, positive sum ≤ capacity; duration from bound tier/speed. At reservation compute each unit sale value with bound tier/valueLevel and the applicable supplied resource basis. Automatic requires bound tier ≥3 and current true preference at successful reservation; manual requires a valid manual request. Later preference changes cannot invalidate this evidence. |
+| Legacy Furnace | Existing reserved raw inputs, exact original unit sale values, start and duration 10,000 ms | Permit recognized historical capacity/value exceptions; do not apply modern tier/perk formulas. One completion only; subsequent cycles use modern context. |
+
+Store duration once in existing `durationMs` as the corresponding model's full-precision seconds ×1000, with no integer-second rounding. On modern load verify it against the bound versioned formula, never recompute from current owned tier/perks to replace it. Start/deadline arithmetic must be finite and representable; reject overflow. Capacity and selected quantity come from context tier and inputs, not current tier or UI selection. A changed owned tier/local level must not rewrite context or require equality with it.
+
+Selection preferences are not resource owners or effect context. Queue insertion retains Lots but binds no new cycle effects; transfer into a successful reservation binds current effects. Refiner historical input metadata is authoritative, not overwritten with current Polisher or Ore Value levels. Furnace saleUnitValues remain payout authority: do not derive a new raw value on reload. The producer verifies the calculation against authoritative state at reservation; load validates finite values, quantity alignment, totals and result consistency, not a guessed historical raw catalogue basis. Storing extra duplicates solely for that guess is prohibited.
+
+### Validation, migration and failure boundaries
+
+Validate exact context keys/types/ranges, owner/discriminator/version, compatible inputs, captured duration/capacity constraints and finite calculations. Validate resulting Lots and deltas with existing model rules and conservation constraints. Resolved outputs/values must agree with the retained context and input evidence; stochastic outcomes must be structurally possible, but no reroll is a validation method. K.1 challenge credit and any undefined reward remain blocked, not fabricated. Unknown context versions/kinds, missing modern contexts or malformed values fail validation/recovery without resetting work or awarding anything.
+
+The future unchanged V0→V1 then approved V1→V2 adapter tags only recognized active schema-1 Furnace batches `{version:1,kind:"legacyFurnaceV1"}`. Copy original start, 10,000 ms duration, quantities and unit values; never subtract inventory again or infer old perk levels. Preserve that tag if the cycle reaches resolved; validate its result from historical sale evidence. No modern reservation producer emits this tag. A missing context on an arbitrary candidate V2 cycle is **not** evidence of legacy origin. Retained prototype entity tier may change through upgrades without changing this compatibility cycle.
+
+Unknown historical modern-cycle formats need a named adapter or recovery; there is no implicit context completion from current upgrades. Load itself does not force a save. Subsequent approved recovery/transaction commits may persist the validated migrated state. No production V2 writer or saveVersion increment occurs here; V1-017/V1-018 still require functioning consumers and all unrelated gates. This context is not authentication against manual save editing, rollback or competing tabs.
 
 ## 8. Rebirth, resale and retained state
 
@@ -383,7 +428,7 @@ The technical contract/fixtures may be developed before these gates pass. V1-016
 | M1 | Treat legacy saves with no reliable manual-action history as pending first guarantee or already past it? | First-action backfill and V1-021B production rollout; fresh false and proven-history true are unambiguous |
 | P1 | Map retained legacy Milestone earned/claim data onto new thresholds without losing/re-awarding progress | The 250-threshold change; can remain separate from V2 if old map/catalogue are retained together |
 | R1 | Return, finish, discard or otherwise handle active Refiner inputs when selling? | Active Refiner resale; no choice is made here. Inactive resale accounting is Defined |
-| T1 | New-machine single-cycle downtime semantics; in-flight tier/perk evaluation and whether explicit upgrades reprice unreserved processed stock | Activation of affected asynchronous/value consumers; preserve existing Auto Furnace behavior and saved results independently |
+| T1 | Owner-approved 1A/2A(all)/3A/4A/5A; technical context/coordination specified in section 7a and lifecycle 7a | Gameplay decisions closed; pure validation, durable adapters, consumers and activation verification outstanding |
 | B1 | How to map any nonzero legacy bonus/effect or conflicting cosmetic alias that has no equivalent Defined meaning? | Only affected conversion/effect adapters; preserve values, do not silently treat old bonuses as purchased perk levels |
 | K.4 | Does Ore Value affect Stone? | Relevant new value calculation/snapshot producer, not the ability to retain a historical sale value |
 | K.5 | Does an independent Rebirth Furnace Capacity perk exist? | That perk's state/price/effect. Do not add it or its placeholder fields |

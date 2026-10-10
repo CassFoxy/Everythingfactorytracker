@@ -61,7 +61,7 @@ Slot purchase and Unlock Miner are separate nonrefundable transactions. Furnace 
 
 Resolve exactly one currently owned entity and validate its state. The next tier/local level is current plus one, within the catalogue cap. Evaluate that target's original raw formula, never the last rounded price. Quote with the proper category, validate affordability, prepare the Cash debit and only the target entity's upgrade. For sellable machines append the actual `tier` or Miner `oreLuck` payment with `{machineType, owned:true}` and commit all changes together. Duplicate paid targets reject; no history is fabricated for free Preservation tiers or unbought Ore Luck levels.
 
-Miner-local Ore Luck stays independent from permanent Rebirth Ore Luck, starts at 0 and caps at 50. `minerOreLuck` rounds Cash but receives no Discount. A Furnace tier upgrade uses `furnaceTier` pricing and the same atomic debit/state boundary, **without** an InvestmentModel call: Furnace is not sellable. An upgrade affecting in-flight duration/value/rolls is blocked until T1 defines binding semantics; it cannot reset a reservation, reprice a resolved result or silently finish work. Tests may prepare idle-entity upgrades before that decision.
+Miner-local Ore Luck stays independent from permanent Rebirth Ore Luck, starts at 0 and caps at 50. `minerOreLuck` rounds Cash but receives no Discount. A Furnace tier upgrade uses `furnaceTier` pricing and the same atomic debit/state boundary, **without** an InvestmentModel call: Furnace is not sellable. T1-FINAL permits active paid upgrades with effects on subsequent reservations only. They cannot reset a reservation, reprice a resolved result or silently finish work. Existing idle-only helpers remain intentionally narrow; full-cycle adapters are future work.
 
 ## 5. Processing phases and exclusive input ownership
 
@@ -76,7 +76,7 @@ Reuse [V2 section 7](V2_STATE_CONTRACT.md#7-persisted-cycles-and-exactly-once-re
 | Commit result | Persist outputs, balances and event effects together with `cycle:null`; reservation is consumed exactly once |
 | Next work | Separate revalidated reservation after successful commit; do not reuse the old cycle ID or backdate new work |
 
-Exact Cycle fields stay `{id, phase, startedAtMs, durationMs, inputs, saleUnitValues, result}`. `saleUnitValues` is a matching Furnace unit-value array; otherwise null. `inputs` is empty only for a Miner. `durationMs` is positive and captured as required by the approved timing rule, not recalculated on load. `CycleResult` stays `{outputs, cashDelta, factoryXPDelta, gemDustDelta, events}`; inapplicable deltas are explicit zero. Events use V2's exact `{type, resourceId, stage, refineCount, amount}` fields and recognized discriminators, not arbitrary state paths or callback code.
+Future Cycle fields are `{id, phase, startedAtMs, durationMs, inputs, saleUnitValues, effectContext, result}`; T1-FINAL defines the exact versioned context in V2 section 7a. `saleUnitValues` is a matching Furnace unit-value array; otherwise null. `inputs` is empty only for a Miner. `durationMs` is positive and captured as required by the approved timing rule, not recalculated on load. `CycleResult` stays `{outputs, cashDelta, factoryXPDelta, gemDustDelta, events}`; inapplicable deltas are explicit zero. Events use V2's exact `{type, resourceId, stage, refineCount, amount}` fields and recognized discriminators, not arbitrary state paths or callback code.
 
 Available raw stock remains `inventory[resourceId]` counts. Create a Raw Lot only for transfer; never replace the map with arrays. Available processed stock is `processedInventory`; exact cohort metadata identifies it. `InventoryModel.splitLot(lot, quantity)` returns `taken` and `remaining` (null when exhausted). The coordinator must atomically replace/decrement the source and assign `taken` to the selected owner. A copy returned by a pure helper is not itself a reservation. Queue/cycle IDs must belong to that machine; no cross-machine alias or shared mutable Lot is permitted.
 
@@ -93,7 +93,7 @@ Machine-specific consumers enforce input restrictions, capacity, selection, timi
 | Refiner | [Reference D](GAME_BIBLE.md#reference-d-refiner-behavior-and-value): direct reservation from polished count 0 or refined counts 1–14; no pre-reservation queue. Dust roll/award precedes the independent destruction roll per input; save both outcomes in the pending result. Survivors gain one count, capped at 15. First pass captures immutable `preRefinerValue`; later passes carry it unchanged with the saved successful `refineBonus`, never compound a previous result. Destroyed input does not remove awarded Dust. R1 blocks active resale |
 | Furnace | [Reference E](GAME_BIBLE.md#reference-e-cash-price-rounding-and-furnace-table): permanent singleton; manual activation at tiers 1–2, automatic processing at 3+ subject to its preferences and valid inputs. Manual cohort selection or auto highest final-sale-value selection with stable ore-ID/Refine-Count ties. Preserve reserved sale values and award Cash once. This is the selling path, not an additional direct-sale economy |
 
-Preserved historical `polishedValue`, `preRefinerValue`, `refineBonus` and Furnace reserved values are not updated merely because a save loads or a new catalogue quote differs. T1 controls unresolved evaluation/repricing points; K.4 controls new Ore Value-on-Stone calculations. Refiner physical destruction events can be recorded without resolving K.1 challenge eligibility.
+Preserved historical `polishedValue`, `preRefinerValue`, `refineBonus` and Furnace reserved values are not updated merely because a save loads or a new catalogue quote differs. T1-FINAL binds effects at reservation and forbids upgrade-triggered historical Lot repricing; K.4 still controls new Ore Value-on-Stone calculations. Refiner physical destruction events can be recorded without resolving K.1 challenge eligibility.
 
 ## 7. Time, stopping, reload and write failures
 
@@ -101,7 +101,7 @@ Authoritative work is the saved entity/cycle ID, `startedAtMs`, captured `durati
 
 Load via parse → adjacent migration → validation → established completion → runtime restoration, before registering schedulers. A successful load does not itself rewrite storage. A reserved cycle is scheduled only under its approved timing semantics; a resolved cycle uses its saved result and never rerolls. Each callback carries entity ID + cycle ID and rechecks both and the phase; duplicate/stale callbacks cannot consume, resolve or pay twice. Rebuild one scheduler owner per entity; never persist handles or run gameplay/autosave during recovery.
 
-Turning off Furnace automation controls future automatic starts; an already reserved historical batch remains owned and may finish under existing behavior. `autoEnabled:false` is not idle or cancellation. Selection/mode changes are preferences for subsequent work, not permission to change reserved inputs. There is no new general pause/cancel field or machine toggle. New pause, close/reopen and active-upgrade behavior must not be invented from the timestamp layout; T1 remains open.
+Turning off Furnace automation controls future automatic starts; an already reserved historical batch remains owned and may finish under existing behavior. `autoEnabled:false` is not idle or cancellation. Selection/mode changes are preferences for subsequent work, not permission to change reserved inputs. There is no new general pause/cancel field or machine toggle. T1-FINAL approves one-cycle deadline recovery and future-cycle-only active upgrades; it introduces no pause/cancel operation.
 
 | Last successful snapshot at interruption | Reload/retry consequence |
 |---|---|
@@ -112,7 +112,74 @@ Turning off Furnace automation controls future automatic starts; an already rese
 
 In-session write failure retains the exact prepared candidate, even when resolution has not yet been saved; retry it, not fresh rolls. No speculative inventory, XP, Dust or Cash is published. Recovery/load failure preserves original raw bytes and registers no scheduler. Full write-boundary tests remain a future activation requirement, not a capability added to current schema 1 here.
 
-Existing Auto Furnace may complete its single overdue reserved batch with original values/time. Do not simulate missed repeated cycles, backdate new cycles or infer offline Miner output. For new processors, **whether downtime advances even one pending cycle and how in-flight effects are bound remain T1**. Controlled-clock candidate tests are safe; production activation of affected timing is blocked. This document chooses neither pause-on-close nor wall-clock catch-up.
+Existing Auto Furnace may complete its single overdue reserved batch with original values/time. Do not simulate missed repeated cycles, backdate new cycles or infer offline Miner output. T1-FINAL approves completion of one already reserved cycle per machine after its deadline, without repeated offline work. Reservation-time effect context is retained. Production activation still requires implemented and tested consumers/coordinator.
+
+## 7a. T1-FINAL approved coordination and recovery
+
+**1A, 2A for all machines, 3A, 4A and 5A are OWNER APPROVED.** This final technical contract replaces earlier T1 deferrals, not production code. The durable field contract is [V2 section 7a](V2_STATE_CONTRACT.md#7a-t1-final-durable-effect-context-future-v2-only); approval history is [T1 decision sheet](T1_TIMING_DECISION_SHEET.md).
+
+### Reservation and historical effects
+
+At successful reservation capture independent validated input Lots and versioned effectContext in the same snapshot as inventory transfer, operation sequence, start, duration and Furnace sale snapshots. No current perk lookup may later substitute for context. Context stores the inputs enumerated by V2 section 7a, not rolled outcomes. Resolve Miner tier/ore and Refiner per-item rolls only when due, from that bound context. Retain an exact prepared result after write failure; persisted resolved outcomes never reroll.
+
+Existing Polished Lots retain polishedValue; existing Refined Lots retain preRefinerValue, refineBonus and count after reload **and** later Polisher/Refiner/Ore Value/perk upgrades. No revaluation command exists. New reservations use newly applicable effects; new Furnace reservations may apply current Furnace effects to the historical processed value without modifying the Lot. Existing reserved/resolved sale snapshots stay fixed. K.4 remains separate.
+
+### Load ordering and one-cycle downtime
+
+1. Read/parse/migrate/validate/complete the last authoritative snapshot, including context, before timers or production UI commands. Failure enters preserved-save recovery with no schedulers.
+2. Establish one coordinator. For deterministic recovery acceptance order, enumerate retained Miners by slot, then Polishers by slot, then Refiner, then Furnace. This is technical traversal, not a price/placement rule. Admit at most each entity's **existing** cycle for this recovery pass; queue entries cannot become offline cycles.
+3. Resolved cycles use their existing result. Reserved cycles use the supplied current clock and original finite deadline `startedAtMs + durationMs`. If due, enqueue ordinary resolve then reward commit; if not, retain them and schedule remaining wait after restoration. Future start times remain unchanged; show bounded progress and wait until the deadline. Do not normalize clocks to produce an early payout.
+4. Serialize these recovery transitions before enabling fresh production requests. A failed write blocks restoration/affected mutation until exact retry or safe recovery. Loading itself is not an automatic rewritten save; a subsequent due-cycle transaction is a deliberate normal commit.
+5. After the recovery pass, enable current-time scheduling and UI production commands. Any newly eligible reservation has a new ID and a start captured at that transaction, never the old deadline. No loop simulates missed starts, queued batches or repeated offline Miner output.
+
+Clock passage while restoration runs does not authorize a second historical cycle. Legacy Furnace uses the separately tagged historical branch with original 10,000 ms and unit values. Newly started work uses modern context. Timers are wakeups only; recheck IDs/phase and deadline at execution. Large waits may use bounded wakeups without modifying timestamps.
+
+### Active upgrade adapter contract
+
+A valid paid tier upgrade is allowed at null, reserved or resolved cycle for all four machines; Miner local Ore Luck likewise. Validate a complete current entity/context/result, calculate the next target and quote from original costs, prepare exact Cash debit and qualifying InvestmentModel entry for sellable machines, then atomically persist ownership/Cash/ledger. Furnace adds no payment ledger.
+
+Preserve cycle ID, start, duration, inputs, effectContext, saleUnitValues, result and nextCycleSequence byte-equivalently as data; deep-copy supported mutable records. No new cycle or identity allocation is part of upgrading. Global perk changes similarly affect only later contexts. An upgrade after resolution cannot change the result awaiting commit.
+
+Do **not** pass active entities to idle-only Miner/Polisher/Refiner/Furnace candidate helpers or strip cycle/queue fields to make them pass. Future full-state adapters must validate/preserve all supported state and reuse pricing, exact-debit and investment public APIs. Pure candidates are proposals; publish nothing before a successful durable commit. Existing helpers and their rejection tests remain valid.
+
+### Accepted command order
+
+One authoritative writer accepts commands into an ordered in-memory sequence and processes them serially against the latest committed snapshot. Reservation, resolution, reward commit, paid upgrade, preference change, resale and Rebirth all pass through it. No independent timer/UI callback mutates state. A timestamp determines whether resolution is eligible, **not** priority over an earlier accepted command. Internal follow-ups enter the same order; they cannot jump already accepted commands. This sequence is coordination, not a new saved counter.
+
+- Upgrade then resolution: new owned tier/local level is committed, but resolution uses old context. Resolution then upgrade: retain the exact saved result. Next reservation observes only upgrades committed before it.
+- Preference changes affect new reservations only. A successful new reservation revalidates current manual/automatic permission and input availability; it cannot rely on an earlier UI preview.
+- Reserved Miner resale removes work with owner and refunds only recorded investment. Due-but-reserved is still reserved; no partial/pending production bonus.
+- Reserved Polisher resale returns eligible queued/active unprocessed input once. Resolved Miner/Polisher resale requires ordinary reward commit first, then revalidation of the requested sale. Represent this as ordered follow-up commands, without partial refund/removal; any intervening accepted Rebirth/removal makes stale follow-ups fail safely. No raw return plus processed award for one input.
+- Refiner reserved/resolved resale is blocked by R1; Sell does not force resolution/return/destruction. Ordinary completion can later permit a newly validated idle sale.
+- Furnace cannot be sold.
+- Rebirth clears all uncommitted work, including resolved results, without production payout. It does not force a due cycle to settle first. An already committed award is part of authoritative pre-reset state; an uncommitted one is not. Clear old callbacks through entity/cycle validation.
+- A failed write retains its exact pending candidate and blocks subsequent conflicting commands/autosave. Retry does not revalidate into a differently priced/rerolled candidate. Safe abandonment requires proof it was not committed; ambiguous storage results require reload/recovery, never a second debit.
+
+### Required deterministic transition tests (not implemented by this ticket)
+
+| Case | Authoritative saved state | Permitted transition / forbidden behavior | Required test |
+|---|---|---|---|
+| Close before reservation persistence | Available/queued stock, prior sequence | Reopen prior snapshot; no consumed input/ID | Inject failure/crash before reserve write |
+| Close during reserved processing | Original inputs/context/start/duration | Wait or resolve once by deadline; no current-perk reconstruction | Change perks, reopen before/after deadline |
+| Close after result persistence | Resolved result, balances uncredited | Commit saved result once; no RNG | Throw if resolver/RNG called on reload |
+| Close after reward commit | Credits applied, cycle null | No second award | Reload and duplicate callback |
+| Future start | Valid original future timestamp | Wait original deadline; never reset to now | Controlled earlier clock, bounded progress |
+| Overdue reservation | One saved reserved cycle | Resolve/commit once, new work starts now | Large absence with queued work, no backlog |
+| Upgrade during reservation | New ownership plus unchanged cycle | Resolve using old effects | Compare full cycle before/after commit |
+| Upgrade after resolution | New ownership plus same result | Commit unchanged reward | No result repricing/reroll |
+| Resale while reserved | Cycle still reserved, even if due | Machine-specific removal/return; R1 blocks Refiner | Both accepted orderings vs resolution |
+| Resale after resolution | Saved result | Miner/Polisher commit then revalidate; R1 blocks Refiner | No double raw/output/refund |
+| Rebirth during work | Last committed snapshot | Clear pending work without reward | Reserved/resolved cases, stale callbacks |
+| Failed reservation write | Input still previous owner | Retry exact transfer, no speculative subtraction | IDs/stock unchanged until success |
+| Failed result write | Reserved saved cycle | Retry same in-session prepared result | Deterministic rolls consumed once per preparation |
+| Failed reward write | Resolved saved cycle | Retry identical credits-and-clear | Balances/events remain unpublished |
+| Exact pending retry | Prior saved snapshot plus pending candidate | Commit once; no new quote/ID/roll | Repeated failures then success |
+| Stale timer | Different entity/cycle/phase | No mutation | Old callback after removal/reset/commit |
+| Duplicate/conflicting commands | Latest committed state | Revalidate expected target/phase; reject stale request | Two requests with same expected next tier cannot buy two tiers |
+
+Commands must carry enough expected state to detect stale intent (e.g. expected current tier/local level for upgrades, cycle ID/phase for work); these are transient command preconditions, not extra saved fields or client authority. A deliberate next upgrade requires a new command prepared from the updated state. The coordinator's transaction boundary applies awards/events once within one full save.
+
+These tests certify only the single-writer whole-save model. Crash before result persistence may recompute an uncommitted roll as already documented. No promise of cross-tab atomicity, external tamper resistance, disk durability or rollback prevention is added.
 
 ## 8. Resale and Rebirth
 
@@ -122,7 +189,7 @@ Require the Defined confirmation for the exact sellable entity. Revalidate curre
 
 Prepare machine-specific work disposition, Cash credit and entity removal in one candidate. Validate representable Cash addition and inventory returns, persist, then remove its scheduler and refresh UI. Already removed IDs cannot sell again. Retain Miner slot access, stable Polisher slot identities, global counters, already available processed outputs and permanent perks/Dust. Remove the sold entity's local upgrades, ledger and operations. Slot access, Unlock Miner, normal Shop, materials, Pickaxes, Stardust and free Preservation tiers contribute no refund.
 
-- Miner: remove its input-free work with ownership; never generate an extra pending production award as a refund. T1 still gates exact active-cycle timing/race semantics. Do not activate an unresolved timing-dependent sale path.
+- Miner: remove its input-free work with ownership; never generate an extra pending production award as a refund. T1-FINAL section 7a defines command ordering. Already resolved Miner output commits normally before resale is revalidated; merely due reserved work receives no forced settlement priority.
 - Polisher: return queued and active **unprocessed** inputs once; keep already-polished available output. A saved resolved cycle follows normal result commit before an idle resale is revalidated, so the same input cannot both return raw and award polished output. Serialize completion/removal; never clear a failed commit to force a sale through. No partial-progress reward is invented.
 - Refiner: idle resale accounting is Defined. An active reservation/result blocks the resale transition under R1 until the owner specifies active-input disposition. Do not automatically finish, return or destroy inputs because Sell was clicked. Ordinary approved cycle completion may independently make it idle; then revalidate a new sale.
 
@@ -172,7 +239,7 @@ V1-017 may build approved candidate adapters/fixtures before runtime release; V1
 | M1 | Unknown legacy first-action history: block first-action backfill and dependent rollout; never infer it from inventory/XP/Collection |
 | P1 | Legacy Milestone earned/claim mapping to new thresholds: block that catalogue transition; retain old catalogue/map together meanwhile |
 | R1 | Active Refiner input disposition on resale: block active resale, not idle refund calculation |
-| T1 | Downtime advancement for new cycles; in-flight tier/perk timing/value/roll binding; explicit upgrade repricing of unreserved processed stock: block affected active transitions/activation; retain existing Auto Furnace and historical snapshots |
+| T1 | Owner approved 1A/2A(all)/3A/4A/5A; final technical rules in section 7a. Gameplay gate resolved; implementation, validation and activation remain outstanding |
 | B1 | Unmapped nonzero legacy machine/perk effects or cosmetic alias conflicts: block affected adapters; archive/preserve, never reinterpret as purchased levels |
 | Grid contract | Placement, activation and routing semantics: block physical grid/transport integration; ownership implies no new spatial state |
 | K.4 | Ore Value on Stone: block the affected new value/snapshot producer, not preservation of an already reserved sale value |

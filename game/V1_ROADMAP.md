@@ -733,11 +733,24 @@ Documentation verification: existing four syntax checks, 265 Node tests and 12 b
 ### T1-REVIEW — Machine Timing and Value-Binding Decision Sheet
 
 **Status:** ✅ COMPLETE (documentation/design review only)
-**T1 gate:** OPEN — owner approval required; no recommendation is Defined.
+**T1 gate:** Gameplay choices 1A/2A(all)/3A/4A/5A OWNER APPROVED; final technical contract below. Runtime work remains outstanding.
 
-[T1_TIMING_DECISION_SHEET.md](docs/T1_TIMING_DECISION_SHEET.md) separates established ownership/reload/reset rules from five PROPOSED choices: single-cycle downtime, active upgrades, effect binding, explicit unreserved-stock repricing and completion/removal ordering. Records the technical gap for durable effect context without inventing a Cycle schema extension. Legacy Furnace reservations and independent R1/K.1/K.4/K.5 gates remain protected.
+[T1_TIMING_DECISION_SHEET.md](docs/T1_TIMING_DECISION_SHEET.md) records approval and decision history for five choices: single-cycle downtime, active upgrades, effect binding, explicit unreserved-stock repricing and completion/removal ordering. T1-FINAL now specifies durable effect context for future V2, without activating it. Legacy Furnace reservations and independent R1/K.1/K.4/K.5 gates remain protected.
 
-Next action is owner approval/modification of the numbered decisions, then a bounded final technical-contract update. This review does not complete V1-050C2, V1-071A2/B2/C2, V1-074A2/B2, V1-075A2/B2, V1-081B2 or V1-017/V1-018. No JavaScript, live processing, save writes or V2 activation is included.
+Owner approval is recorded; the bounded final technical-contract update is complete below. This review does not complete V1-050C2, V1-071A2/B2/C2, V1-074A2/B2, V1-075A2/B2, V1-081B2 or V1-017/V1-018. No JavaScript, live processing, save writes or V2 activation is included.
+
+### T1-FINAL — Final Machine Timing, Effect Snapshot and Lifecycle Contract
+
+**Status:** ✅ COMPLETE (documentation only; technical contract ready for review)
+**Gameplay:** OWNER APPROVED 1A, 2A for all four machines/local Miner Ore Luck, 3A, 4A and 5A.
+**Implementation:** NOT ACTIVATED.
+
+[V2 section 7a](docs/V2_STATE_CONTRACT.md#7a-t1-final-durable-effect-context-future-v2-only) defines required versioned cycle effectContext, machine-specific input ranges, derivation/validation and explicit legacy Furnace compatibility. [Lifecycle section 7a](docs/V1_MACHINE_LIFECYCLE_CONTRACT.md#7a-t1-final-approved-coordination-and-recovery) defines one-cycle recovery, active upgrades preserving work, immutable processed values, accepted command ordering and deterministic failure tests.
+
+Earlier ticket notes referring to T1 as an unresolved gameplay choice are historical: the approved contract now replaces that decision gate. Satisfying it in runtime code is still required. R1/K.1/K.2/K.4/K.5 and other unrelated gates are unchanged. V1-050C2, V1-071A2/B2/C2, V1-074A2/B2, V1-075A2/B2, V1-081B2 and V1-017/V1-018 remain outstanding.
+
+Next bounded ticket: **pure cycle-effect-context validation and fixtures**, using the exact new union without production save validation/writes, timers, rewards, migration or activation. Do not expand idle-only candidate APIs in that ticket.
+
 
 ---
 
