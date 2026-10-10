@@ -751,6 +751,21 @@ Earlier ticket notes referring to T1 as an unresolved gameplay choice are histor
 
 Next bounded ticket: **pure cycle-effect-context validation and fixtures**, using the exact new union without production save validation/writes, timers, rewards, migration or activation. Do not expand idle-only candidate APIs in that ticket.
 
+### V1-070E1 — Pure Cycle Effect-Context Validation and Deterministic Fixtures
+
+**Status:** ✅ COMPLETE (pure validation only)
+**Dependencies:** T1-FINAL and existing machine/InventoryModel mathematics
+
+`CycleEffectContextModel.validateContext(context,owner)` checks exact version-1 machine records and returns an independent copy. Explicit owner is miner/polisher/refiner/furnace; ordinary validation never accepts legacy context. Reuses existing formulas/perk validation, rejects extra/missing/accessor fields and applies the automatic Furnace tier gate.
+
+`validateMetadata(context,owner,{startedAtMs,durationMs,inputs,saleUnitValues})` additionally checks captured timing, compatible input cohorts, quantity/capacity and sale-value alignment/finite totals, returning independent data. Exact JS model-seconds ×1000 equality is the duration policy; no epsilon, rounding or saved-duration replacement. Deadlines use finite IEEE-754 addition, rejecting overflow/loss of the entire positive interval, while allowing normal fractional timestamp rounding. Future valid starts remain unchanged.
+
+`validateLegacyFurnaceForAdapter` is a separate adapter-only structural entry point: caller must already recognize the approved V1 batch. It preserves raw quantities, values/start and 10,000 ms, allowing historical capacity exceptions without fabricated perks. It cannot authenticate arbitrary JSON and is not a migration or fallback. Modern paths cannot use its discriminator.
+
+This is not full-cycle/result validation, proof of transferred inventory, ownership, payment, RNG or reservation-time activation permission. Future consumers must verify authoritative autoEnabled/manual requests at reservation; current preferences cannot prove history on reload. Bound levels never consult later owned state. No cycles are created, resolved, scheduled, persisted or rewarded.
+
+Six deterministic regressions cover all machine boundary fixtures, owner/shape/range failures, intervals/capacity, legacy isolation, independent records and schema-1 compatibility. Four syntax checks, 346 Node tests and 12 existing browser scenarios pass locally. V1-050C2, live machine integrations and V1-017/V1-018 remain outstanding; approved T1 choices are not reopened. Next bounded work: pure reservation-candidate validation of cycle identity and exclusive input transfer, without live commits or scheduler activation.
+
 
 ---
 
