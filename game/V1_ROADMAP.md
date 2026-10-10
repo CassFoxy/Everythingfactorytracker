@@ -1054,13 +1054,31 @@ Implement per-item reservation/result ownership and exactly-once commits for Dus
 
 ## V1-075B — Refiner Purchases, Tiers and Resale
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟠 IN PROGRESS
 **Design:** DESIGN COMPLETE stated costs/refund; active-cycle disposal requires contract review
 **Dependencies:** V1-075A, V1-050
 
 $25,000 purchase; target-tier upgrades 125,000 × 10^(T−2); tier cap 10. Half actual Cash investment resale, no Stardust refund. Confirm active-cycle removal/reservation handling before implementing destructive removal if the technical contract cannot preserve the defined processing result without new gameplay policy.
 
 **Acceptance:** Reference L checks 17–18, 26.
+
+### V1-075B1 — Pure Refiner Purchase and Tier Upgrade Candidate Model
+
+**Status:** ✅ COMPLETE (pure idle candidate scope only)
+**Dependencies:** V1-075A1, V1-050A/B, V1-074B1, V1-016 and V1-070
+
+`RefinerCandidateModel` validates the narrow projection `{cash,factory:{refiner},identity:{nextEntitySequence,nextManualEquipSequence}}` with required external Miner/Polisher/crafted-Pickaxe ID context. Ownership is null or one canonical idle entity, without slots or queues. A null selection or valid eligible cohort key is supported without requiring that inventory be present. Active cycles and unsupported projection extensions reject; this is not a complete V2 adapter.
+
+Purchase uses $25,000 raw, eligible Discount/Cash rounding, creation-only Preservation 0–25, a deterministic global ID and one proposed actual purchase payment. Tier upgrades use the original `125000 × 10^(T−2)` formula through RefinerModel and append only the paid next tier. Cash arithmetic, identity collisions/exhaustion, investments and independent returned records are validated without mutating inputs. An actual-basis candidate payment becomes historical evidence only after a future durable commit.
+
+Seven focused regressions cover singleton ownership, prices, Preservation, eligible selection metadata, identity, failure atomicity, precision, independent ledgers and unchanged schema-1 gameplay. All four syntax checks, 335 Node tests and 12 existing browser smoke scenarios pass locally. No live transaction, processing, resale, persistence or V2 activation is implemented.
+
+### V1-075B2 — Refiner Live Ownership, Upgrades and Resale Integration
+
+**Status:** ⚪ NOT STARTED
+**Dependencies:** V1-075B1, V1-075A2, V1-050C2 and V1-041B; V1-017/V1-018 compatibility and activation readiness; applicable R1, T1 and grid activation decisions
+
+Integrate durable purchases, upgrades and confirmed resale with the canonical singleton and cycle ownership. R1 active-input resale and T1 timing/value binding remain unresolved; K.1 destroyed-ore challenge credit is not decided here. V1-075A2, V1-050C durable integration, V1-017 and V1-018 remain incomplete. Parent V1-075B is not complete until its live lifecycle is implemented and tested.
 
 ---
 

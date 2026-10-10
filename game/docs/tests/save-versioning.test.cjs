@@ -12,6 +12,192 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const refinerCandidates = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; RefinerCandidateModel;');
+const refinerPricing = vm.runInNewContext(ores + '\nRefinerModel;');
+const refinerExternalIds = Object.freeze(["miner:1", "polisher:2", "pickaxe:3"]);
+const refinerBuyOptions = Object.freeze({ discountLevel: 0, preservationLevel: 0 });
+function refinerCandidateFixture(cash = 100000000000000) {
+    return { cash, factory: { refiner: null }, identity: { nextEntitySequence: 8, nextManualEquipSequence: 19 } };
+}
+function ownedRefinerFixture(tier = 1) {
+    return { id: "refiner:4", tier, selection: null, nextCycleSequence: 11, cycle: null,
+        investment: { entries: [{ kind: "purchase", targetLevel: null, cashPaid: 25000.5, basis: "actual" }] } };
+}
+
+test("Refiner singleton purchases quote Discount, allocate once and create only canonical idle state", () => {
+    const empty = freezeCandidate(refinerCandidateFixture());
+    assert.doesNotThrow(() => refinerCandidates.validateCandidate(empty, refinerExternalIds));
+    for (const [discountLevel, price] of [[0, 25000], [1, 23750], [10, 12500]]) {
+        assert.equal(refinerCandidates.getPurchasePrice(discountLevel), price);
+        const result = refinerCandidates.preparePurchase(empty, { discountLevel, preservationLevel: 0 }, refinerExternalIds);
+        assert.equal(result.cash, empty.cash - price);
+        assert.deepEqual(structuredClone(result.factory.refiner), {
+            id: "refiner:8", tier: 1, selection: null, nextCycleSequence: 1, cycle: null,
+            investment: { entries: [{ kind: "purchase", targetLevel: null, cashPaid: price, basis: "actual" }] }
+        });
+        assert.equal(result.identity.nextEntitySequence, 9);
+        assert.equal(result.identity.nextManualEquipSequence, 19);
+        const before = structuredClone(result);
+        assert.throws(() => refinerCandidates.preparePurchase(result, refinerBuyOptions, refinerExternalIds));
+        assert.deepEqual(structuredClone(result), before);
+    }
+    assert.equal(empty.factory.refiner, null); assert.equal(empty.identity.nextEntitySequence, 8);
+});
+
+test("Refiner Preservation grants only a starting tier with one purchase payment", () => {
+    for (const preservationLevel of [0, 1, 5, 10, 25]) {
+        const result = refinerCandidates.preparePurchase(refinerCandidateFixture(),
+            { discountLevel: 0, preservationLevel }, refinerExternalIds);
+        assert.equal(result.factory.refiner.tier, Math.min(10, Math.max(1, preservationLevel)));
+        assert.equal(result.factory.refiner.investment.entries.length, 1);
+        assert.equal(result.factory.refiner.investment.entries[0].cashPaid, 25000);
+    }
+});
+
+test("Refiner upgrades use original tier costs, rounded Discount quotes and preserve historical payments", () => {
+    for (let target = 2; target <= 10; target++) {
+        const raw = 125000 * 10 ** (target - 2);
+        assert.equal(refinerPricing.getRawTierUpgradeCost(target), raw);
+        for (const discount of [0, 1, 10]) {
+            const discounted = raw * (1 - 0.05 * discount);
+            const step = discounted < 1000 ? 1 : discounted < 1000000 ? 10 : discounted < 1000000000 ? 1000 : 1000000;
+            const price = step * Math.floor(discounted / step + 0.5);
+            assert.equal(refinerPricing.getTierUpgradePrice(target, discount), price);
+            const state = refinerCandidateFixture(price + 125.5); state.factory.refiner = ownedRefinerFixture(target - 1);
+            freezeCandidate(state);
+            const result = refinerCandidates.prepareTierUpgrade(state, discount, refinerExternalIds);
+            assert.equal(result.cash, 125.5); assert.equal(result.factory.refiner.tier, target);
+            assert.deepEqual(structuredClone(result.identity), state.identity);
+            assert.equal(result.factory.refiner.nextCycleSequence, 11); assert.equal(result.factory.refiner.cycle, null);
+            assert.deepEqual(structuredClone(result.factory.refiner.investment.entries), [
+                state.factory.refiner.investment.entries[0], { kind: "tier", targetLevel: target, cashPaid: price, basis: "actual" }
+            ]);
+            assert.equal(state.factory.refiner.tier, target - 1);
+        }
+    }
+    for (const target of [1, 11, 2.5, "2", null, NaN, Infinity])
+        assert.throws(() => refinerPricing.getRawTierUpgradeCost(target));
+    const capped = refinerCandidateFixture(); capped.factory.refiner = ownedRefinerFixture(10);
+    assert.throws(() => refinerCandidates.prepareTierUpgrade(capped, 0, refinerExternalIds));
+    assert.throws(() => refinerCandidates.prepareTierUpgrade(refinerCandidateFixture(), 0, refinerExternalIds));
+});
+
+test("Refiner idle selections validate cohort keys without requiring or reserving inventory", () => {
+    assert.doesNotThrow(() => refinerCandidates.validateSelection(null));
+    const ids = vm.runInNewContext(ores + '\nObject.keys(ORES);');
+    for (const resourceId of ids) {
+        for (let count = 0; count <= 14; count++) {
+            const selection = { resourceId, stage: count ? "refined" : "polished", refineCount: count,
+                polishedValue: count ? null : 123.456789, preRefinerValue: count ? 123.456789 : null,
+                refineBonus: count ? -0.09 : null };
+            assert.doesNotThrow(() => refinerCandidates.validateSelection(selection));
+        }
+    }
+    const valid = { resourceId: "ruby", stage: "polished", refineCount: 0, polishedValue: 123.456789,
+        preRefinerValue: null, refineBonus: null };
+    for (const bad of [undefined, {}, { ...valid, resourceId: "stone" }, { ...valid, resourceId: "wood" },
+        { ...valid, resourceId: "unknown" }, { ...valid, stage: "raw" }, { ...valid, amount: 1 },
+        { ...valid, polishedValue: null }, { ...valid, polishedValue: Infinity },
+        { ...valid, stage: "refined", refineCount: 15, polishedValue: null, preRefinerValue: 100, refineBonus: -0.9 }])
+        assert.throws(() => refinerCandidates.validateSelection(bad));
+    const state = refinerCandidateFixture(); state.factory.refiner = ownedRefinerFixture(); state.factory.refiner.selection = valid;
+    freezeCandidate(state);
+    const a = refinerCandidates.prepareTierUpgrade(state, 0, refinerExternalIds);
+    const b = refinerCandidates.prepareTierUpgrade(state, 0, refinerExternalIds);
+    assert.deepEqual(structuredClone(a.factory.refiner.selection), valid);
+    a.factory.refiner.selection.polishedValue = 0; a.factory.refiner.investment.entries[0].cashPaid = 0;
+    assert.equal(b.factory.refiner.selection.polishedValue, 123.456789);
+    assert.equal(b.factory.refiner.investment.entries[0].cashPaid, 25000.5);
+    assert.equal(state.factory.refiner.selection.polishedValue, 123.456789);
+});
+
+test("Refiner projection rejects malformed ownership, global identities, ledgers and active work atomically", () => {
+    const valid = refinerCandidateFixture(); valid.factory.refiner = ownedRefinerFixture();
+    for (const mutate of [
+        s => { s.factory.refiner = []; }, s => { s.factory.refiner.slot = 1; }, s => { s.factory.refiner.queue = []; },
+        s => { delete s.factory.refiner.selection; }, s => { s.factory.refiner.id = "refiner:04"; },
+        s => { s.factory.refiner.id = "miner:4"; }, s => { s.factory.refiner.id = "refiner:8"; },
+        s => { s.factory.refiner.nextCycleSequence = 0; }, s => { s.factory.refiner.nextCycleSequence = Number.MAX_SAFE_INTEGER + 1; },
+        s => { s.factory.refiner.cycle = { phase: "reserved" }; }, s => { s.factory.refiner.cycle = { phase: "resolved" }; },
+        s => { s.factory.refiner.investment.entries = []; },
+        s => { s.factory.refiner.investment.entries.push({ ...s.factory.refiner.investment.entries[0] }); },
+        s => { s.factory.refiner.investment.entries.push({ kind: "tier", targetLevel: 2, cashPaid: 1, basis: "actual" }); },
+        s => { s.factory.refiner.investment.entries.push({ kind: "oreLuck", targetLevel: 1, cashPaid: 1, basis: "actual" }); },
+        s => { s.identity.nextEntitySequence = 4; }, s => { s.identity.nextManualEquipSequence = 0; },
+        s => { s.extra = true; }, s => { s.factory.miners = []; }]) {
+        const state = structuredClone(valid); mutate(state); const before = structuredClone(state);
+        assert.throws(() => refinerCandidates.preparePurchase(state, refinerBuyOptions, refinerExternalIds));
+        assert.throws(() => refinerCandidates.prepareTierUpgrade(state, 0, refinerExternalIds));
+        assert.deepEqual(state, before);
+    }
+    for (const tier of [0, 11, 1.5, "1", null, NaN, Infinity])
+        assert.throws(() => refinerCandidates.validateIdleRefiner({ ...ownedRefinerFixture(), tier }));
+    for (const ids of [undefined, ["miner:4"], ["miner:1", "pickaxe:1"], ["polisher:8"], ["refiner:7"],
+        ["pickaxe:default"], ["miner:01"], ["miner:9007199254740992"], new Array(1)])
+        assert.throws(() => refinerCandidates.validateCandidate(valid, ids));
+    let accessed = false;
+    const accessor = { ...valid, get cash() { accessed = true; return 1000000; } };
+    assert.throws(() => refinerCandidates.validateCandidate(accessor, refinerExternalIds)); assert.equal(accessed, false);
+    const duplicate = structuredClone(valid); duplicate.factory.refiner.tier = 2;
+    duplicate.factory.refiner.investment.entries.push(...[1, 2].map(() => ({ kind: "tier", targetLevel: 2, cashPaid: 1, basis: "actual" })));
+    assert.throws(() => refinerCandidates.prepareTierUpgrade(duplicate, 0, refinerExternalIds));
+});
+
+test("Refiner failures preserve inputs for funds, options, exhaustion and unrepresentable arithmetic", () => {
+    for (const cash of [0, -1, "25000", null, NaN, Infinity, Number.MAX_VALUE]) {
+        for (const owned of [false, true]) {
+            const state = refinerCandidateFixture(cash); if (owned) state.factory.refiner = ownedRefinerFixture();
+            const before = structuredClone(state);
+            assert.throws(() => owned ? refinerCandidates.prepareTierUpgrade(state, 0, refinerExternalIds) :
+                refinerCandidates.preparePurchase(state, refinerBuyOptions, refinerExternalIds));
+            assert.deepEqual(state, before);
+        }
+    }
+    for (const options of [null, {}, { ...refinerBuyOptions, extra: true }, { discountLevel: 11, preservationLevel: 0 },
+        { discountLevel: 0, preservationLevel: 26 }, { discountLevel: 0, preservationLevel: -1 },
+        { discountLevel: 0, preservationLevel: 0.5 }])
+        assert.throws(() => refinerCandidates.preparePurchase(refinerCandidateFixture(), options, refinerExternalIds));
+    const state = refinerCandidateFixture(); state.factory.refiner = ownedRefinerFixture();
+    for (const discount of [-1, 11, 0.5, "0", null, undefined, Infinity]) {
+        assert.throws(() => refinerCandidates.getPurchasePrice(discount));
+        assert.throws(() => refinerCandidates.prepareTierUpgrade(state, discount, refinerExternalIds));
+    }
+    for (const paid of [Number.MAX_VALUE, 1e30]) {
+        const candidate = structuredClone(state); candidate.factory.refiner.investment.entries[0].cashPaid = paid;
+        const before = structuredClone(candidate);
+        assert.throws(() => refinerCandidates.prepareTierUpgrade(candidate, 0, refinerExternalIds));
+        assert.deepEqual(candidate, before);
+    }
+    const exhausted = refinerCandidateFixture(); exhausted.identity.nextEntitySequence = Number.MAX_SAFE_INTEGER;
+    assert.throws(() => refinerCandidates.preparePurchase(exhausted, refinerBuyOptions, refinerExternalIds));
+    assert.equal(exhausted.identity.nextEntitySequence, Number.MAX_SAFE_INTEGER);
+    exhausted.factory.refiner = ownedRefinerFixture();
+    assert.equal(refinerCandidates.prepareTierUpgrade(exhausted, 0, refinerExternalIds).identity.nextEntitySequence, Number.MAX_SAFE_INTEGER);
+});
+
+test("Refiner candidates leave schema-1 state, legacy gameplay and timers unchanged", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion,
+        cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), control = ready(raw), before = app.state(), timers = app.intervals.length;
+        app.run(`{
+            const candidate = ${JSON.stringify(refinerCandidateFixture())};
+            const bought = RefinerCandidateModel.preparePurchase(candidate,{discountLevel:0,preservationLevel:5},["miner:1","polisher:2","pickaxe:3"]);
+            RefinerCandidateModel.prepareTierUpgrade(bought,10,["miner:1","polisher:2","pickaxe:3"]);
+        }`);
+        assert.deepEqual(app.state(), before); assert.equal(app.intervals.length, timers); assert.equal(app.writes.length, 0);
+        for (const instance of [app, control]) {
+            instance.elements.get("mineButton").onclick();
+            if (raw !== null) for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                instance.elements.get(id).onclick();
+            instance.tick(1000);
+        }
+        assert.deepEqual(app.state(), control.state());
+        const after = app.state(); assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 const polisherCandidates = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; PolisherCandidateModel;');
 const polisherExternalIds = Object.freeze(["miner:1", "pickaxe:2", "refiner:3"]);
 const polisherBuyOptions = Object.freeze({ discountLevel: 0, preservationLevel: 0 });

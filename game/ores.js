@@ -1298,9 +1298,20 @@ const RefinerModel = (() => {
         return { dust, destroyed, refinedLot: destroyed ? null : createRefinedLot(input, 1, perks.valueLevel) };
     }
 
+    // Decision 15: original target-tier formula; independent from processing.
+    function getRawTierUpgradeCost(targetTier){
+        integer(targetTier, 2, 10, "targetTier");
+        return finite(125000 * Math.pow(10, targetTier - 2), "raw upgrade cost");
+    }
+    function getTierUpgradePrice(targetTier, discountLevel){
+        return CashPricingModel.calculateCashPrice(getRawTierUpgradeCost(targetTier),
+            { category: "refinerTier", discountLevel });
+    }
+
     return Object.freeze({ getInterval, getBatchSize, getProcessedAmount, getNextPass, validateInputLot,
         getTierBaseDustChance, getEffectiveBaseDustChance, getDustChance, getDestructionChance,
-        getExpectedDustYield, getDustQuantity, getRefineBonus, calculateRefinedValue, createRefinedLot, evaluateItem });
+        getExpectedDustYield, getDustQuantity, getRefineBonus, calculateRefinedValue, createRefinedLot, evaluateItem,
+        getRawTierUpgradeCost, getTierUpgradePrice });
 })();
 
 // V1-081A: Reference E calculations only. The Furnace is a free Tier-1 permanent
@@ -1546,5 +1557,129 @@ const PolisherCandidateModel = (() => {
     // Actual-basis entries are proposals only; historical payment evidence requires
     // a future successful durable commit. No Cash/storage/identity changes escape.
     return Object.freeze({ validateIdlePolisher, validateCollection, validateCandidate,
+        getPurchasePrice, preparePurchase, prepareTierUpgrade });
+})();
+
+// V1-075B1: exact idle projection, never a complete V2 adapter or save writer:
+// {cash,factory:{refiner},identity:{nextEntitySequence,nextManualEquipSequence}}.
+// otherEntityIds is REQUIRED complete allocated Miner/Polisher/Pickaxe context,
+// excluding reserved Default/Furnace IDs. Full-state extensions belong to a later adapter.
+const RefinerCandidateModel = (() => {
+    function invalid(message){ throw new TypeError("Invalid Refiner candidate: " + message); }
+    function integer(value, min, max, field){
+        if(!Number.isInteger(value) || value < min || value > max) invalid(field);
+    }
+    function record(value, fields){
+        if(!value || typeof value !== "object" || Array.isArray(value)) invalid("record");
+        const proto = Object.getPrototypeOf(value);
+        if(proto !== null && Object.getPrototypeOf(proto) !== null) invalid("plain data record required");
+        if(Reflect.ownKeys(value).length !== fields.length) invalid("unsupported fields");
+        for(const field of fields){
+            const d = Object.getOwnPropertyDescriptor(value, field);
+            if(!d || !d.enumerable || !("value" in d)) invalid(field);
+        }
+    }
+    function idsArray(value){
+        if(!Array.isArray(value) || Reflect.ownKeys(value).length !== value.length + 1) invalid("dense ID array required");
+        for(let i = 0; i < value.length; i++){
+            const d = Object.getOwnPropertyDescriptor(value, i);
+            if(!d || !d.enumerable || !("value" in d)) invalid("ID data entry");
+        }
+    }
+    function sequence(id, kinds){
+        if(typeof id !== "string") invalid("entity ID");
+        const match = /^(pickaxe|miner|polisher|refiner):([1-9][0-9]*)$/.exec(id);
+        if(!match || !kinds.includes(match[1]) || !Number.isSafeInteger(Number(match[2])) ||
+            String(Number(match[2])) !== match[2]) invalid("canonical entity ID required");
+        return Number(match[2]);
+    }
+    function validateSelection(selection){
+        if(selection === null) return;
+        record(selection, ["resourceId", "stage", "refineCount", "polishedValue", "preRefinerValue", "refineBonus"]);
+        // A temporary unit Lot validates metadata only; it does not grant/reserve
+        // input or require the selected cohort to be present in inventory.
+        RefinerModel.validateInputLot({ ...selection, amount: 1 });
+    }
+    function validateIdleRefiner(machine){
+        record(machine, ["id", "tier", "selection", "investment", "nextCycleSequence", "cycle"]);
+        sequence(machine.id, ["refiner"]); integer(machine.tier, 1, 10, "tier");
+        integer(machine.nextCycleSequence, 1, Number.MAX_SAFE_INTEGER, "nextCycleSequence");
+        if(machine.cycle !== null) invalid("active cycles unsupported");
+        validateSelection(machine.selection);
+        InvestmentModel.validateInvestment(machine.investment, { machineType: "refiner", owned: true });
+        for(const payment of machine.investment.entries)
+            if(payment.kind === "tier" && payment.targetLevel > machine.tier) invalid("payment exceeds owned tier");
+    }
+    function validateCandidate(state, otherEntityIds){
+        record(state, ["cash", "factory", "identity"]);
+        if(typeof state.cash !== "number" || !Number.isFinite(state.cash) || state.cash < 0) invalid("cash");
+        record(state.factory, ["refiner"]);
+        if(state.factory.refiner !== null) validateIdleRefiner(state.factory.refiner);
+        record(state.identity, ["nextEntitySequence", "nextManualEquipSequence"]);
+        for(const key of ["nextEntitySequence", "nextManualEquipSequence"])
+            integer(state.identity[key], 1, Number.MAX_SAFE_INTEGER, key);
+        idsArray(otherEntityIds);
+        const used = new Set();
+        function reserve(id, kinds){
+            const n = sequence(id, kinds);
+            if(used.has(n) || n >= state.identity.nextEntitySequence) invalid("identity collision or counter behind records");
+            used.add(n);
+        }
+        if(state.factory.refiner !== null) reserve(state.factory.refiner.id, ["refiner"]);
+        for(const id of otherEntityIds) reserve(id, ["miner", "polisher", "pickaxe"]);
+    }
+    function getPurchasePrice(discountLevel){
+        return CashPricingModel.calculateCashPrice(25000, { category: "refinerPurchase", discountLevel });
+    }
+    function debit(cash, price){
+        if(cash < price) invalid("insufficient Cash");
+        const remainder = cash - price;
+        if(!Number.isFinite(remainder) || remainder < 0 || remainder + price !== cash || cash - remainder !== price)
+            invalid("unrepresentable Cash debit");
+        return remainder;
+    }
+    function copy(state){
+        const machine = state.factory.refiner;
+        return { cash: state.cash, identity: { ...state.identity }, factory: { refiner: machine === null ? null : {
+            ...machine, selection: machine.selection === null ? null : { ...machine.selection },
+            investment: { entries: machine.investment.entries.map(payment => ({ ...payment })) }
+        } } };
+    }
+    function preparePurchase(state, options, otherEntityIds){
+        validateCandidate(state, otherEntityIds);
+        record(options, ["discountLevel", "preservationLevel"]);
+        integer(options.preservationLevel, 0, 25, "preservationLevel");
+        const price = getPurchasePrice(options.discountLevel);
+        if(state.factory.refiner !== null) invalid("Refiner already owned");
+        const cash = debit(state.cash, price), n = state.identity.nextEntitySequence;
+        if(n === Number.MAX_SAFE_INTEGER) invalid("entity sequence exhausted");
+        const investment = InvestmentModel.appendActualPayment(InvestmentModel.createInvestment(),
+            { kind: "purchase", targetLevel: null, cashPaid: price, basis: "actual" },
+            { machineType: "refiner", owned: false });
+        const result = copy(state);
+        result.cash = cash; result.identity.nextEntitySequence = n + 1;
+        result.factory.refiner = { id: "refiner:" + n, tier: Math.min(10, Math.max(1, options.preservationLevel)),
+            selection: null, investment, nextCycleSequence: 1, cycle: null };
+        validateCandidate(result, otherEntityIds);
+        return result;
+    }
+    function prepareTierUpgrade(state, discountLevel, otherEntityIds){
+        validateCandidate(state, otherEntityIds);
+        const machine = state.factory.refiner;
+        if(machine === null) invalid("Refiner not owned");
+        const nextTier = machine.tier + 1;
+        const price = RefinerModel.getTierUpgradePrice(nextTier, discountLevel);
+        const cash = debit(state.cash, price);
+        const investment = InvestmentModel.appendActualPayment(machine.investment,
+            { kind: "tier", targetLevel: nextTier, cashPaid: price, basis: "actual" },
+            { machineType: "refiner", owned: true });
+        const result = copy(state);
+        result.cash = cash; result.factory.refiner.tier = nextTier; result.factory.refiner.investment = investment;
+        validateCandidate(result, otherEntityIds);
+        return result;
+    }
+    // Actual-basis entries are hypothetical proposals until a durable production
+    // commit succeeds. No ledger here establishes proof of a live payment.
+    return Object.freeze({ validateSelection, validateIdleRefiner, validateCandidate,
         getPurchasePrice, preparePurchase, prepareTierUpgrade });
 })();
