@@ -966,13 +966,39 @@ Implement independent selected-ore, queue/reservation and cycle transitions thro
 
 ## V1-074B — Polisher Slot Purchases, Upgrades and Resale
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟡 IN PROGRESS
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-074A
 
 Three slot-specific prices $5,000/$100,000/$2,000,000 independent of tier costs. Persistent slot identity; resale confirmation/refund on actual investment, return queued/unprocessed input once and retain polished output.
 
 **Acceptance:** Reference L checks 14, 17–18, 26.
+
+Pure purchases/upgrades are complete in B1; live ownership and resale are outstanding in B2. The parent and full Polisher system remain incomplete.
+
+### V1-074B1 — Pure Polisher Purchase and Upgrade Candidate Model
+
+**Status:** ✅ COMPLETE (idle, non-persisted candidate scope)
+**Dependencies:** V1-074A1, V1-050A/B, V1-016 / V1-070 contracts and the V1-050C1 candidate safety boundary
+
+`PolisherCandidateModel` in `ores.js` validates the exact projection `{cash,factory:{polishers},identity:{nextEntitySequence,nextManualEquipSequence}}`. Required `otherEntityIds` contains every allocated Miner/Pickaxe/Refiner ID, excluding reserved Default/Furnace identities. Reject unsupported extensions; a future full-state adapter must preserve them separately. This is not a complete V2 adapter. Canonical Polisher fields remain `{id,slot,tier,selectedOreId,queue,investment,nextCycleSequence,cycle}`. Selectors may be null or any current ore ID, without requiring available inventory. All queues must be empty and all cycles null, including non-target entities; active work is not certified or discarded.
+
+Public operations:
+
+- `validateIdlePolisher`, `validateCollection`, `validateCandidate`: enforce three-machine cap, fixed slots 1…3, unique canonical IDs/global sequences, tiers 1…10, operation counters, supported selectors and InvestmentModel ledgers. No paid tier above owned tier, duplicate targets or Miner-only Ore Luck entries.
+- `getPurchasePrice(slot,discountLevel)` and `preparePurchase(state,slot,{discountLevel,preservationLevel},otherEntityIds)`: vacant slots are independent, with fixed raw machine prices $5,000/$100,000/$2,000,000 and eligible CashPricingModel Discount/rounding. Preservation level 0…25 grants min(10,max(1,L)) once, with only one purchase Payment. Allocate `polisher:<nextEntitySequence>` and increment exactly once; reject exhaustion. New selector null, empty queue, nextCycleSequence 1, cycle null. No access ledger or automatic ore selection.
+- `prepareTierUpgrade(state,polisherId,discountLevel,otherEntityIds)`: target an owned immutable ID, quote the next tier through PolisherModel, append the proposed actual tier payment and change only that tier. Slot identity never changes the upgrade curve. No ID or operation-counter consumption and no fabricated Preservation payments.
+
+Both operations validate exact representable Cash debit and investment arithmetic, preserve supported unrelated candidate data, and return independent nested records. Failure mutates nothing. Actual-basis payments remain proposals until a future successful durable production commit; no history is certified by candidate preparation.
+
+Seven deterministic tests cover slots/replacement pricing, canonical creation, Preservation, discounted upgrades, identity collisions/exhaustion, unsupported active work/extensions, numeric safety, independent records and unchanged schema-1 gameplay. Local verification: four syntax checks, 328 Node tests and all 12 existing browser smoke scenarios pass. Existing Miner/Polisher model implementations are unchanged; saveVersion remains 1.
+
+### V1-074B2 — Polisher Live Ownership, Purchases, Upgrades and Resale Integration
+
+**Status:** ⚪ NOT STARTED
+**Dependencies:** V1-074B1, V1-074A2, V1-050C2, V1-041B and applicable V1-018 consumer/activation gates; T1 before affected active-work transitions
+
+Integrate durable ownership and payments without dropping other factory state. Resale requires confirmation, exactly-once refund/removal and the Defined queued/unprocessed input return policy. Do not discard active work or choose unresolved timing/value binding. B1 supplies no resale, queue handling, live Cash/ownership, processing or migration. V1-074A2, V1-050C live integration, V1-041B and V1-018 remain outstanding.
 
 ---
 
