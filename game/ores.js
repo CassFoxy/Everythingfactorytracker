@@ -1983,3 +1983,90 @@ const PolisherReservationCandidateModel = (() => {
     // must supply authoritative basis/levels, select source and commit atomically.
     return Object.freeze({ validateCandidate, prepareReservation });
 })();
+
+// V1-070E3: same narrow {polisher,inventory} projection as reservation candidates.
+// Validates actual reserved work; never erases a cycle to pass idle validation.
+// Caller owns global identity/durable provenance. This prepares no live awards.
+const PolisherResolutionCandidateModel = (() => {
+    function invalid(message){ throw new TypeError("Invalid Polisher resolution: " + message); }
+    function record(value, fields){
+        if(!value || typeof value !== "object" || Array.isArray(value)) invalid("plain record");
+        const proto = Object.getPrototypeOf(value);
+        if(proto !== null && Object.getPrototypeOf(proto) !== null) invalid("plain record");
+        if(Reflect.ownKeys(value).length !== fields.length) invalid("exact fields");
+        for(const field of fields){
+            const d = Object.getOwnPropertyDescriptor(value, field);
+            if(!d || !d.enumerable || !("value" in d)) invalid("data field");
+        }
+    }
+    function integer(value, min, max){
+        if(!Number.isInteger(value) || value < min || value > max) invalid("integer range");
+    }
+    function timestamp(value){ integer(value, 0, 8640000000000000); }
+    function operationSequence(id, prefix, next){
+        if(typeof id !== "string" || !id.startsWith(prefix)) invalid("operation owner/type");
+        const suffix = id.slice(prefix.length), n = Number(suffix);
+        if(!/^[1-9][0-9]*$/.test(suffix) || !Number.isSafeInteger(n) || String(n) !== suffix || n >= next)
+            invalid("operation sequence");
+        return n;
+    }
+    function validateReservedCandidate(state){
+        record(state, ["polisher", "inventory"]);
+        const m = state.polisher;
+        record(m, ["id", "slot", "tier", "selectedOreId", "queue", "investment", "nextCycleSequence", "cycle"]);
+        if(typeof m.id !== "string" || !/^polisher:[1-9][0-9]*$/.test(m.id)) invalid("Polisher ID");
+        const n = Number(m.id.slice(9));
+        if(!Number.isSafeInteger(n) || String(n) !== m.id.slice(9)) invalid("Polisher ID sequence");
+        integer(m.slot, 1, 3); PolisherModel.getCycleTime(m.tier);
+        integer(m.nextCycleSequence, 1, Number.MAX_SAFE_INTEGER);
+        if(m.selectedOreId !== null && !ORE_KEYS.includes(m.selectedOreId)) invalid("selection");
+        InvestmentModel.validateInvestment(m.investment, { machineType: "polisher", owned: true });
+        if(m.investment.entries.some(p => p.kind === "tier" && p.targetLevel > m.tier)) invalid("paid tier exceeds ownership");
+        const c = m.cycle;
+        record(c, ["id", "phase", "startedAtMs", "durationMs", "inputs", "saleUnitValues", "effectContext", "result"]);
+        if(c.phase !== "reserved" || c.result !== null) invalid("unresolved reservation required");
+        const used = new Set([operationSequence(c.id, m.id + "/cycle:", m.nextCycleSequence)]);
+        if(!Array.isArray(m.queue) || Reflect.ownKeys(m.queue).length !== m.queue.length + 1) invalid("dense queue");
+        for(let i = 0; i < m.queue.length; i++){
+            const d = Object.getOwnPropertyDescriptor(m.queue, i);
+            if(!d || !d.enumerable || !("value" in d)) invalid("queue data entry");
+            const entry = d.value; record(entry, ["id", "lot"]);
+            const sequence = operationSequence(entry.id, m.id + "/queue:", m.nextCycleSequence);
+            if(used.has(sequence)) invalid("operation sequence reused");
+            used.add(sequence); PolisherModel.validateInputLot(entry.lot);
+        }
+        if(!state.inventory || typeof state.inventory !== "object") invalid("inventory");
+        const keys = Reflect.ownKeys(state.inventory); record(state.inventory, keys);
+        for(const key of keys){
+            if(key !== "stone" && !ORE_KEYS.includes(key)) invalid("inventory resource");
+            const amount = state.inventory[key];
+            if(typeof amount !== "number" || !Number.isFinite(amount) || !Number.isInteger(amount) || amount < 0) invalid("inventory count");
+        }
+        return CycleEffectContextModel.validateMetadata(c.effectContext, "polisher", {
+            startedAtMs: c.startedAtMs, durationMs: c.durationMs, inputs: c.inputs, saleUnitValues: c.saleUnitValues });
+    }
+    function prepareResolution(state, polisherId, cycleId, nowMs){
+        const metadata = validateReservedCandidate(state), m = state.polisher, c = m.cycle;
+        if(polisherId !== m.id || cycleId !== c.id) invalid("unknown owner or stale cycle request");
+        timestamp(nowMs);
+        if(nowMs < c.startedAtMs + c.durationMs) invalid("deadline not reached");
+        const bound = metadata.effectContext;
+        // E1 has validated positive compatible quantities and their finite sum.
+        const quantity = metadata.inputs.reduce((sum, lot) => sum + lot.amount, 0);
+        const output = PolisherModel.createPolishedLot(metadata.inputs[0].resourceId, quantity,
+            PolisherModel.calculatePolishedValue(bound.currentOreValue, bound.valueLevel));
+        const result = { outputs: [output], cashDelta: 0, factoryXPDelta: 0, gemDustDelta: 0,
+            events: [{ type: "polished", resourceId: output.resourceId, stage: output.stage, refineCount: output.refineCount, amount: output.amount }] };
+        // Canonical output validation; event facts are copied from that validated
+        // output. No XP rule is invented, and no event handlers are dispatched.
+        InventoryModel.validateLot(output);
+        return { inventory: { ...state.inventory }, polisher: { ...m,
+            queue: m.queue.map(entry => ({ id: entry.id, lot: { ...entry.lot } })),
+            investment: { entries: m.investment.entries.map(payment => ({ ...payment })) },
+            cycle: { id: c.id, phase: "resolved", ...metadata, result } } };
+    }
+    // Repeating a call on the same unchanged reserved snapshot deterministically
+    // prepares the same proposal. Only a future writer can reject cross-call replay;
+    // resolved input and stale expected IDs are rejected here, never recomputed.
+    return Object.freeze({ validateReservedCandidate, prepareResolution });
+})();
