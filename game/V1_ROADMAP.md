@@ -518,11 +518,31 @@ Verified four syntax checks, 265 Node tests (12 focused accounting/boundary regr
 
 ## V1-050C — Transaction / Investment Integration
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟡 IN PROGRESS
 **Design:** Actual-payment/refund rules Defined; K.2 reconstruction remains DESIGN REQUIRED
 **Dependencies:** V1-050A/B; V1-016 Payment/Investment contract; applicable transaction consumers and persistence gates for live integration
 
 Integrate the completed pure pricing/accounting models with successful actual debits in the owning machine transactions under their approved schema boundaries. Quote → validate affordability/eligibility/ownership → debit and update ownership → append actual payment → atomically commit the complete transaction. A quote is not proof of payment. Include only qualifying purchase, paid tier and Miner-local Ore Luck costs; free/preserved tiers create no payment. Resale must remove the machine and credit floor(50% × recorded qualifying total) exactly once, never use current catalogue replacement cost. Furnace is not sellable. Test transaction failures and reloads without duplicate debits/refunds. Do not introduce Recommended Discount-perk purchase pricing or invent K.2 reconstruction. Live integration waits for its owning consumers and safe persistence boundary; the V1-050 parent remains incomplete until that integration is tested.
+
+### V1-050C1 — Pure Miner Upgrade Candidate Transactions
+
+**Status:** ✅ COMPLETE (non-persisted, idle-only candidate scope)
+**Dependencies:** V1-071A1, V1-071B1, V1-071C1, V1-050A/B and V1-016 / V1-070 contracts
+
+`MinerUpgradeCandidateModel` exposes `prepareTierUpgrade(state,minerId,discountLevel,otherEntityIds)` and `prepareOreLuckUpgrade` with the same arguments. It reuses the exact MinerCandidateModel projection: `{cash,shop:{minerUnlocked},factory:{minerSlots,miners},identity:{nextEntitySequence,nextManualEquipSequence}}`. Required external ID context covers allocated non-Miner entities as in A1. This is not a complete V2 adapter. Unknown fields/extensions reject instead of being silently dropped; a future full-state adapter must preserve those separately. All supplied Miners must be idle because the existing candidate validator cannot certify active cycles, including non-target cycles.
+
+Resolve the unique target by canonical owned ID, derive its next level, quote through MinerTierModel or MinerOreLuckModel, validate affordability and exact representability of the Cash debit, append the proposed actual-basis payment through InvestmentModel, and return independent Cash/entity/ledger state. Revalidate the result. Tier cap is 25 and local cap 50; local quotes receive no Discount. No payment is synthesized for preserved tiers or missing historical levels. Existing duplicate/future-level history rejects. Preserve all supported unrelated data, slot flags, IDs and global/per-entity counters; allocate nothing.
+
+The returned actual-basis payment is a **proposed atomic debit**, not evidence of a committed historical payment. Only a future successful durable production commit makes it historical fact. No live Cash, entity, cycle, save or investment changes occur. Exact-debit checking and copying stay local because the corresponding A1 helpers are private; existing public contracts/formulas are unchanged.
+
+Seven deterministic tests cover tier milestones/maxima, local upgrade rounding/Discount exclusion, free Preservation history, immutable inputs and independent ledgers, unknown IDs/unsupported shapes, active cycles, duplicate records, caps, insufficient Cash, precision rejection, sequential candidates and unchanged production saves/gameplay. Four syntax checks, 321 Node tests and all 12 existing browser smoke scenarios pass locally. Production saveVersion remains 1.
+
+### V1-050C2 — Durable Transaction and Investment Integration
+
+**Status:** ⚪ NOT STARTED
+**Dependencies:** V1-050C1, V1-070, applicable owning consumers and V1-016/V1-018 persistence/activation contracts; unresolved active-work timing/effect gates where applicable
+
+Implement the complete candidate-to-durable-commit boundary, failure/retry handling and full-state adapters without dropping unrelated data. Do not publish proposed payments as history before commit. Live machine ownership, upgrades/resale and production integration require their own consumers and applicable design gates. V1-071A2, V1-071B2, V1-071C2 and V1-018 remain outstanding. Parent V1-050C and overall V1-050 stay incomplete until live integration is implemented and tested; K.2 reconstruction and T1 active-upgrade binding are not resolved here.
 
 ---
 

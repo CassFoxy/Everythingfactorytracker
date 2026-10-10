@@ -1359,3 +1359,58 @@ const FurnaceModel = (() => {
         calculateSaleValue, getNormalInterval, getFinalInterval, isAutoProcessingEligible,
         getRawTierUpgradeCost, getTierUpgradePrice });
 })();
+
+// V1-050C1: same EXACT idle-only projection and required otherEntityIds context
+// as MinerCandidateModel, not a complete V2 adapter. Unknown extensions reject;
+// a future full-state adapter must retain them outside this projection. All
+// supplied Miners must be idle because active-cycle validation is not supported.
+const MinerUpgradeCandidateModel = (() => {
+    function invalid(message){ throw new TypeError("Invalid Miner upgrade candidate: " + message); }
+
+    function prepare(state, minerId, discountLevel, otherEntityIds, kind){
+        MinerCandidateModel.validateCandidate(state, otherEntityIds);
+        if(typeof minerId !== "string") invalid("minerId must identify an owned Miner");
+        // Collection validation guarantees uniqueness and canonical IDs. Equality
+        // against the authoritative record prevents UI tier/index substitution.
+        const target = state.factory.miners.find(miner => miner.id === minerId);
+        if(!target) invalid("unknown Miner ID");
+        const field = kind === "tier" ? "tier" : "oreLuckLevel";
+        const nextLevel = target[field] + 1;
+        // Public model quotes enforce caps and Discount validation, using original
+        // raw formulas. Local Ore Luck intentionally receives no Discount.
+        const price = kind === "tier" ? MinerTierModel.getTierUpgradePrice(nextLevel, discountLevel) :
+            MinerOreLuckModel.getUpgradePrice(nextLevel, discountLevel);
+        if(state.cash < price) invalid("insufficient Cash");
+        const cash = state.cash - price;
+        // Same exact-debit invariant as candidate purchases; their private debit
+        // helper is intentionally not exposed. No arbitrary safe-integer Cash cap.
+        if(!Number.isFinite(cash) || cash < 0 || cash + price !== state.cash || state.cash - cash !== price)
+            invalid("Cash cannot represent the exact debit");
+        const investment = InvestmentModel.appendActualPayment(target.investment,
+            { kind, targetLevel: nextLevel, cashPaid: price, basis: "actual" },
+            { machineType: "miner", owned: true });
+
+        // Clone only the validated projection, never arbitrary/executable data.
+        const result = {
+            cash, shop: { ...state.shop }, identity: { ...state.identity },
+            factory: {
+                minerSlots: [...state.factory.minerSlots],
+                miners: state.factory.miners.map(miner => miner.id === minerId ?
+                    { ...miner, [field]: nextLevel, investment } :
+                    { ...miner, investment: { entries: miner.investment.entries.map(entry => ({ ...entry })) } })
+            }
+        };
+        MinerCandidateModel.validateCandidate(result, otherEntityIds);
+        // This is a PROPOSED atomic debit/upgrade/payment. An actual-basis entry
+        // becomes historical evidence only after a future production commit.
+        return result;
+    }
+
+    function prepareTierUpgrade(state, minerId, discountLevel, otherEntityIds){
+        return prepare(state, minerId, discountLevel, otherEntityIds, "tier");
+    }
+    function prepareOreLuckUpgrade(state, minerId, discountLevel, otherEntityIds){
+        return prepare(state, minerId, discountLevel, otherEntityIds, "oreLuck");
+    }
+    return Object.freeze({ prepareTierUpgrade, prepareOreLuckUpgrade });
+})();
