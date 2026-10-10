@@ -1197,10 +1197,28 @@ Five deterministic regressions cover all formulas, speed floors, historical valu
 
 ### V1-081B — Live Furnace Tier and Value Integration
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟠 IN PROGRESS
 **Dependencies:** V1-081A, V1-080, V1-050C; V1-070 lifecycle and V1-016 candidate contract; applicable T1 timing/value binding and V1-018 activation gates
 
 Integrate quotes, affordability, atomic tier/Cash updates and value consumers with the permanent Furnace without an investment ledger. Preserve preferences and historical reservations; use tier permission without overriding autoEnabled. Coordinate manual/automatic processing and selection through V1-082–085, not from a pure formula call. V1-080, V1-082–085, V1-050C, V1-017 and V1-018 remain incomplete. No live processing, sale, upgrade, reservation, Rebirth or V2 migration is supplied by V1-081A.
+
+#### V1-081B1 — Pure Furnace Tier-Upgrade Candidate Model
+
+**Status:** ✅ COMPLETE (pure idle candidate scope only)
+**Dependencies:** V1-081A, V1-016 and V1-070; established candidate exact-debit conventions
+
+`FurnaceUpgradeCandidateModel` validates the exact narrow projection `{cash,factory:{furnace}}`, not a complete V2 state adapter. The permanent singleton requires its canonical ID, tier, preferences, null or valid Raw/Polished/Refined cohort-key selection, empty queue, positive safe operation sequence and null cycle. Global identity counters are excluded; unsupported extensions, queued inputs and active work reject without being discarded.
+
+`prepareTierUpgrade(state,discountLevel)` quotes only current tier + 1 through unchanged FurnaceModel/CashPricingModel rules, checks affordability and exact representable debit, and returns independent Cash/Furnace records. It preserves ID, settings, historical selection metadata and operation sequence. Tier 2→3 does not change the automation preference or start work. No purchase, investment, payment evidence, identity allocation, Preservation or storage operation is created. A future coordinator must preserve state outside this projection and commit Cash/tier durably together.
+
+Five focused regressions cover all 19 upgrades, canonical validation, independent selections/preferences, numeric failure atomicity and unchanged schema-1 gameplay. Four syntax checks, 340 Node tests and all 12 existing browser smoke scenarios pass locally. T1 timing/value binding, K.4 Stone/Ore Value and K.5 Capacity perk remain open.
+
+#### V1-081B2 — Durable Furnace Upgrade and Runtime Integration
+
+**Status:** ⚪ NOT STARTED
+**Dependencies:** V1-081B1, V1-050C2, V1-080 and relevant V1-082–085 consumers; V1-017/V1-018 readiness and applicable T1 decisions
+
+Integrate atomic durable Cash/tier commits, full-state preservation and Furnace runtime consumers. Keep historical reservations and preferences intact; active-work upgrades require the timing/effect contract. V1-081 and V1-081B remain IN PROGRESS. V1-050C durable integration, V1-080, V1-082–085, V1-017 and V1-018 remain incomplete; no whole-Furnace completion is implied by B1.
 
 ---
 

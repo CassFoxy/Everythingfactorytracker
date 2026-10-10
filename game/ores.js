@@ -1683,3 +1683,61 @@ const RefinerCandidateModel = (() => {
     return Object.freeze({ validateSelection, validateIdleRefiner, validateCandidate,
         getPurchasePrice, preparePurchase, prepareTierUpgrade });
 })();
+
+// V1-081B1: pure idle projection {cash,factory:{furnace}}, not a V2 save adapter.
+// Global identity counters and unrelated state are excluded, never allocated.
+// A future coordinator must preserve that state and durably commit Cash/tier together.
+const FurnaceUpgradeCandidateModel = (() => {
+    function invalid(message){ throw new TypeError("Invalid Furnace candidate: " + message); }
+    function record(value, fields){
+        if(!value || typeof value !== "object" || Array.isArray(value)) invalid("record");
+        const proto = Object.getPrototypeOf(value);
+        if(proto !== null && Object.getPrototypeOf(proto) !== null) invalid("plain data record required");
+        if(Reflect.ownKeys(value).length !== fields.length) invalid("unsupported fields");
+        for(const field of fields){
+            const d = Object.getOwnPropertyDescriptor(value, field);
+            if(!d || !d.enumerable || !("value" in d)) invalid(field);
+        }
+    }
+    function validateSelection(selection){
+        if(selection === null) return;
+        record(selection, ["resourceId", "stage", "refineCount", "polishedValue", "preRefinerValue", "refineBonus"]);
+        // Validate a cohort key through a temporary unit Lot, without reserving
+        // inventory, applying value modifiers or deciding snapshot timing.
+        InventoryModel.validateLot({ ...selection, amount: 1 });
+    }
+    function validateIdleFurnace(furnace){
+        record(furnace, ["id", "tier", "autoEnabled", "resourceMode", "batchMode", "selection", "queue", "nextCycleSequence", "cycle"]);
+        if(furnace.id !== "furnace:permanent") invalid("permanent ID required");
+        FurnaceModel.getCapacity(furnace.tier); // Reuse canonical 1–20 tier validation.
+        if(typeof furnace.autoEnabled !== "boolean") invalid("autoEnabled");
+        if(!["stoneOnly", "oresOnly", "oresStone"].includes(furnace.resourceMode)) invalid("resourceMode");
+        if(!["available", "full"].includes(furnace.batchMode)) invalid("batchMode");
+        validateSelection(furnace.selection);
+        if(!Array.isArray(furnace.queue) || furnace.queue.length !== 0 || Reflect.ownKeys(furnace.queue).length !== 1)
+            invalid("only empty queues supported");
+        if(!Number.isSafeInteger(furnace.nextCycleSequence) || furnace.nextCycleSequence < 1) invalid("nextCycleSequence");
+        if(furnace.cycle !== null) invalid("active cycles unsupported");
+    }
+    function validateCandidate(state){
+        record(state, ["cash", "factory"]);
+        if(typeof state.cash !== "number" || !Number.isFinite(state.cash) || state.cash < 0) invalid("cash");
+        record(state.factory, ["furnace"]);
+        validateIdleFurnace(state.factory.furnace);
+    }
+    function prepareTierUpgrade(state, discountLevel){
+        validateCandidate(state);
+        const furnace = state.factory.furnace, targetTier = furnace.tier + 1;
+        const price = FurnaceModel.getTierUpgradePrice(targetTier, discountLevel);
+        if(state.cash < price) invalid("insufficient Cash");
+        const cash = state.cash - price;
+        if(!Number.isFinite(cash) || cash < 0 || cash + price !== state.cash || state.cash - cash !== price)
+            invalid("unrepresentable Cash debit");
+        const result = { cash, factory: { furnace: { ...furnace, tier: targetTier,
+            selection: furnace.selection === null ? null : { ...furnace.selection }, queue: [] } } };
+        validateCandidate(result);
+        return result;
+    }
+    // No investment or payment evidence: this is only a proposed Cash/tier pair.
+    return Object.freeze({ validateSelection, validateIdleFurnace, validateCandidate, prepareTierUpgrade });
+})();
