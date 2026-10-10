@@ -1414,3 +1414,137 @@ const MinerUpgradeCandidateModel = (() => {
     }
     return Object.freeze({ prepareTierUpgrade, prepareOreLuckUpgrade });
 })();
+
+// V1-074B1: idle-only projection, NOT a full V2 adapter or production writer.
+// {cash,factory:{polishers},identity:{nextEntitySequence,nextManualEquipSequence}}
+// Required otherEntityIds supplies every allocated non-Polisher ID, excluding
+// reserved Default/Furnace IDs. The future full-state adapter retains extensions.
+const PolisherCandidateModel = (() => {
+    const prices = Object.freeze([5000, 100000, 2000000]);
+    const fields = ["id", "slot", "tier", "selectedOreId", "queue", "investment", "nextCycleSequence", "cycle"];
+    function invalid(message){ throw new TypeError("Invalid Polisher candidate: " + message); }
+    function integer(value, min, max, name){
+        if(!Number.isInteger(value) || value < min || value > max) invalid(name);
+    }
+    function record(value, keys){
+        if(!value || typeof value !== "object" || Array.isArray(value)) invalid("record");
+        const proto = Object.getPrototypeOf(value);
+        if(proto !== null && Object.getPrototypeOf(proto) !== null) invalid("plain data record required");
+        if(Reflect.ownKeys(value).length !== keys.length) invalid("unsupported fields");
+        for(const key of keys){
+            const d = Object.getOwnPropertyDescriptor(value, key);
+            if(!d || !d.enumerable || !("value" in d)) invalid(key);
+        }
+    }
+    function array(value){
+        if(!Array.isArray(value) || Reflect.ownKeys(value).length !== value.length + 1) invalid("dense array required");
+        for(let i = 0; i < value.length; i++){
+            const d = Object.getOwnPropertyDescriptor(value, i);
+            if(!d || !d.enumerable || !("value" in d)) invalid("array data entry");
+        }
+    }
+    function sequence(id, kinds){
+        if(typeof id !== "string") invalid("entity ID");
+        const match = /^(pickaxe|miner|polisher|refiner):([1-9][0-9]*)$/.exec(id);
+        if(!match || !kinds.includes(match[1]) || !Number.isSafeInteger(Number(match[2])) ||
+            String(Number(match[2])) !== match[2]) invalid("canonical entity ID required");
+        return Number(match[2]);
+    }
+    function validateIdlePolisher(machine){
+        record(machine, fields);
+        sequence(machine.id, ["polisher"]);
+        integer(machine.slot, 1, 3, "slot"); integer(machine.tier, 1, 10, "tier");
+        integer(machine.nextCycleSequence, 1, Number.MAX_SAFE_INTEGER, "nextCycleSequence");
+        if(machine.selectedOreId !== null && !ORE_KEYS.includes(machine.selectedOreId)) invalid("selectedOreId");
+        array(machine.queue);
+        if(machine.queue.length || machine.cycle !== null) invalid("only empty queues and null cycles supported");
+        InvestmentModel.validateInvestment(machine.investment, { machineType: "polisher", owned: true });
+        for(const payment of machine.investment.entries)
+            if(payment.kind === "tier" && payment.targetLevel > machine.tier) invalid("payment exceeds owned tier");
+    }
+    function validateCollection(polishers){
+        array(polishers);
+        if(polishers.length > 3) invalid("three-Polisher cap");
+        const ids = new Set(), slots = new Set();
+        for(const machine of polishers){
+            validateIdlePolisher(machine);
+            if(ids.has(machine.id) || slots.has(machine.slot)) invalid("duplicate ID or slot");
+            ids.add(machine.id); slots.add(machine.slot);
+        }
+    }
+    function validateCandidate(state, otherEntityIds){
+        record(state, ["cash", "factory", "identity"]);
+        if(typeof state.cash !== "number" || !Number.isFinite(state.cash) || state.cash < 0) invalid("cash");
+        record(state.factory, ["polishers"]); validateCollection(state.factory.polishers);
+        record(state.identity, ["nextEntitySequence", "nextManualEquipSequence"]);
+        for(const key of ["nextEntitySequence", "nextManualEquipSequence"])
+            integer(state.identity[key], 1, Number.MAX_SAFE_INTEGER, key);
+        array(otherEntityIds);
+        const used = new Set();
+        function reserve(id, kinds){
+            const n = sequence(id, kinds);
+            if(used.has(n) || n >= state.identity.nextEntitySequence) invalid("identity collision or counter behind records");
+            used.add(n);
+        }
+        for(const machine of state.factory.polishers) reserve(machine.id, ["polisher"]);
+        for(const id of otherEntityIds) reserve(id, ["pickaxe", "miner", "refiner"]);
+    }
+    function getPurchasePrice(slot, discountLevel){
+        integer(slot, 1, 3, "slot");
+        return CashPricingModel.calculateCashPrice(prices[slot - 1], { category: "polisherPurchase", discountLevel });
+    }
+    function debit(cash, price){
+        if(cash < price) invalid("insufficient Cash");
+        const remainder = cash - price;
+        if(!Number.isFinite(remainder) || remainder < 0 || remainder + price !== cash || cash - remainder !== price)
+            invalid("unrepresentable Cash debit");
+        return remainder;
+    }
+    function copy(state){
+        return { cash: state.cash, identity: { ...state.identity }, factory: {
+            polishers: state.factory.polishers.map(machine => ({ ...machine, queue: [],
+                investment: { entries: machine.investment.entries.map(payment => ({ ...payment })) } }))
+        } };
+    }
+    function preparePurchase(state, slot, options, otherEntityIds){
+        validateCandidate(state, otherEntityIds);
+        record(options, ["discountLevel", "preservationLevel"]);
+        integer(options.preservationLevel, 0, 25, "preservationLevel");
+        const price = getPurchasePrice(slot, options.discountLevel);
+        if(state.factory.polishers.length >= 3) invalid("three-Polisher cap");
+        if(state.factory.polishers.some(machine => machine.slot === slot)) invalid("occupied slot");
+        const cash = debit(state.cash, price);
+        const n = state.identity.nextEntitySequence;
+        if(n === Number.MAX_SAFE_INTEGER) invalid("entity sequence exhausted");
+        const investment = InvestmentModel.appendActualPayment(InvestmentModel.createInvestment(),
+            { kind: "purchase", targetLevel: null, cashPaid: price, basis: "actual" },
+            { machineType: "polisher", owned: false });
+        const result = copy(state);
+        result.cash = cash; result.identity.nextEntitySequence = n + 1;
+        result.factory.polishers.push({ id: "polisher:" + n, slot, tier: Math.min(10, Math.max(1, options.preservationLevel)),
+            selectedOreId: null, queue: [], investment, nextCycleSequence: 1, cycle: null });
+        validateCandidate(result, otherEntityIds);
+        return result;
+    }
+    function prepareTierUpgrade(state, polisherId, discountLevel, otherEntityIds){
+        validateCandidate(state, otherEntityIds);
+        if(typeof polisherId !== "string") invalid("polisherId");
+        const machine = state.factory.polishers.find(item => item.id === polisherId);
+        if(!machine) invalid("unknown Polisher ID");
+        const nextTier = machine.tier + 1;
+        const price = PolisherModel.getTierUpgradePrice(nextTier, discountLevel);
+        const cash = debit(state.cash, price);
+        const investment = InvestmentModel.appendActualPayment(machine.investment,
+            { kind: "tier", targetLevel: nextTier, cashPaid: price, basis: "actual" },
+            { machineType: "polisher", owned: true });
+        const result = copy(state);
+        const target = result.factory.polishers.find(item => item.id === polisherId);
+        result.cash = cash; target.tier = nextTier; target.investment = investment;
+        validateCandidate(result, otherEntityIds);
+        return result;
+    }
+    // Actual-basis entries are proposals only; historical payment evidence requires
+    // a future successful durable commit. No Cash/storage/identity changes escape.
+    return Object.freeze({ validateIdlePolisher, validateCollection, validateCandidate,
+        getPurchasePrice, preparePurchase, prepareTierUpgrade });
+})();

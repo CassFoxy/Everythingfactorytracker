@@ -12,6 +12,183 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const polisherCandidates = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; PolisherCandidateModel;');
+const polisherExternalIds = Object.freeze(["miner:1", "pickaxe:2", "refiner:3"]);
+const polisherBuyOptions = Object.freeze({ discountLevel: 0, preservationLevel: 0 });
+function polisherCandidateFixture(cash = 10000000) {
+    return { cash, factory: { polishers: [] }, identity: { nextEntitySequence: 8, nextManualEquipSequence: 19 } };
+}
+function ownedPolisherFixture(slot = 1, tier = 1) {
+    return { id: "polisher:4", slot, tier, selectedOreId: "ruby", queue: [], nextCycleSequence: 11, cycle: null,
+        investment: { entries: [{ kind: "purchase", targetLevel: null, cashPaid: 5000.5, basis: "actual" }] } };
+}
+
+test("Polisher fixed slots can be purchased independently at catalogue prices without access ledgers", () => {
+    const empty = polisherCandidateFixture();
+    assert.doesNotThrow(() => polisherCandidates.validateCandidate(empty, polisherExternalIds));
+    for (const [slot, raw] of [[1, 5000], [2, 100000], [3, 2000000]]) {
+        for (const discount of [0, 1, 10]) {
+            const price = polisherCandidates.getPurchasePrice(slot, discount);
+            assert.equal(price, raw * (1 - 0.05 * discount));
+            const result = polisherCandidates.preparePurchase(empty, slot,
+                { discountLevel: discount, preservationLevel: 0 }, polisherExternalIds);
+            assert.equal(result.cash, empty.cash - price);
+            assert.deepEqual(structuredClone(result.factory.polishers[0]), {
+                id: "polisher:8", slot, tier: 1, selectedOreId: null, queue: [], nextCycleSequence: 1, cycle: null,
+                investment: { entries: [{ kind: "purchase", targetLevel: null, cashPaid: price, basis: "actual" }] }
+            });
+            assert.equal(result.identity.nextEntitySequence, 9);
+            assert.equal(result.identity.nextManualEquipSequence, 19);
+        }
+    }
+    const replacement = polisherCandidateFixture(); replacement.factory.polishers = [ownedPolisherFixture(2)];
+    const result = polisherCandidates.preparePurchase(replacement, 3, polisherBuyOptions, polisherExternalIds);
+    assert.equal(result.cash, replacement.cash - 2000000);
+    assert.equal(result.factory.polishers[0].slot, 2);
+    assert.deepEqual(empty.factory.polishers, []);
+});
+
+test("Polisher Preservation is applied once at creation with only the actual purchase payment", () => {
+    for (const [level, tier] of [[0, 1], [1, 1], [5, 5], [10, 10], [25, 10]]) {
+        const result = polisherCandidates.preparePurchase(polisherCandidateFixture(), 3,
+            { discountLevel: 10, preservationLevel: level }, polisherExternalIds);
+        assert.equal(result.factory.polishers[0].tier, tier);
+        assert.equal(result.factory.polishers[0].investment.entries.length, 1);
+        assert.equal(result.factory.polishers[0].investment.entries[0].cashPaid, 1000000);
+    }
+});
+
+test("Polisher paid upgrades use immutable IDs and the same original tier curve across all slots", () => {
+    const model = vm.runInNewContext(ores + '\nPolisherModel;');
+    for (const tier of [1, 5, 9]) for (const slot of [1, 2, 3]) for (const discount of [0, 10]) {
+        const price = model.getTierUpgradePrice(tier + 1, discount);
+        const state = polisherCandidateFixture(price + 125.5);
+        state.factory.polishers.push(ownedPolisherFixture(slot, tier));
+        const before = structuredClone(state);
+        const result = polisherCandidates.prepareTierUpgrade(state, "polisher:4", discount, polisherExternalIds);
+        assert.equal(result.cash, 125.5);
+        assert.equal(result.factory.polishers[0].tier, tier + 1);
+        assert.deepEqual(structuredClone(result.factory.polishers[0].investment.entries), [before.factory.polishers[0].investment.entries[0],
+            { kind: "tier", targetLevel: tier + 1, cashPaid: price, basis: "actual" }]);
+        assert.equal(result.factory.polishers[0].selectedOreId, "ruby");
+        assert.equal(result.factory.polishers[0].nextCycleSequence, 11);
+        assert.deepEqual(structuredClone(result.identity), before.identity);
+        assert.deepEqual(state, before);
+    }
+});
+
+test("Polisher candidates reject invalid ownership, active work, ledger data and identity context", () => {
+    const valid = polisherCandidateFixture(); valid.factory.polishers.push(ownedPolisherFixture());
+    const ids = vm.runInNewContext(ores + '\nORE_KEYS;');
+    for (const selectedOreId of [null, ...ids])
+        assert.doesNotThrow(() => polisherCandidates.validateIdlePolisher({ ...ownedPolisherFixture(), selectedOreId }));
+    for (const mutate of [s => { s.factory.polishers.push({ ...ownedPolisherFixture(2) }); },
+        s => { s.factory.polishers.push({ ...ownedPolisherFixture(), id: "polisher:5" }); },
+        s => { s.factory.polishers[0].id = "miner:4"; }, s => { s.factory.polishers[0].id = "polisher:04"; },
+        s => { s.factory.polishers[0].selectedOreId = "stone"; }, s => { s.factory.polishers[0].selectedOreId = "unknown"; },
+        s => { s.factory.polishers[0].queue = [{ lot: {} }]; }, s => { s.factory.polishers[0].cycle = { phase: "reserved" }; },
+        s => { s.factory.polishers[0].cycle = { phase: "resolved" }; }, s => { s.factory.polishers[0].nextCycleSequence = 0; },
+        s => { s.factory.polishers[0].investment.entries = []; },
+        s => { s.factory.polishers[0].investment.entries.push({ ...s.factory.polishers[0].investment.entries[0] }); },
+        s => { s.factory.polishers[0].investment.entries.push({ kind: "tier", targetLevel: 2, cashPaid: 50000, basis: "actual" }); },
+        s => { s.factory.polishers[0].investment.entries.push({ kind: "oreLuck", targetLevel: 1, cashPaid: 1000, basis: "actual" }); },
+        s => { s.identity.nextEntitySequence = 4; }, s => { s.extra = true; }, s => { s.factory.miners = []; }]) {
+        const state = structuredClone(valid); mutate(state); const before = structuredClone(state);
+        assert.throws(() => polisherCandidates.preparePurchase(state, 3, polisherBuyOptions, polisherExternalIds));
+        assert.throws(() => polisherCandidates.prepareTierUpgrade(state, "polisher:4", 0, polisherExternalIds));
+        assert.deepEqual(state, before);
+    }
+    for (const external of [undefined, ["miner:4"], ["miner:1", "pickaxe:1"], ["refiner:8"], ["polisher:7"], ["pickaxe:default"]])
+        assert.throws(() => polisherCandidates.validateCandidate(valid, external));
+    for (const slot of [0, 4, 1.5, "1", null, NaN]) assert.throws(() => polisherCandidates.getPurchasePrice(slot, 0));
+    for (const tier of [0, 11, 1.5, "1", null, NaN])
+        assert.throws(() => polisherCandidates.validateIdlePolisher({ ...ownedPolisherFixture(), tier }));
+    const full = polisherCandidateFixture();
+    full.factory.polishers = [1, 2, 3].map(slot => ({ ...ownedPolisherFixture(slot), id: "polisher:" + (slot + 3) }));
+    assert.doesNotThrow(() => polisherCandidates.validateCandidate(full, polisherExternalIds));
+    assert.throws(() => polisherCandidates.preparePurchase(full, 1, polisherBuyOptions, polisherExternalIds));
+    full.factory.polishers.push({ ...ownedPolisherFixture(1), id: "polisher:7" });
+    assert.throws(() => polisherCandidates.validateCandidate(full, polisherExternalIds));
+});
+
+test("Polisher failures preserve Cash and counters for invalid commands, funds, caps and precision", () => {
+    for (const cash of [0, -1, "100000", null, NaN, Infinity, Number.MAX_VALUE]) {
+        const state = polisherCandidateFixture(cash); const before = structuredClone(state);
+        assert.throws(() => polisherCandidates.preparePurchase(state, 1, polisherBuyOptions, polisherExternalIds));
+        assert.deepEqual(state, before);
+    }
+    const exhausted = polisherCandidateFixture(); exhausted.identity.nextEntitySequence = Number.MAX_SAFE_INTEGER;
+    assert.throws(() => polisherCandidates.preparePurchase(exhausted, 1, polisherBuyOptions, polisherExternalIds));
+    assert.equal(exhausted.identity.nextEntitySequence, Number.MAX_SAFE_INTEGER);
+    for (const options of [null, {}, { ...polisherBuyOptions, extra: true }, { discountLevel: 11, preservationLevel: 0 },
+        { discountLevel: 0, preservationLevel: 26 }, { discountLevel: 0, preservationLevel: 0.5 }])
+        assert.throws(() => polisherCandidates.preparePurchase(polisherCandidateFixture(), 1, options, polisherExternalIds));
+    const state = polisherCandidateFixture(); state.factory.polishers.push(ownedPolisherFixture());
+    for (const cash of [0, Number.MAX_VALUE]) {
+        const candidate = structuredClone(state); candidate.cash = cash;
+        const before = structuredClone(candidate);
+        assert.throws(() => polisherCandidates.prepareTierUpgrade(candidate, "polisher:4", 0, polisherExternalIds));
+        assert.deepEqual(candidate, before);
+    }
+    assert.throws(() => polisherCandidates.preparePurchase(state, 1, polisherBuyOptions, polisherExternalIds));
+    for (const id of ["polisher:99", "polisher:04", 4, null, undefined])
+        assert.throws(() => polisherCandidates.prepareTierUpgrade(state, id, 0, polisherExternalIds));
+    for (const discount of [-1, 11, 0.5, "0", null, undefined, Infinity])
+        assert.throws(() => polisherCandidates.prepareTierUpgrade(state, "polisher:4", discount, polisherExternalIds));
+    state.factory.polishers[0].tier = 10;
+    assert.throws(() => polisherCandidates.prepareTierUpgrade(state, "polisher:4", 0, polisherExternalIds));
+    state.factory.polishers[0].tier = 1;
+    for (const paid of [Number.MAX_VALUE, 1e30]) {
+        state.factory.polishers[0].investment.entries[0].cashPaid = paid;
+        const before = structuredClone(state);
+        assert.throws(() => polisherCandidates.prepareTierUpgrade(state, "polisher:4", 0, polisherExternalIds));
+        assert.deepEqual(state, before);
+    }
+});
+
+test("Polisher purchase and upgrade candidates independently preserve other entities and nested state", () => {
+    const state = polisherCandidateFixture(); state.factory.polishers.push(ownedPolisherFixture(2));
+    freezeCandidate(state);
+    const a = polisherCandidates.preparePurchase(state, 3, polisherBuyOptions, polisherExternalIds);
+    const b = polisherCandidates.preparePurchase(state, 3, polisherBuyOptions, polisherExternalIds);
+    assert.deepEqual(structuredClone(a.factory.polishers[0]), state.factory.polishers[0]);
+    const upgraded = polisherCandidates.prepareTierUpgrade(a, "polisher:8", 0, polisherExternalIds);
+    assert.deepEqual(structuredClone(upgraded.factory.polishers[0]), state.factory.polishers[0]);
+    assert.equal(upgraded.identity.nextEntitySequence, 9);
+    for (const index of [0, 1]) {
+        a.factory.polishers[index].investment.entries[0].cashPaid = 0;
+        a.factory.polishers[index].queue.push("test");
+        assert.notEqual(b.factory.polishers[index].investment.entries[0].cashPaid, 0);
+        assert.equal(upgraded.factory.polishers[index].queue.length, 0);
+        assert.equal(b.factory.polishers[index].queue.length, 0);
+    }
+    assert.equal(state.factory.polishers[0].investment.entries[0].cashPaid, 5000.5);
+    assert.equal(state.identity.nextEntitySequence, 8);
+});
+
+test("Polisher candidates never change live schema-1 saves, legacy machines, inventory or timers", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion,
+        cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), control = ready(raw), before = app.state(), timers = app.intervals.length;
+        app.run(`{
+            const candidate = ${JSON.stringify(polisherCandidateFixture(1000000000))};
+            const bought = PolisherCandidateModel.preparePurchase(candidate,3,{discountLevel:0,preservationLevel:5},["miner:1","pickaxe:2","refiner:3"]);
+            PolisherCandidateModel.prepareTierUpgrade(bought,"polisher:8",10,["miner:1","pickaxe:2","refiner:3"]);
+        }`);
+        assert.deepEqual(app.state(), before); assert.equal(app.intervals.length, timers); assert.equal(app.writes.length, 0);
+        for (const instance of [app, control]) {
+            instance.elements.get("mineButton").onclick();
+            if (raw !== null) for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                instance.elements.get(id).onclick();
+            instance.tick(1000);
+        }
+        assert.deepEqual(app.state(), control.state());
+        const after = app.state(); assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 const upgradeContext = vm.createContext({});
 vm.runInContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); };', upgradeContext);
 const minerUpgrades = vm.runInContext("MinerUpgradeCandidateModel", upgradeContext);
