@@ -12,6 +12,170 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const upgradeContext = vm.createContext({});
+vm.runInContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); };', upgradeContext);
+const minerUpgrades = vm.runInContext("MinerUpgradeCandidateModel", upgradeContext);
+const upgradeOtherIds = Object.freeze(["pickaxe:7"]);
+function upgradeFixture(tier = 1, oreLuckLevel = 0, cash = 1000000, paid = 100.5) {
+    const miner = (id, slot) => ({ id, slot, tier, oreLuckLevel, nextCycleSequence: 17, cycle: null,
+        investment: { entries: [{ kind: "purchase", targetLevel: null, cashPaid: paid, basis: "actual" }] } });
+    return { cash, shop: { minerUnlocked: true }, identity: { nextEntitySequence: 9, nextManualEquipSequence: 4 },
+        factory: { minerSlots: [true, false, false, false, true], miners: [miner("miner:2", 5), miner("miner:1", 1)] } };
+}
+
+test("Miner tier upgrade candidates use next owned tier, milestone prices and exact proposed payments", () => {
+    const tiers = vm.runInContext("MinerTierModel", upgradeContext);
+    for (const [current, discount] of [[1, 0], [1, 10], [5, 0], [6, 1], [24, 0]]) {
+        const price = tiers.getTierUpgradePrice(current + 1, discount);
+        const state = upgradeFixture(current, 3, price, current === 24 ? 0 : 100.5);
+        const before = structuredClone(state);
+        const result = minerUpgrades.prepareTierUpgrade(state, "miner:1", discount, upgradeOtherIds);
+        assert.equal(result.cash, 0);
+        const target = result.factory.miners.find(m => m.id === "miner:1");
+        assert.equal(target.tier, current + 1); assert.equal(target.oreLuckLevel, 3);
+        assert.deepEqual(structuredClone(target.investment.entries), [before.factory.miners[1].investment.entries[0],
+            { kind: "tier", targetLevel: current + 1, cashPaid: price, basis: "actual" }]);
+        assert.deepEqual(structuredClone(result.factory.miners[0]), before.factory.miners[0]);
+        assert.deepEqual(state, before);
+    }
+    const preserved = upgradeFixture(5);
+    assert.equal(minerUpgrades.prepareTierUpgrade(preserved, "miner:1", 0, upgradeOtherIds).cash, 808000);
+    assert.equal(minerUpgrades.prepareTierUpgrade(upgradeFixture(6), "miner:1", 0, upgradeOtherIds).cash, 232000);
+    assert.equal(minerUpgrades.prepareTierUpgrade(upgradeFixture(1), "miner:1", 10, upgradeOtherIds).cash, 999800);
+});
+
+test("Miner Ore Luck candidate upgrades round original prices without Discount or cross-Miner changes", () => {
+    const luck = vm.runInContext("MinerOreLuckModel", upgradeContext);
+    for (const current of [0, 2, 24, 49]) {
+        const price = luck.getUpgradePrice(current + 1, 0);
+        const state = upgradeFixture(7, current, price + 125.5);
+        const before = structuredClone(state);
+        const zero = minerUpgrades.prepareOreLuckUpgrade(state, "miner:2", 0, upgradeOtherIds);
+        const discounted = minerUpgrades.prepareOreLuckUpgrade(state, "miner:2", 10, upgradeOtherIds);
+        assert.deepEqual(structuredClone(zero), structuredClone(discounted));
+        assert.equal(zero.cash, 125.5);
+        assert.equal(zero.factory.miners[0].oreLuckLevel, current + 1);
+        assert.equal(zero.factory.miners[0].tier, 7);
+        assert.deepEqual(structuredClone(zero.factory.miners[0].investment.entries.at(-1)),
+            { kind: "oreLuck", targetLevel: current + 1, cashPaid: price, basis: "actual" });
+        assert.deepEqual(structuredClone(zero.factory.miners[1]), before.factory.miners[1]);
+        assert.deepEqual(state, before);
+    }
+});
+
+test("Miner upgrades independently clone the full supported projection without consuming identities", () => {
+    const state = upgradeFixture(); state.identity.nextEntitySequence = Number.MAX_SAFE_INTEGER;
+    freezeCandidate(state);
+    const first = minerUpgrades.prepareTierUpgrade(state, "miner:1", 0, upgradeOtherIds);
+    const second = minerUpgrades.prepareTierUpgrade(state, "miner:1", 0, upgradeOtherIds);
+    assert.deepEqual(structuredClone(first.identity), state.identity);
+    assert.deepEqual(structuredClone(first.factory.minerSlots), state.factory.minerSlots);
+    assert.deepEqual(structuredClone(first.shop), state.shop);
+    for (let i = 0; i < 2; i++) {
+        assert.equal(first.factory.miners[i].nextCycleSequence, 17);
+        assert.equal(first.factory.miners[i].cycle, null);
+        assert.notEqual(first.factory.miners[i], second.factory.miners[i]);
+        assert.notEqual(first.factory.miners[i].investment.entries, second.factory.miners[i].investment.entries);
+        first.factory.miners[i].investment.entries[0].cashPaid = 0;
+        assert.equal(second.factory.miners[i].investment.entries[0].cashPaid, 100.5);
+        assert.equal(state.factory.miners[i].investment.entries[0].cashPaid, 100.5);
+    }
+    first.identity.nextManualEquipSequence = 999; first.shop.minerUnlocked = false;
+    first.factory.minerSlots[4] = false;
+    assert.equal(state.identity.nextManualEquipSequence, 4);
+    assert.equal(second.shop.minerUnlocked, true); assert.equal(second.factory.minerSlots[4], true);
+});
+
+test("Miner upgrade failures preserve inputs for caps, malformed commands, ownership, cycles and ledgers", () => {
+    const calls = [minerUpgrades.prepareTierUpgrade, minerUpgrades.prepareOreLuckUpgrade];
+    function rejects(state, call, id = "miner:1", discount = 0, ids = upgradeOtherIds) {
+        const before = structuredClone(state);
+        assert.throws(() => call(state, id, discount, ids));
+        assert.deepEqual(state, before);
+    }
+    rejects(upgradeFixture(25), calls[0]); rejects(upgradeFixture(1, 50), calls[1]);
+    for (const call of calls) {
+        for (const id of ["miner:999", "miner:01", "polisher:1", 1, null, {}]) rejects(upgradeFixture(), call, id);
+        assert.throws(() => call(upgradeFixture(), undefined, 0, upgradeOtherIds));
+        assert.throws(() => call(upgradeFixture(), "miner:1", undefined, upgradeOtherIds));
+        for (const level of [-1, 11, 0.5, "0", null, NaN, Infinity]) rejects(upgradeFixture(), call, "miner:1", level);
+        for (const cash of [0, -1, "1000", null, NaN, Infinity]) rejects(upgradeFixture(1, 0, cash), call);
+        for (const mutate of [s => { s.factory.miners[0].id = "miner:1"; },
+            s => { s.factory.miners[1].id = "miner:01"; }, s => { s.factory.minerSlots[4] = false; },
+            s => { s.factory.miners[1].investment.entries = []; },
+            s => { s.factory.miners[1].investment.entries.push({ ...s.factory.miners[1].investment.entries[0] }); },
+            s => { s.factory.miners[1].tier = 0; }, s => { s.factory.miners[1].oreLuckLevel = 51; },
+            s => { s.identity.nextEntitySequence = 2; }, s => { s.extension = { preserved: true }; },
+            s => { s.factory.miners[0].extra = 1; }]) {
+            const state = upgradeFixture(); mutate(state); rejects(state, call);
+        }
+        for (const phase of ["reserved", "resolved"]) for (const index of [0, 1]) {
+            const state = upgradeFixture(); state.factory.miners[index].cycle = { phase };
+            rejects(state, call); // All active cycles unsupported, including non-targets.
+        }
+        rejects(null, call); rejects({}, call);
+        rejects(upgradeFixture(), call, "miner:1", 0, ["pickaxe:2"]);
+        assert.throws(() => call(upgradeFixture(), "miner:1", 0)); // Required external ownership context.
+    }
+    for (const [call, kind, targetLevel] of [[calls[0], "tier", 2], [calls[1], "oreLuck", 1]]) {
+        const state = upgradeFixture();
+        state.factory.miners[1].investment.entries.push({ kind, targetLevel, cashPaid: 100, basis: "actual" });
+        rejects(state, call); // Existing candidate validation rejects history above owned level before appending.
+    }
+});
+
+test("Miner candidate upgrades reject unrepresentable debits and ledger sums without partial changes", () => {
+    for (const call of [minerUpgrades.prepareTierUpgrade, minerUpgrades.prepareOreLuckUpgrade]) {
+        for (const state of [upgradeFixture(1, 0, Number.MAX_VALUE),
+            upgradeFixture(1, 0, 10000, Number.MAX_VALUE), upgradeFixture(1, 0, 10000, 1e30)]) {
+            const before = structuredClone(state);
+            assert.throws(() => call(state, "miner:1", 0, upgradeOtherIds));
+            assert.deepEqual(state, before);
+        }
+    }
+    const state = upgradeFixture(1, 0, 400.5);
+    const result = minerUpgrades.prepareTierUpgrade(state, "miner:1", 0, upgradeOtherIds);
+    assert.equal(result.cash, 0.5);
+    assert.equal(result.factory.miners[1].investment.entries[0].cashPaid, 100.5);
+});
+
+test("Miner candidate upgrades compose deterministically without fabricated paid history", () => {
+    const initial = upgradeFixture(5, 0, 1000000);
+    const tiered = minerUpgrades.prepareTierUpgrade(initial, "miner:1", 0, upgradeOtherIds);
+    const lucked = minerUpgrades.prepareOreLuckUpgrade(tiered, "miner:1", 10, upgradeOtherIds);
+    assert.equal(lucked.cash, 807000);
+    assert.equal(lucked.factory.miners[1].tier, 6); assert.equal(lucked.factory.miners[1].oreLuckLevel, 1);
+    assert.deepEqual(Array.from(lucked.factory.miners[1].investment.entries, p => [p.kind, p.targetLevel, p.cashPaid]),
+        [["purchase", null, 100.5], ["tier", 6, 192000], ["oreLuck", 1, 1000]]);
+    assert.equal(initial.factory.miners[1].investment.entries.length, 1);
+    assert.equal(tiered.factory.miners[1].investment.entries.length, 2);
+    assert.deepEqual(structuredClone(lucked), structuredClone(minerUpgrades.prepareOreLuckUpgrade(
+        minerUpgrades.prepareTierUpgrade(initial, "miner:1", 0, upgradeOtherIds), "miner:1", 10, upgradeOtherIds)));
+});
+
+test("Miner upgrade preparation never writes candidates to live schema-1 saves or changes legacy gameplay", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion,
+        cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), control = ready(raw), before = app.state(), timers = app.intervals.length;
+        app.run(`{
+            const candidate = ${JSON.stringify(upgradeFixture())};
+            const upgraded = MinerUpgradeCandidateModel.prepareTierUpgrade(candidate,"miner:1",0,["pickaxe:7"]);
+            MinerUpgradeCandidateModel.prepareOreLuckUpgrade(upgraded,"miner:1",10,["pickaxe:7"]);
+        }`);
+        assert.deepEqual(app.state(), before); assert.equal(app.intervals.length, timers); assert.equal(app.writes.length, 0);
+        for (const instance of [app, control]) {
+            instance.elements.get("mineButton").onclick();
+            if (raw !== null) for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                instance.elements.get(id).onclick();
+            instance.tick(1000);
+        }
+        assert.deepEqual(app.state(), control.state());
+        const after = app.state(); assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 const furnaceContext = vm.createContext({});
 vm.runInContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); };', furnaceContext);
 const furnace = vm.runInContext("FurnaceModel", furnaceContext);
