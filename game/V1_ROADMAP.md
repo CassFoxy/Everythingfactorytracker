@@ -730,6 +730,15 @@ Documentation verification: existing four syntax checks, 265 Node tests and 12 b
 
 **Future implementation acceptance:** Reference L checks 5, 18, 26 and the lifecycle contract's transition/crash-boundary checklist.
 
+### T1-REVIEW — Machine Timing and Value-Binding Decision Sheet
+
+**Status:** ✅ COMPLETE (documentation/design review only)
+**T1 gate:** OPEN — owner approval required; no recommendation is Defined.
+
+[T1_TIMING_DECISION_SHEET.md](docs/T1_TIMING_DECISION_SHEET.md) separates established ownership/reload/reset rules from five PROPOSED choices: single-cycle downtime, active upgrades, effect binding, explicit unreserved-stock repricing and completion/removal ordering. Records the technical gap for durable effect context without inventing a Cycle schema extension. Legacy Furnace reservations and independent R1/K.1/K.4/K.5 gates remain protected.
+
+Next action is owner approval/modification of the numbered decisions, then a bounded final technical-contract update. This review does not complete V1-050C2, V1-071A2/B2/C2, V1-074A2/B2, V1-075A2/B2, V1-081B2 or V1-017/V1-018. No JavaScript, live processing, save writes or V2 activation is included.
+
 ---
 
 ## V1-071 — Miner System
