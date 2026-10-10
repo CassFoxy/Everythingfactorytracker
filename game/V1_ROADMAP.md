@@ -766,6 +766,21 @@ This is not full-cycle/result validation, proof of transferred inventory, owners
 
 Six deterministic regressions cover all machine boundary fixtures, owner/shape/range failures, intervals/capacity, legacy isolation, independent records and schema-1 compatibility. Four syntax checks, 346 Node tests and 12 existing browser scenarios pass locally. V1-050C2, live machine integrations and V1-017/V1-018 remain outstanding; approved T1 choices are not reopened. Next bounded work: pure reservation-candidate validation of cycle identity and exclusive input transfer, without live commits or scheduler activation.
 
+### V1-070E2 — Pure Polisher Cycle Reservation and Exclusive Input Transfer
+
+**Status:** ✅ COMPLETE (non-persisted candidate scope only)
+**Dependencies:** V1-070E1, InventoryModel, PolisherModel and canonical Polisher ownership validation
+
+`PolisherReservationCandidateModel` validates the exact `{polisher,inventory}` projection. Inventory is a partial current resource-count map; no missing selected balance is invented. The canonical owned Polisher must be idle, with valid raw-ore queue entries and operation sequences. No Cash, global identity, other-machine or complete-save adapter is implied; unsupported extensions reject.
+
+`prepareReservation(state,polisherId,source,effects)` accepts source `{kind:"inventory"}` or `{kind:"queue",queueId}` and effects `{currentOreValue,valueLevel,startedAtMs}`. The future trusted consumer supplies the owned target and already-adjusted value/perk basis; structural validation cannot authenticate UI claims or global ownership. Queue selection names exactly one entry, without inferred priority, aggregation or mixing available stock. Other queue entries and inventory remain independent and unchanged.
+
+Reserve min(capacity, selected source amount), using canonical raw Lots and InventoryModel splitting. Partial queued remainder retains its original queue ID. Available inventory is debited once only on the inventory path; queue input is not subtracted twice. Exact representable conservation is checked before returning. New identity is `<entityId>/cycle:<sequence>` (owner clarification retains the slash); increment the local sequence once and reject exhaustion. No global IDs are consumed.
+
+The reserved Cycle contains only canonical fields, null result/sale values and captured version-1 Polisher effects/duration validated through CycleEffectContextModel. All nested outputs are independent. No queue insertion, output award, resolution, timer, storage write or live processing occurs.
+
+Six regressions cover partial/full available batches, explicit queue transfers/splitting, conservation, identities, bound effects, malformed/active state, numeric failures and unchanged schema-1 saves. Four syntax checks, 352 Node tests and all 12 existing browser scenarios pass locally. Polisher lifecycle, other machine reservations, V1-050C2 durable coordination and V1-017/V1-018 remain outstanding. Next bounded work: pure Polisher cycle resolution candidates using retained context, with no live awards or commits.
+
 
 ---
 

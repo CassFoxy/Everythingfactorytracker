@@ -12,6 +12,134 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const reservationModels = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; ({ reserve: PolisherReservationCandidateModel, polisher: PolisherModel, context: CycleEffectContextModel });');
+function rawReservationLot(amount, resourceId = "ruby") {
+    return { resourceId, stage: "raw", refineCount: 0, amount, polishedValue: null, preRefinerValue: null, refineBonus: null };
+}
+function reservationFixture(tier = 1, amount = 10) {
+    return { inventory: { stone: 7, ruby: amount, amber: 3 }, polisher: { id: "polisher:8", slot: 3, tier,
+        selectedOreId: "ruby", queue: [], investment: { entries: [{ kind: "purchase", targetLevel: null, cashPaid: 2000000, basis: "actual" }] },
+        nextCycleSequence: 3, cycle: null } };
+}
+const reservationEffects = Object.freeze({ currentOreValue: 123.456789, valueLevel: 50, startedAtMs: 1700000000000 });
+function reservationCount(state) {
+    return state.inventory.ruby + state.polisher.queue.filter(e => e.lot.resourceId === "ruby").reduce((n, e) => n + e.lot.amount, 0) +
+        (state.polisher.cycle?.inputs.reduce((n, lot) => n + lot.amount, 0) || 0);
+}
+
+test("Polisher inventory reservation conserves partial/full batches with exact cycle identity and context", () => {
+    for (const tier of [1, 5, 10]) {
+        const capacity = reservationModels.polisher.getBatchSize(tier);
+        for (const amount of [1, capacity, capacity + 7]) {
+            const state = freezeCandidate(reservationFixture(tier, amount));
+            const result = reservationModels.reserve.prepareReservation(state, "polisher:8", { kind: "inventory" }, reservationEffects);
+            const quantity = Math.min(capacity, amount), cycle = result.polisher.cycle;
+            assert.equal(result.inventory.ruby, amount - quantity);
+            assert.equal(reservationCount(result), reservationCount(state));
+            assert.deepEqual(structuredClone(cycle), { id: "polisher:8/cycle:3", phase: "reserved", startedAtMs: reservationEffects.startedAtMs,
+                durationMs: reservationModels.polisher.getCycleTime(tier) * 1000, inputs: [rawReservationLot(quantity)], saleUnitValues: null,
+                effectContext: { version: 1, kind: "polisher", tier, currentOreValue: reservationEffects.currentOreValue, valueLevel: 50 }, result: null });
+            assert.equal(result.polisher.nextCycleSequence, 4); assert.equal(state.polisher.nextCycleSequence, 3);
+            assert.equal(state.inventory.ruby, amount); assert.equal(state.polisher.cycle, null);
+            assert.equal(result.inventory.amber, 3); assert.equal(result.inventory.stone, 7);
+            assert.deepEqual(structuredClone(result.polisher.investment), state.polisher.investment);
+            const { startedAtMs, durationMs, inputs, saleUnitValues } = cycle;
+            assert.doesNotThrow(() => reservationModels.context.validateMetadata(cycle.effectContext, "polisher", { startedAtMs, durationMs, inputs, saleUnitValues }));
+        }
+    }
+});
+
+test("Polisher queue transfer names one entry, preserves partial IDs and never consumes available stock", () => {
+    for (const amount of [1, 100, 120]) {
+        const state = reservationFixture(10, 50);
+        state.polisher.queue = [{ id: "polisher:8/queue:1", lot: rawReservationLot(7, "amber") },
+            { id: "polisher:8/queue:2", lot: rawReservationLot(amount) }];
+        freezeCandidate(state);
+        const result = reservationModels.reserve.prepareReservation(state, "polisher:8", { kind: "queue", queueId: "polisher:8/queue:2" }, reservationEffects);
+        assert.deepEqual(structuredClone(result.inventory), state.inventory);
+        assert.equal(reservationCount(result), reservationCount(state));
+        assert.deepEqual(structuredClone(result.polisher.queue[0]), state.polisher.queue[0]);
+        assert.equal(result.polisher.cycle.inputs[0].amount, Math.min(100, amount));
+        assert.equal(result.polisher.queue.length, amount > 100 ? 2 : 1);
+        if (amount > 100) assert.deepEqual(structuredClone(result.polisher.queue[1]), { id: "polisher:8/queue:2", lot: rawReservationLot(20) });
+        assert.equal(result.polisher.nextCycleSequence, 4);
+        result.polisher.queue[0].lot.amount = 1;
+        assert.equal(state.polisher.queue[0].lot.amount, 7);
+    }
+    const state = reservationFixture(10, 100);
+    state.polisher.queue = [{ id: "polisher:8/queue:1", lot: rawReservationLot(2) }, { id: "polisher:8/queue:2", lot: rawReservationLot(3) }];
+    const result = reservationModels.reserve.prepareReservation(state, "polisher:8", { kind: "queue", queueId: "polisher:8/queue:2" }, reservationEffects);
+    assert.equal(result.polisher.cycle.inputs[0].amount, 3); // No automatic fill from another source.
+    assert.equal(result.polisher.queue[0].lot.amount, 2); assert.equal(result.inventory.ruby, 100);
+});
+
+test("Polisher reservation rejects malformed ownership, queue identities, stages and active cycles atomically", () => {
+    const valid = reservationFixture(); valid.polisher.queue = [{ id: "polisher:8/queue:1", lot: rawReservationLot(4) }];
+    for (const mutate of [s => { s.polisher.id = "polisher:08"; }, s => { s.polisher.slot = 4; }, s => { s.polisher.tier = 11; },
+        s => { s.polisher.investment.entries = []; }, s => { s.polisher.selectedOreId = null; }, s => { s.polisher.selectedOreId = "stone"; },
+        s => { s.polisher.cycle = { phase: "reserved" }; }, s => { s.polisher.cycle = { phase: "resolved" }; },
+        s => { s.polisher.nextCycleSequence = 0; }, s => { s.polisher.nextCycleSequence = Number.MAX_SAFE_INTEGER; },
+        s => { s.polisher.queue[0].id = "polisher:9/queue:1"; }, s => { s.polisher.queue[0].id = "polisher:8/queue:03"; },
+        s => { s.polisher.queue[0].id = "polisher:8/queue:3"; }, s => { s.polisher.queue.push(structuredClone(s.polisher.queue[0])); },
+        s => { s.polisher.queue[0].lot.resourceId = "stone"; }, s => { s.polisher.queue[0].lot.stage = "polished"; },
+        s => { s.polisher.queue[0].lot.amount = 0; }, s => { s.polisher.queue[0].extra = true; },
+        s => { s.inventory.ruby = rawReservationLot(1); }, s => { s.inventory.ruby = -1; }, s => { s.inventory.ruby = Infinity; },
+        s => { s.inventory.ruby = 1.5; }, s => { s.inventory.unknown = 1; }, s => { s.cash = 100; }]) {
+        const state = structuredClone(valid); mutate(state); const before = structuredClone(state);
+        assert.throws(() => reservationModels.reserve.prepareReservation(state, "polisher:8", { kind: "inventory" }, reservationEffects));
+        assert.deepEqual(state, before);
+    }
+    for (const source of [{ kind: "queue", queueId: "missing" }, { kind: "all" }, { kind: "inventory", queueId: "x" }])
+        assert.throws(() => reservationModels.reserve.prepareReservation(valid, "polisher:8", source, reservationEffects));
+    const mismatch = structuredClone(valid); mismatch.polisher.queue[0].lot.resourceId = "amber";
+    assert.throws(() => reservationModels.reserve.prepareReservation(mismatch, "polisher:8", { kind: "queue", queueId: "polisher:8/queue:1" }, reservationEffects));
+    assert.throws(() => reservationModels.reserve.prepareReservation(valid, "polisher:99", { kind: "inventory" }, reservationEffects));
+});
+
+test("Polisher reservation fails on empty input, invalid effects/time and unsafe quantity arithmetic", () => {
+    for (const amount of [0, 1e30]) {
+        const state = reservationFixture(1, amount), before = structuredClone(state);
+        assert.throws(() => reservationModels.reserve.prepareReservation(state, "polisher:8", { kind: "inventory" }, reservationEffects));
+        assert.deepEqual(state, before);
+    }
+    const state = reservationFixture(), before = structuredClone(state);
+    for (const effects of [{ ...reservationEffects, startedAtMs: -1 }, { ...reservationEffects, startedAtMs: Infinity },
+        { ...reservationEffects, startedAtMs: 0.5 }, { ...reservationEffects, startedAtMs: 8640000000000001 },
+        { ...reservationEffects, valueLevel: 5001 }, { ...reservationEffects, currentOreValue: -1 },
+        { ...reservationEffects, currentOreValue: Number.MAX_VALUE }, { ...reservationEffects, extra: 1 }, {}])
+        assert.throws(() => reservationModels.reserve.prepareReservation(state, "polisher:8", { kind: "inventory" }, effects));
+    assert.deepEqual(state, before);
+    const overflow = reservationFixture(1, Number.MAX_VALUE);
+    overflow.polisher.queue = [{ id: "polisher:8/queue:1", lot: rawReservationLot(Number.MAX_VALUE) }];
+    assert.throws(() => reservationModels.reserve.prepareReservation(overflow, "polisher:8", { kind: "queue", queueId: "polisher:8/queue:1" }, reservationEffects));
+});
+
+test("Polisher reservation results own all nested records and bind effects independently of later state", () => {
+    const state = reservationFixture(5), original = structuredClone(state);
+    const effects = { ...reservationEffects };
+    const a = reservationModels.reserve.prepareReservation(state, "polisher:8", { kind: "inventory" }, effects);
+    const b = reservationModels.reserve.prepareReservation(state, "polisher:8", { kind: "inventory" }, effects);
+    assert.deepEqual(state, original);
+    state.polisher.tier = 10; effects.valueLevel = 5000; effects.currentOreValue = 999;
+    assert.equal(a.polisher.cycle.effectContext.tier, 5); assert.equal(a.polisher.cycle.effectContext.valueLevel, 50);
+    a.polisher.cycle.effectContext.currentOreValue = 0; a.polisher.cycle.inputs[0].amount = 99;
+    a.polisher.investment.entries[0].cashPaid = 0; a.inventory.amber = 0;
+    assert.equal(b.polisher.cycle.effectContext.currentOreValue, reservationEffects.currentOreValue);
+    assert.notEqual(b.polisher.cycle.inputs[0].amount, 99); assert.equal(b.polisher.investment.entries[0].cashPaid, 2000000);
+    assert.equal(b.inventory.amber, 3); assert.equal(b.polisher.cycle.result, null);
+    assert.deepEqual(Object.keys(b).sort(), ["inventory", "polisher"]);
+});
+
+test("Polisher reservation candidates do not activate production cycles, saves or rewards", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion, cash: 6000,
+        factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), before = app.state(), timers = app.intervals.length;
+        app.run(`PolisherReservationCandidateModel.prepareReservation(${JSON.stringify(reservationFixture())},"polisher:8",{kind:"inventory"},${JSON.stringify(reservationEffects)});`);
+        assert.deepEqual(app.state(), before); assert.equal(app.intervals.length, timers); assert.equal(app.writes.length, 0);
+        assert.equal(before.saveVersion, 1); assert.deepEqual(saveAndReload(app).state(), before);
+    }
+});
+
 const effectModels = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; ({ validator: CycleEffectContextModel, miner: MinerTierModel, polisher: PolisherModel, refiner: RefinerModel, furnace: FurnaceModel });');
 function effectFixtures() {
     return [

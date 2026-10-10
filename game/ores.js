@@ -1871,3 +1871,115 @@ const CycleEffectContextModel = (() => {
     function validateLegacyFurnaceForAdapter(value, owner, data){ return metadata(context(value, owner, true), data); }
     return Object.freeze({ validateContext, validateMetadata, validateLegacyFurnaceForAdapter });
 })();
+
+// V1-070E2: narrow {polisher,inventory} projection; no Cash/global IDs or other
+// machines. Caller supplies the authoritative selected machine and effect basis.
+// Queue source names ONE entry explicitly: no queue priority or source mixing.
+const PolisherReservationCandidateModel = (() => {
+    function invalid(message){ throw new TypeError("Invalid Polisher reservation: " + message); }
+    function record(value, keys){
+        if(!value || typeof value !== "object" || Array.isArray(value)) invalid("plain record required");
+        const proto = Object.getPrototypeOf(value);
+        if(proto !== null && Object.getPrototypeOf(proto) !== null) invalid("plain record required");
+        if(Reflect.ownKeys(value).length !== keys.length) invalid("exact fields required");
+        for(const key of keys){
+            const d = Object.getOwnPropertyDescriptor(value, key);
+            if(!d || !d.enumerable || !("value" in d)) invalid("data field " + String(key));
+        }
+    }
+    function array(value){
+        if(!Array.isArray(value) || Reflect.ownKeys(value).length !== value.length + 1) invalid("dense queue required");
+        for(let i = 0; i < value.length; i++){
+            const d = Object.getOwnPropertyDescriptor(value, i);
+            if(!d || !d.enumerable || !("value" in d)) invalid("queue data entry");
+        }
+    }
+    function count(value){
+        if(typeof value !== "number" || !Number.isFinite(value) || !Number.isInteger(value) || value < 0) invalid("inventory count");
+    }
+    function validateCandidate(state){
+        record(state, ["polisher", "inventory"]);
+        const machine = state.polisher;
+        record(machine, ["id", "slot", "tier", "selectedOreId", "queue", "investment", "nextCycleSequence", "cycle"]);
+        array(machine.queue);
+        // Validate base ownership through the established model, then validate
+        // every supplied queue below. Never strip/reset an active cycle.
+        PolisherCandidateModel.validateIdlePolisher({ ...machine, queue: [] });
+        const used = new Set();
+        for(const entry of machine.queue){
+            record(entry, ["id", "lot"]);
+            if(typeof entry.id !== "string" || !entry.id.startsWith(machine.id + "/queue:")) invalid("queue owner");
+            const suffix = entry.id.slice((machine.id + "/queue:").length);
+            const n = Number(suffix);
+            if(!/^[1-9][0-9]*$/.test(suffix) || !Number.isSafeInteger(n) || String(n) !== suffix ||
+                n >= machine.nextCycleSequence || used.has(n)) invalid("queue sequence");
+            used.add(n); PolisherModel.validateInputLot(entry.lot);
+        }
+        if(!state.inventory || typeof state.inventory !== "object") invalid("inventory");
+        const keys = Reflect.ownKeys(state.inventory);
+        record(state.inventory, keys);
+        for(const key of keys){
+            if(key !== "stone" && !ORE_KEYS.includes(key)) invalid("inventory resource");
+            count(state.inventory[key]);
+        }
+    }
+    function total(state, resource){
+        let sum = Object.hasOwn(state.inventory, resource) ? state.inventory[resource] : 0;
+        for(const entry of state.polisher.queue){
+            if(entry.lot.resourceId !== resource) continue;
+            const next = sum + entry.lot.amount;
+            if(!Number.isFinite(next) || next - sum !== entry.lot.amount || next - entry.lot.amount !== sum) invalid("conservation precision");
+            sum = next;
+        }
+        return sum;
+    }
+    function prepareReservation(state, polisherId, source, effects){
+        validateCandidate(state);
+        const machine = state.polisher;
+        if(typeof polisherId !== "string" || polisherId !== machine.id) invalid("unknown Polisher ID");
+        if(machine.selectedOreId === null) invalid("ore selection required");
+        // Determine shape without invoking a possible source accessor.
+        const descriptor = source && Object.getOwnPropertyDescriptor(source, "kind");
+        if(!descriptor || !("value" in descriptor)) invalid("source");
+        const kind = descriptor.value;
+        if(kind !== "inventory" && kind !== "queue") invalid("source kind");
+        record(source, kind === "queue" ? ["kind", "queueId"] : ["kind"]);
+        record(effects, ["currentOreValue", "valueLevel", "startedAtMs"]);
+        const context = CycleEffectContextModel.validateContext({ version: 1, kind: "polisher", tier: machine.tier,
+            currentOreValue: effects.currentOreValue, valueLevel: effects.valueLevel }, "polisher");
+        const n = machine.nextCycleSequence;
+        if(n === Number.MAX_SAFE_INTEGER) invalid("operation sequence exhausted");
+        const resource = machine.selectedOreId;
+        let index = -1, lot;
+        if(kind === "queue"){
+            index = machine.queue.findIndex(entry => entry.id === source.queueId);
+            if(index < 0) invalid("unknown queue entry");
+            lot = machine.queue[index].lot;
+            if(lot.resourceId !== resource) invalid("selected ore mismatch");
+        }else{
+            if(!Object.hasOwn(state.inventory, resource) || state.inventory[resource] === 0) invalid("no selected input");
+            lot = InventoryModel.createLot({ resourceId: resource, stage: "raw", refineCount: 0, amount: state.inventory[resource],
+                polishedValue: null, preRefinerValue: null, refineBonus: null });
+        }
+        const quantity = PolisherModel.getProcessedAmount(machine.tier, lot.amount);
+        const split = InventoryModel.splitLot(lot, quantity);
+        const before = total(state, resource);
+        const metadata = CycleEffectContextModel.validateMetadata(context, "polisher", {
+            startedAtMs: effects.startedAtMs, durationMs: PolisherModel.getCycleTime(machine.tier) * 1000,
+            inputs: [split.taken], saleUnitValues: null });
+        const result = { inventory: { ...state.inventory }, polisher: { ...machine,
+            investment: { entries: machine.investment.entries.map(payment => ({ ...payment })) },
+            queue: machine.queue.map(entry => ({ id: entry.id, lot: { ...entry.lot } })) } };
+        if(kind === "inventory") result.inventory[resource] = split.remaining === null ? 0 : split.remaining.amount;
+        else if(split.remaining === null) result.polisher.queue.splice(index, 1);
+        else result.polisher.queue[index].lot = split.remaining; // Remainder retains original queue ID.
+        const remaining = total(result, resource);
+        if(remaining + quantity !== before || before - remaining !== quantity) invalid("input conservation");
+        result.polisher.nextCycleSequence = n + 1;
+        result.polisher.cycle = { id: machine.id + "/cycle:" + n, phase: "reserved", ...metadata, result: null };
+        return result;
+    }
+    // Shape validation does not authenticate effects/ownership. Future consumer
+    // must supply authoritative basis/levels, select source and commit atomically.
+    return Object.freeze({ validateCandidate, prepareReservation });
+})();
