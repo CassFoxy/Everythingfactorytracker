@@ -12,6 +12,145 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const effectModels = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; ({ validator: CycleEffectContextModel, miner: MinerTierModel, polisher: PolisherModel, refiner: RefinerModel, furnace: FurnaceModel });');
+function effectFixtures() {
+    return [
+        ...[1, 6, 25].map(tier => ({ version: 1, kind: "miner", tier, overallLuck: 11, rebirthOreLuckLevel: 5000, localOreLuckLevel: 50, speedLevel: 50 })),
+        ...[1, 10].map(tier => ({ version: 1, kind: "polisher", tier, currentOreValue: 123.456789, valueLevel: 5000 })),
+        ...[1, 10].map(tier => ({ version: 1, kind: "refiner", tier, dustChanceLevel: 30, stabilityLevel: 180, yieldLevel: 50, valueLevel: 5000 })),
+        ...[1, 2, 3, 20].map(tier => ({ version: 1, kind: "furnace", tier, speedLevel: 50, valueLevel: 5000, activation: tier < 3 ? "manual" : "automatic" }))
+    ];
+}
+function effectMetadata(c) {
+    const raw = { resourceId: "ruby", stage: "raw", refineCount: 0, amount: 1, polishedValue: null, preRefinerValue: null, refineBonus: null };
+    const polished = { ...raw, stage: "polished", polishedValue: 123.456789 };
+    const seconds = c.kind === "miner" ? effectModels.miner.getProductionInterval(c.tier, c.speedLevel) :
+        c.kind === "polisher" ? effectModels.polisher.getCycleTime(c.tier) :
+        c.kind === "refiner" ? effectModels.refiner.getInterval(c.tier) : effectModels.furnace.getFinalInterval(c.tier, c.speedLevel);
+    return { startedAtMs: 1700000000000, durationMs: seconds * 1000,
+        inputs: c.kind === "miner" ? [] : [c.kind === "refiner" ? polished : raw], saleUnitValues: c.kind === "furnace" ? [123.456789] : null };
+}
+
+test("Cycle contexts validate all machine boundaries using existing model intervals without RNG", () => {
+    for (const c of effectFixtures()) {
+        const data = effectMetadata(c), before = structuredClone({ c, data }); freezeCandidate(c); freezeCandidate(data);
+        const result = effectModels.validator.validateMetadata(c, c.kind, data);
+        assert.deepEqual(structuredClone(result), { effectContext: c, ...data });
+        assert.deepEqual({ c, data }, before);
+        const zero = { ...c };
+        for (const key of Object.keys(zero)) if (key.endsWith("Level")) zero[key] = 0;
+        assert.doesNotThrow(() => effectModels.validator.validateContext(zero, c.kind));
+        if (c.kind === "miner") {
+            const p = effectModels.miner.getTierProbabilities(c.tier, c.overallLuck);
+            assert.equal(p.tier4 === 0, c.tier < 6);
+        }
+    }
+});
+
+test("Cycle context exact records reject coercion, accessors, extras, versions and owner mismatches", () => {
+    for (const c of effectFixtures()) {
+        for (const key of Object.keys(c)) {
+            const missing = { ...c }; delete missing[key];
+            assert.throws(() => effectModels.validator.validateContext(missing, c.kind));
+            for (const value of [undefined, null, () => 1, NaN, Infinity])
+                assert.throws(() => effectModels.validator.validateContext({ ...c, [key]: value }, c.kind));
+            if (typeof c[key] === "number") {
+                assert.throws(() => effectModels.validator.validateContext({ ...c, [key]: String(c[key]) }, c.kind));
+                if (key !== "currentOreValue" && key !== "overallLuck")
+                    assert.throws(() => effectModels.validator.validateContext({ ...c, [key]: c[key] + 0.5 }, c.kind));
+            }
+        }
+        for (const owner of ["miner", "polisher", "refiner", "furnace", "unknown", null])
+            if (owner !== c.kind) assert.throws(() => effectModels.validator.validateContext(c, owner));
+        for (const changed of [{ ...c, version: 2 }, { ...c, generatedOreId: "ruby" }, { ...c, probabilities: [] }, Object.assign(Object.create({ x: 1 }), c)])
+            assert.throws(() => effectModels.validator.validateContext(changed, c.kind));
+        let invoked = false;
+        const getter = { ...c }; Object.defineProperty(getter, "tier", { enumerable: true, get() { invoked = true; return 1; } });
+        assert.throws(() => effectModels.validator.validateContext(getter, c.kind)); assert.equal(invoked, false);
+        for (const tier of [0, c.kind === "miner" ? 26 : c.kind === "furnace" ? 21 : 11])
+            assert.throws(() => effectModels.validator.validateContext({ ...c, tier }, c.kind));
+        for (const key of Object.keys(c).filter(key => key.endsWith("Level")))
+            assert.throws(() => effectModels.validator.validateContext({ ...c, [key]: c[key] + 1 }, c.kind));
+    }
+    for (const overallLuck of [0, -1]) assert.throws(() => effectModels.validator.validateContext({ ...effectFixtures()[0], overallLuck }, "miner"));
+    const furnace = effectFixtures().find(c => c.kind === "furnace");
+    assert.throws(() => effectModels.validator.validateContext({ ...furnace, activation: "automatic" }, "furnace"));
+    assert.throws(() => effectModels.validator.validateContext({ ...furnace, activation: "yes" }, "furnace"));
+});
+
+test("Cycle metadata requires exact captured durations, valid inputs and compatible capacity", () => {
+    for (const c of effectFixtures()) {
+        const good = effectMetadata(c);
+        for (const mutate of [d => { delete d.durationMs; }, d => { d.durationMs += 0.001; },
+            d => { d.durationMs = Infinity; }, d => { d.startedAtMs = -1; }, d => { d.startedAtMs = Number.MAX_VALUE; },
+            d => { d.startedAtMs = 0.5; }, d => { d.extra = true; }, d => { d.inputs = new Array(1); }]) {
+            const data = structuredClone(good); mutate(data); const before = structuredClone(data);
+            assert.throws(() => effectModels.validator.validateMetadata(c, c.kind, data)); assert.deepEqual(data, before);
+        }
+        const future = { ...good, startedAtMs: 8640000000000000 };
+        assert.equal(effectModels.validator.validateMetadata(c, c.kind, future).startedAtMs, future.startedAtMs);
+        if (c.kind === "miner") {
+            assert.throws(() => effectModels.validator.validateMetadata(c, c.kind, { ...good, saleUnitValues: [] }));
+        } else {
+            const over = structuredClone(good); over.inputs[0].amount = 1001;
+            assert.throws(() => effectModels.validator.validateMetadata(c, c.kind, over));
+            assert.throws(() => effectModels.validator.validateMetadata(c, c.kind, { ...good, inputs: [] }));
+        }
+    }
+    const furnace = effectFixtures().find(c => c.kind === "furnace"), data = effectMetadata(furnace);
+    for (const saleUnitValues of [null, [], [Infinity], [-1], [Number.MAX_VALUE]]) {
+        const invalid = { ...data, inputs: [{ ...data.inputs[0], amount: 2 }], saleUnitValues };
+        assert.throws(() => effectModels.validator.validateMetadata(furnace, "furnace", invalid));
+    }
+    const refiner = effectFixtures().find(c => c.kind === "refiner" && c.tier === 10), mixed = effectMetadata(refiner);
+    mixed.inputs.push({ ...mixed.inputs[0], polishedValue: 999 });
+    assert.throws(() => effectModels.validator.validateMetadata(refiner, "refiner", mixed));
+});
+
+test("Cycle legacy Furnace metadata has an explicit adapter-only path with no modern fallback", () => {
+    const c = { version: 1, kind: "legacyFurnaceV1" };
+    const data = { startedAtMs: 123456789, durationMs: 10000, inputs: [{ resourceId: "stone", stage: "raw", refineCount: 0,
+        amount: 2000, polishedValue: null, preRefinerValue: null, refineBonus: null }], saleUnitValues: [0.125] };
+    freezeCandidate(c); freezeCandidate(data);
+    const result = effectModels.validator.validateLegacyFurnaceForAdapter(c, "furnace", data);
+    assert.deepEqual(structuredClone(result), { effectContext: c, ...data });
+    for (const owner of ["miner", "polisher", "refiner", "furnace"])
+        assert.throws(() => effectModels.validator.validateMetadata(c, owner, data));
+    for (const owner of ["miner", "polisher", "refiner"])
+        assert.throws(() => effectModels.validator.validateLegacyFurnaceForAdapter(c, owner, data));
+    for (const context of [null, {}, { ...c, tier: 1 }, { version: 2, kind: c.kind }, effectFixtures()[0]])
+        assert.throws(() => effectModels.validator.validateLegacyFurnaceForAdapter(context, "furnace", data));
+    assert.throws(() => effectModels.validator.validateLegacyFurnaceForAdapter(c, "furnace", { ...data, durationMs: 5000 }));
+    result.inputs[0].amount = 1; result.saleUnitValues[0] = 1;
+    assert.equal(data.inputs[0].amount, 2000); assert.equal(data.saleUnitValues[0], 0.125);
+});
+
+test("Bound cycle contexts stay independent of later hypothetical upgrades and historical Lot metadata", () => {
+    for (const c of effectFixtures()) {
+        const data = effectMetadata(c), original = structuredClone({ c, data });
+        const currentOwnership = { tier: c.tier, perks: { valueLevel: 0, dustChanceLevel: 0, localOreLuckLevel: 0 } };
+        const a = effectModels.validator.validateMetadata(c, c.kind, data);
+        currentOwnership.tier = 25; currentOwnership.perks = { valueLevel: 5000, dustChanceLevel: 30, localOreLuckLevel: 50 };
+        const b = effectModels.validator.validateMetadata(a.effectContext, c.kind, data);
+        assert.deepEqual(structuredClone(a), structuredClone(b));
+        a.effectContext.tier = 999;
+        if (a.inputs.length) a.inputs[0].amount = 999;
+        assert.equal(b.effectContext.tier, c.tier);
+        assert.deepEqual({ c, data }, original);
+    }
+});
+
+test("Cycle effect validation leaves production schema-1 saves and legacy timers unchanged", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion, cash: 6000,
+        factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), before = app.state(), timers = app.intervals.length;
+        const c = effectFixtures()[0];
+        app.run(`CycleEffectContextModel.validateMetadata(${JSON.stringify(c)},"miner",${JSON.stringify(effectMetadata(c))});`);
+        assert.deepEqual(app.state(), before); assert.equal(app.intervals.length, timers); assert.equal(app.writes.length, 0);
+        assert.equal(before.saveVersion, 1); assert.deepEqual(saveAndReload(app).state(), before);
+    }
+});
+
 const furnaceCandidates = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; FurnaceUpgradeCandidateModel;');
 function furnaceCandidateFixture(tier = 1, cash = 100000000000000) {
     return { cash, factory: { furnace: { id: "furnace:permanent", tier, autoEnabled: true,

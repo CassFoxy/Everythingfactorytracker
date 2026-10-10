@@ -1741,3 +1741,133 @@ const FurnaceUpgradeCandidateModel = (() => {
     // No investment or payment evidence: this is only a proposed Cash/tier pair.
     return Object.freeze({ validateSelection, validateIdleFurnace, validateCandidate, prepareTierUpgrade });
 })();
+
+// V1-070E1: context and explicit metadata validation only, NOT a cycle validator,
+// reservation producer or proof of ownership/activation permission/result/payment.
+const CycleEffectContextModel = (() => {
+    const fields = Object.freeze({
+        miner: ["tier", "overallLuck", "rebirthOreLuckLevel", "localOreLuckLevel", "speedLevel"],
+        polisher: ["tier", "currentOreValue", "valueLevel"],
+        refiner: ["tier", "dustChanceLevel", "stabilityLevel", "yieldLevel", "valueLevel"],
+        furnace: ["tier", "speedLevel", "valueLevel", "activation"],
+        legacyFurnaceV1: []
+    });
+    function invalid(message){ throw new TypeError("Invalid cycle effect context: " + message); }
+    function record(value, keys){
+        if(!value || typeof value !== "object" || Array.isArray(value)) invalid("plain record required");
+        const proto = Object.getPrototypeOf(value);
+        if(proto !== null && Object.getPrototypeOf(proto) !== null) invalid("plain record required");
+        if(Reflect.ownKeys(value).length !== keys.length) invalid("exact fields required");
+        for(const key of keys){
+            const d = Object.getOwnPropertyDescriptor(value, key);
+            if(!d || !d.enumerable || !("value" in d)) invalid("data field " + key);
+        }
+    }
+    function array(value){
+        if(!Array.isArray(value) || Reflect.ownKeys(value).length !== value.length + 1) invalid("dense data array required");
+        for(let i = 0; i < value.length; i++){
+            const d = Object.getOwnPropertyDescriptor(value, i);
+            if(!d || !d.enumerable || !("value" in d)) invalid("array data entry");
+        }
+    }
+    function finite(value){
+        if(typeof value !== "number" || !Number.isFinite(value) || value < 0) invalid("finite non-negative number required");
+        return value;
+    }
+    function context(value, owner, legacy){
+        if(!["miner", "polisher", "refiner", "furnace"].includes(owner)) invalid("owning machine type");
+        const kind = legacy ? "legacyFurnaceV1" : owner;
+        if(legacy && owner !== "furnace") invalid("legacy Furnace owner required");
+        record(value, ["version", "kind", ...fields[kind]]);
+        if(value.version !== 1 || value.kind !== kind) invalid("version or owner mismatch");
+        if(kind === "miner"){
+            MinerTierModel.getTierProbabilities(value.tier, value.overallLuck);
+            MinerOreLuckModel.getFinalOreLuck(value.rebirthOreLuckLevel, value.localOreLuckLevel);
+            MinerTierModel.getProductionInterval(value.tier, value.speedLevel);
+        }else if(kind === "polisher"){
+            PolisherModel.getCycleTime(value.tier);
+            PolisherModel.calculatePolishedValue(value.currentOreValue, value.valueLevel);
+        }else if(kind === "refiner"){
+            RefinerModel.getInterval(value.tier);
+            RefinerModel.getEffectiveBaseDustChance(value.tier, value.dustChanceLevel);
+            RefinerModel.getDestructionChance(0, value.stabilityLevel);
+            RefinerModel.getExpectedDustYield(value.yieldLevel);
+            RefinerModel.getRefineBonus(1, value.valueLevel);
+        }else if(kind === "furnace"){
+            FurnaceModel.getFinalInterval(value.tier, value.speedLevel);
+            FurnaceModel.getRebirthValueMultiplier(value.valueLevel);
+            if(!["manual", "automatic"].includes(value.activation)) invalid("activation");
+            if(value.activation === "automatic" && !FurnaceModel.isAutoProcessingEligible(value.tier)) invalid("automatic tier gate");
+        }
+        return { ...value };
+    }
+    function validateContext(value, owner){ return context(value, owner, false); }
+    function duration(c){
+        if(c.kind === "miner") return MinerTierModel.getProductionInterval(c.tier, c.speedLevel) * 1000;
+        if(c.kind === "polisher") return PolisherModel.getCycleTime(c.tier) * 1000;
+        if(c.kind === "refiner") return RefinerModel.getInterval(c.tier) * 1000;
+        if(c.kind === "furnace") return FurnaceModel.getFinalInterval(c.tier, c.speedLevel) * 1000;
+        return 10000;
+    }
+    function metadata(c, data){
+        record(data, ["startedAtMs", "durationMs", "inputs", "saleUnitValues"]);
+        if(!Number.isInteger(data.startedAtMs) || data.startedAtMs < 0 || data.startedAtMs > 8640000000000000) invalid("timestamp");
+        // Same version-1 JS expressions/JSON round trip: exact duration equality,
+        // no epsilon or whole-second rounding. Never overwrite captured duration.
+        if(data.durationMs !== duration(c)) invalid("captured duration");
+        const deadline = data.startedAtMs + data.durationMs;
+        // IEEE-754 deadline rounding is normal; reject overflow or a lost positive
+        // interval, not all fractional durations added to large integer timestamps.
+        if(!Number.isFinite(deadline) || deadline <= data.startedAtMs) invalid("deadline arithmetic");
+        array(data.inputs);
+        const inputs = data.inputs.map(lot => {
+            record(lot, ["resourceId", "stage", "refineCount", "amount", "polishedValue", "preRefinerValue", "refineBonus"]);
+            InventoryModel.validateLot(lot);
+            return { ...lot };
+        });
+        let quantity = 0;
+        for(const lot of inputs){
+            const next = finite(quantity + lot.amount);
+            if(next - quantity !== lot.amount || next - lot.amount !== quantity) invalid("quantity precision");
+            quantity = next;
+        }
+        if(c.kind === "miner"){
+            if(inputs.length !== 0) invalid("Miner input must be empty");
+        }else{
+            if(inputs.length === 0) invalid("input required");
+            if(c.kind === "polisher" || c.kind === "refiner"){
+                for(const lot of inputs){
+                    if(c.kind === "polisher") PolisherModel.validateInputLot(lot);
+                    else RefinerModel.validateInputLot(lot);
+                    if(!InventoryModel.lotsCompatible(inputs[0], lot)) invalid("selected cohort mismatch");
+                }
+                const capacity = c.kind === "polisher" ? PolisherModel.getBatchSize(c.tier) : RefinerModel.getBatchSize(c.tier);
+                if(quantity > capacity) invalid("batch capacity");
+            }else if(c.kind === "furnace"){
+                if(quantity > FurnaceModel.getCapacity(c.tier)) invalid("batch capacity");
+            }else if(inputs.some(lot => lot.stage !== "raw")) invalid("legacy raw inputs required");
+        }
+        let values = null;
+        if(c.kind === "furnace" || c.kind === "legacyFurnaceV1"){
+            array(data.saleUnitValues);
+            if(data.saleUnitValues.length !== inputs.length) invalid("sale value alignment");
+            values = data.saleUnitValues.map(finite);
+            let total = 0;
+            for(let i = 0; i < inputs.length; i++){
+                const value = finite(values[i] * inputs[i].amount), next = finite(total + value);
+                if(value > 0 && (next === total || (total > 0 && next === value))) invalid("sale total precision");
+                total = next;
+            }
+        }else if(data.saleUnitValues !== null) invalid("sale values only for Furnace");
+        return { effectContext: c, startedAtMs: data.startedAtMs, durationMs: data.durationMs, inputs, saleUnitValues: values };
+    }
+    // Validates captured structure, not a manual request or historical autoEnabled.
+    // Future owning consumer MUST verify authoritative permission when reserving;
+    // reload must not infer it from the current preference. No outcomes are checked.
+    function validateMetadata(value, owner, data){ return metadata(validateContext(value, owner), data); }
+    // ADAPTER-ONLY structural entry point. Caller must already recognize a V1 batch
+    // through the approved adapter; this API cannot authenticate arbitrary JSON.
+    // Ordinary validation NEVER falls back here or invents a missing context.
+    function validateLegacyFurnaceForAdapter(value, owner, data){ return metadata(context(value, owner, true), data); }
+    return Object.freeze({ validateContext, validateMetadata, validateLegacyFurnaceForAdapter });
+})();
