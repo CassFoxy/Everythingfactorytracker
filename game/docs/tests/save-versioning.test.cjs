@@ -12,6 +12,125 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const furnaceCandidates = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; FurnaceUpgradeCandidateModel;');
+function furnaceCandidateFixture(tier = 1, cash = 100000000000000) {
+    return { cash, factory: { furnace: { id: "furnace:permanent", tier, autoEnabled: true,
+        resourceMode: "oresStone", batchMode: "available", selection: null, queue: [], nextCycleSequence: 17, cycle: null } } };
+}
+
+test("Furnace upgrade candidates use each original tier quote and change only Cash and next tier", () => {
+    for (let tier = 1; tier < 20; tier++) {
+        for (const discount of [0, 1, 10]) {
+            const target = tier + 1, raw = target === 2 ? 100 : 1000 * 4 ** (target - 3);
+            const discounted = raw * (1 - 0.05 * discount);
+            const step = discounted < 1000 ? 1 : discounted < 1000000 ? 10 : discounted < 1000000000 ? 1000 : 1000000;
+            const paid = step * Math.floor(discounted / step + 0.5);
+            const state = freezeCandidate(furnaceCandidateFixture(tier, paid + 0.5));
+            const result = furnaceCandidates.prepareTierUpgrade(state, discount);
+            const expected = structuredClone(state); expected.cash = 0.5; expected.factory.furnace.tier = target;
+            assert.deepEqual(structuredClone(result), expected);
+            assert.equal(state.cash, paid + 0.5); assert.equal(state.factory.furnace.tier, tier);
+        }
+    }
+    assert.doesNotThrow(() => furnaceCandidates.validateCandidate(furnaceCandidateFixture(20)));
+    assert.throws(() => furnaceCandidates.prepareTierUpgrade(furnaceCandidateFixture(20), 0));
+    const exact = furnaceCandidates.prepareTierUpgrade(furnaceCandidateFixture(1, 100), 0);
+    assert.equal(exact.cash, 0);
+    assert.throws(() => furnaceCandidates.prepareTierUpgrade(furnaceCandidateFixture(), { targetTier: 20, discountLevel: 0 }));
+});
+
+test("Furnace candidates preserve preferences and independently copy every supported selection stage", () => {
+    const selections = [null,
+        { resourceId: "stone", stage: "raw", refineCount: 0, polishedValue: null, preRefinerValue: null, refineBonus: null },
+        { resourceId: "ruby", stage: "raw", refineCount: 0, polishedValue: null, preRefinerValue: null, refineBonus: null },
+        { resourceId: "ruby", stage: "polished", refineCount: 0, polishedValue: 123.456789, preRefinerValue: null, refineBonus: null },
+        { resourceId: "ruby", stage: "refined", refineCount: 15, polishedValue: null, preRefinerValue: 123.456789, refineBonus: -0.9 }];
+    for (const selection of selections) for (const autoEnabled of [false, true])
+        for (const resourceMode of ["stoneOnly", "oresOnly", "oresStone"]) for (const batchMode of ["available", "full"]) {
+            const state = furnaceCandidateFixture(2);
+            Object.assign(state.factory.furnace, { selection, autoEnabled, resourceMode, batchMode }); freezeCandidate(state);
+            const result = furnaceCandidates.prepareTierUpgrade(state, 0);
+            const other = furnaceCandidates.prepareTierUpgrade(state, 0);
+            const expected = structuredClone(state); expected.cash -= 1000; expected.factory.furnace.tier = 3;
+            assert.deepEqual(structuredClone(result), expected);
+            result.factory.furnace.queue.push("test");
+            assert.equal(state.factory.furnace.queue.length, 0); assert.equal(other.factory.furnace.queue.length, 0);
+            if (selection) {
+                result.factory.furnace.selection.resourceId = "changed";
+                assert.equal(other.factory.furnace.selection.resourceId, selection.resourceId);
+                assert.equal(state.factory.furnace.selection.resourceId, selection.resourceId);
+            }
+        }
+});
+
+test("Furnace candidate validation rejects missing fields, malformed selectors and unsupported work", () => {
+    for (const field of Object.keys(furnaceCandidateFixture().factory.furnace)) {
+        const state = furnaceCandidateFixture(); delete state.factory.furnace[field];
+        assert.throws(() => furnaceCandidates.validateCandidate(state), field);
+    }
+    for (const mutate of [
+        s => { s.factory.furnace = null; }, s => { delete s.factory.furnace; }, s => { s.factory.furnace = []; },
+        s => { s.factory.furnace.id = "furnace:1"; }, s => { s.factory.furnace.autoEnabled = 1; },
+        s => { s.factory.furnace.resourceMode = "all"; }, s => { s.factory.furnace.batchMode = "partial"; },
+        s => { s.factory.furnace.investment = { entries: [] }; }, s => { s.factory.furnace.owned = true; },
+        s => { s.factory.furnace.queue = [{}]; }, s => { s.factory.furnace.queue.extra = true; },
+        s => { s.factory.furnace.queue = {}; }, s => { s.factory.furnace.cycle = { phase: "reserved" }; },
+        s => { s.factory.furnace.cycle = { phase: "resolved" }; }, s => { s.factory.furnace.selection = {}; },
+        s => { s.factory.furnace.nextCycleSequence = 0; }, s => { s.factory.furnace.nextCycleSequence = Number.MAX_SAFE_INTEGER + 1; },
+        s => { s.identity = { nextEntitySequence: 1, nextManualEquipSequence: 1 }; }, s => { s.factory.miners = []; },
+        s => { s.factory.furnace.targetTier = 20; }]) {
+        const state = furnaceCandidateFixture(); mutate(state); const before = structuredClone(state);
+        assert.throws(() => furnaceCandidates.prepareTierUpgrade(state, 0)); assert.deepEqual(state, before);
+    }
+    for (const tier of [0, 21, 1.5, "1", null, NaN, Infinity])
+        assert.throws(() => furnaceCandidates.validateCandidate(furnaceCandidateFixture(tier)));
+    const selection = { resourceId: "ruby", stage: "polished", refineCount: 0, polishedValue: 123.5, preRefinerValue: null, refineBonus: null };
+    for (const invalid of [{ ...selection, resourceId: "stone" }, { ...selection, resourceId: "wood" },
+        { ...selection, resourceId: "unknown" }, { ...selection, amount: 1 }, { ...selection, polishedValue: Infinity },
+        { ...selection, refineCount: 1 }, { ...selection, polishedValue: null }, { ...selection, stage: "unknown" }])
+        assert.throws(() => furnaceCandidates.validateSelection(invalid));
+    let invoked = false;
+    const state = furnaceCandidateFixture(); Object.defineProperty(state, "cash", { enumerable: true, get() { invoked = true; return 100; } });
+    assert.throws(() => furnaceCandidates.validateCandidate(state)); assert.equal(invoked, false);
+});
+
+test("Furnace candidate debit failures are atomic without arbitrary Cash or counter caps", () => {
+    for (const cash of [0, 99, -1, "100", null, NaN, Infinity, Number.MAX_VALUE, 1e30]) {
+        const state = furnaceCandidateFixture(1, cash), before = structuredClone(state);
+        assert.throws(() => furnaceCandidates.prepareTierUpgrade(state, 0)); assert.deepEqual(state, before);
+    }
+    const state = freezeCandidate(furnaceCandidateFixture());
+    for (const discount of [-1, 11, 0.5, null, undefined, "0", NaN, Infinity])
+        assert.throws(() => furnaceCandidates.prepareTierUpgrade(state, discount));
+    for (const invalid of [null, undefined, [], {}, { cash: 100 }, { ...state, extra: true }])
+        assert.throws(() => furnaceCandidates.prepareTierUpgrade(invalid, 0));
+    const large = furnaceCandidateFixture(1, 2 ** 54);
+    large.factory.furnace.nextCycleSequence = Number.MAX_SAFE_INTEGER;
+    const result = furnaceCandidates.prepareTierUpgrade(large, 0);
+    assert.equal(large.cash - result.cash, 100);
+    assert.equal(result.factory.furnace.nextCycleSequence, Number.MAX_SAFE_INTEGER);
+    assert.deepEqual(Object.keys(result).sort(), ["cash", "factory"]);
+});
+
+test("Furnace pure candidates do not change schema-1 saves, prototype upgrades or timers", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion,
+        cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), control = ready(raw), before = app.state(), timers = app.intervals.length;
+        app.run(`FurnaceUpgradeCandidateModel.prepareTierUpgrade(${JSON.stringify(furnaceCandidateFixture(2))},10);`);
+        assert.deepEqual(app.state(), before); assert.equal(app.intervals.length, timers); assert.equal(app.writes.length, 0);
+        for (const instance of [app, control]) {
+            instance.elements.get("mineButton").onclick();
+            if (raw !== null) for (const id of ["buyDropper", "buyAdder", "buyMultiplier", "upgradeFurnace"])
+                instance.elements.get(id).onclick();
+            instance.tick(1000);
+        }
+        assert.deepEqual(app.state(), control.state());
+        const after = app.state(); assert.equal(after.saveVersion, 1);
+        assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+        assert.deepEqual(saveAndReload(app).state(), after);
+    }
+});
+
 const refinerCandidates = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; RefinerCandidateModel;');
 const refinerPricing = vm.runInNewContext(ores + '\nRefinerModel;');
 const refinerExternalIds = Object.freeze(["miner:1", "polisher:2", "pickaxe:3"]);
