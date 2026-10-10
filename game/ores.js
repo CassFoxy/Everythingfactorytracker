@@ -1302,3 +1302,60 @@ const RefinerModel = (() => {
         getTierBaseDustChance, getEffectiveBaseDustChance, getDustChance, getDestructionChance,
         getExpectedDustYield, getDustQuantity, getRefineBonus, calculateRefinedValue, createRefinedLot, evaluateItem });
 })();
+
+// V1-081A: Reference E calculations only. The Furnace is a free Tier-1 permanent
+// singleton, not sellable; these helpers allocate no identity or investment.
+// Preservation/reset, live ownership and processing remain future consumers.
+const FurnaceModel = (() => {
+    function integer(value, minimum, maximum, field){
+        if(!Number.isInteger(value) || value < minimum || value > maximum)
+            throw new TypeError("Invalid Furnace model: " + field + " must be an integer from " + minimum + " through " + maximum);
+    }
+    function amount(value, field){
+        if(typeof value !== "number" || !Number.isFinite(value) || value < 0)
+            throw new TypeError("Invalid Furnace model: " + field + " must be finite and non-negative");
+        return value;
+    }
+    function getCapacity(tier){
+        integer(tier, 1, 20, "tier");
+        return 50 * tier; // No unresolved Furnace Capacity perk.
+    }
+    function getTierValueMultiplier(tier){
+        integer(tier, 1, 20, "tier");
+        return 1 + 0.25 * (tier - 1);
+    }
+    function getRebirthValueMultiplier(valueLevel){
+        integer(valueLevel, 0, 5000, "valueLevel");
+        return 1 + 0.001 * valueLevel;
+    }
+    function calculateSaleValue(currentResourceValue, tier, valueLevel){
+        amount(currentResourceValue, "currentResourceValue");
+        // Supplied raw/Polished/Refined value already includes its applicable
+        // modifiers. No catalogue lookup, Lot repricing or snapshot timing here.
+        return amount(currentResourceValue * getTierValueMultiplier(tier) *
+            getRebirthValueMultiplier(valueLevel), "sale value");
+    }
+    function getNormalInterval(tier){
+        integer(tier, 1, 20, "tier");
+        return amount(Math.max(1, 10 * Math.pow(0.1, (tier - 1) / 19)), "normal seconds");
+    }
+    function getFinalInterval(tier, speedLevel){
+        integer(speedLevel, 0, 50, "speedLevel");
+        return amount(Math.max(0.5, getNormalInterval(tier) * (1 - 0.01 * speedLevel)), "final seconds");
+    }
+    function isAutoProcessingEligible(tier){
+        integer(tier, 1, 20, "tier");
+        return tier >= 3; // Eligibility only, never a saved preference or scheduler.
+    }
+    function getRawTierUpgradeCost(targetTier){
+        integer(targetTier, 2, 20, "targetTier");
+        return amount(targetTier === 2 ? 100 : 1000 * Math.pow(4, targetTier - 3), "raw cost");
+    }
+    function getTierUpgradePrice(targetTier, discountLevel){
+        return CashPricingModel.calculateCashPrice(getRawTierUpgradeCost(targetTier),
+            { category: "furnaceTier", discountLevel });
+    }
+    return Object.freeze({ getCapacity, getTierValueMultiplier, getRebirthValueMultiplier,
+        calculateSaleValue, getNormalInterval, getFinalInterval, isAutoProcessingEligible,
+        getRawTierUpgradeCost, getTierUpgradePrice });
+})();
