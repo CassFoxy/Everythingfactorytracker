@@ -1732,11 +1732,21 @@ Record actual paid costs, separate refunds and challenge payouts; qualifying Cas
 
 ## V1-152 — Resource and Processing Statistics
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟠 IN PROGRESS
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-031, V1-074A, V1-075A, V1-082
 
 Per-ID/tier/source manual/Miner acquisitions, materials, polished outputs, attempts/survivors/losses and raw/polished/refined sales. Keep legacy achievement counter meanings.
+
+### V1-152A1 — Polished-Output Statistics Field Contract and Pure Increment Candidate
+
+**Status:** ✅ COMPLETE (field contract and pure scope only)
+
+[Field contract](docs/POLISHED_OUTPUT_STATISTICS_CONTRACT.md) reserves future `statistics.lifetime.polishedOutput` and `statistics.thisRebirth.polishedOutput`, each a required complete 20-ore Count map. Fresh models use independent zeros; absent legacy history remains an explicit migration gate, never reconstructed from inventory. Central Rebirth retains lifetime and resets current-Rebirth counts; no reset transaction is implemented.
+
+`PolishedOutputStatisticsCandidateModel` validates exact data records and canonical `polished` events, increments both per-ore counters by quantity with reversible finite arithmetic, and returns independent records without mutation, event dispatch or save writes. Five focused regressions cover all ore IDs, sequential increments, malformed/accessor data, precision, E3/E4 interoperability and unchanged legacy fields. Four syntax checks, 370 Node tests and 12 browser scenarios pass. Production saveVersion remains 1.
+
+V1-150/152 broader statistics, full Polisher commit adapters, challenges, V1-050C2, V1-041B and V1-017/018 remain incomplete. Next bounded task: a pure composed Polisher inventory-and-statistics commit candidate, retaining full-state/challenge/provenance limitations; no durable integration or activation.
 
 ---
 

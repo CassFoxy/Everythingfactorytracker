@@ -34,6 +34,8 @@ The statistics and conditional challenge effects are approved gameplay, **not un
 
 ## 3. Exact known fields and the remaining schema gap
 
+**V1-152A1 follow-up:** [Polished-output statistics contract](POLISHED_OUTPUT_STATISTICS_CONTRACT.md) now names the two per-ore counter paths and supplies a pure increment model. References below to missing statistics field names describe the E5 review baseline; that naming gap is closed. Absent-history migration, full-state composition, durable commits and challenge mappings remain outstanding. No production consumer is activated.
+
 The future coordinator must hold the **entire validated canonical V2 state**, not persist an E4 projection. Its known write set is exactly:
 
 - `processedInventory.polished` (plus independent preservation of `.refined`).
