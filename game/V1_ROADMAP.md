@@ -806,6 +806,16 @@ Reserve, resolve and commit are now independently modeled pure proposals, not su
 
 Seven focused regressions cover result integrity, exact cohort merging, input conservation, replay boundaries, T1 historical values, malformed/accessor data, immutable inputs and independent records. Four syntax checks, 365 Node regressions and all 12 existing browser scenarios pass locally. Durable result commits, full event-consumer integration, V1-050C2, live Polisher and other machine lifecycles, V1-017 and V1-018 remain outstanding. Next bounded work: define the full-state Polisher commit/event-consumer transaction boundary before durable coordination implementation; do not activate V2 processing.
 
+### V1-070E5 — Full-State Polisher Commit and Event-Consumer Transaction Boundary
+
+Status: ✅ COMPLETE (documentation and implementation planning only)
+
+[Full-state commit contract](docs/POLISHER_FULL_STATE_COMMIT_CONTRACT.md) traces actual mining, discovery, achievement, milestone, smelting, UI and save handlers. Polishing updates processed inventory and the Defined per-ore lifetime/current-Rebirth Polished-output statistics, plus eligible active challenge progress when supported. It does not increment raw acquisition/discovery/smelting counters, trigger the six existing achievements or level milestones, or award Cash/XP/Dust.
+
+The contract specifies the known field write set, full-state preservation, E4 adapter boundary, prepare/validate/persist/publish ordering, exact pending-candidate retry, replay limits and deterministic failure tests. It explicitly records the missing statistics/challenge field mappings: V1-150/152 and V1-157–159 must supply their contracts before applicable full-state integration. No speculative schema fields or event acknowledgements are introduced.
+
+Full-state Polisher commit implementation and event adapters, V1-050C2 durable coordination, V1-041B, V1-074A2, V1-017/018 and other machine integrations remain outstanding. T1 remains owner approved; production saveVersion remains 1. Next bounded implementation: Polished-output statistics field contract and pure validated increment candidate under V1-150/152, without production writes. No follow-up is begun here.
+
 
 ---
 
