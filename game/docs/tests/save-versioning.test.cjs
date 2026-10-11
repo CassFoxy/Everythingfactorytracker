@@ -12,6 +12,120 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const commitModel = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; Date.now = () => { throw Error("unexpected clock"); }; PolisherCommitCandidateModel;');
+function commitFixture(tier = 1, quantity = 1) {
+    return { ...structuredClone(resolveFixture(resolutionFixture(tier, quantity))), processedInventory: { polished: [], refined: [] } };
+}
+function commitFixtureResult(state) { return commitModel.prepareCommit(state, "polisher:8", "polisher:8/cycle:3"); }
+
+test("Polisher commit adds conserved output and clears only the originating cycle", () => {
+    for (const [tier, quantity] of [[1, 1], [5, 2], [10, 100]]) {
+        const state = commitFixture(tier, quantity);
+        state.polisher.queue = [{ id: "polisher:8/queue:4", lot: rawReservationLot(7, "amber") }];
+        state.polisher.nextCycleSequence = 5;
+        const before = structuredClone(state); freezeCandidate(state);
+        const result = structuredClone(commitFixtureResult(state));
+        const expected = structuredClone(before);
+        expected.processedInventory.polished = before.polisher.cycle.result.outputs;
+        expected.polisher.cycle = null;
+        assert.deepEqual(result, expected); assert.deepEqual(state, before);
+        assert.throws(() => commitFixtureResult(result));
+        assert.deepEqual(structuredClone(commitFixtureResult(state)), expected); // Same proposal, not durable replay protection.
+    }
+});
+
+test("Polisher commit uses exact cohorts and preserves historical refined stock", () => {
+    const state = commitFixture(10, 4), output = state.polisher.cycle.result.outputs[0];
+    const matching = { ...output, amount: 6 }, different = { ...output, amount: 9, polishedValue: output.polishedValue + 0.01 };
+    const refined = { ...rawReservationLot(8), stage: "refined", refineCount: 4, preRefinerValue: 123.45, refineBonus: 0.125 };
+    state.processedInventory = { polished: [matching, different], refined: [refined] };
+    const before = structuredClone(state), result = structuredClone(commitFixtureResult(state));
+    assert.deepEqual(result.processedInventory, { polished: [{ ...matching, amount: 10 }, different], refined: [refined] });
+    assert.deepEqual(state, before);
+    for (const amount of [2 ** 53, Number.MAX_VALUE]) {
+        const unsafe = commitFixture(); unsafe.processedInventory.polished.push({ ...unsafe.polisher.cycle.result.outputs[0], amount });
+        const snapshot = structuredClone(unsafe);
+        assert.throws(() => commitFixtureResult(unsafe)); assert.deepEqual(unsafe, snapshot);
+    }
+});
+
+test("Polisher commit retains T1 bound values after owned-tier and preference changes", () => {
+    const state = commitFixture();
+    state.polisher.tier = 10; state.polisher.selectedOreId = "amber";
+    const output = structuredClone(state.polisher.cycle.result.outputs[0]);
+    state.processedInventory.polished.push({ ...output, polishedValue: 10, amount: 2 });
+    const result = structuredClone(commitFixtureResult(state));
+    assert.equal(result.polisher.tier, 10); assert.equal(result.polisher.selectedOreId, "amber");
+    assert.equal(result.processedInventory.polished[0].polishedValue, 10);
+    assert.deepEqual(result.processedInventory.polished[1], output);
+    assert.equal(output.polishedValue, reservationModels.polisher.calculatePolishedValue(reservationEffects.currentOreValue, reservationEffects.valueLevel));
+});
+
+test("Polisher commit rejects stale identities and malformed results without mutation", () => {
+    const mutations = [
+        s => { s.polisher = null; }, s => { s.polisher.id = "polisher:9"; },
+        s => { s.polisher.cycle = null; }, s => { s.polisher.cycle.phase = "reserved"; },
+        s => { s.polisher.cycle.id = "polisher:8/cycle:4"; }, s => { s.polisher.nextCycleSequence = 3; },
+        s => { s.polisher.cycle.result = null; }, s => { delete s.polisher.cycle.result.events; },
+        s => { s.polisher.cycle.result.extra = 0; }, s => { s.polisher.cycle.result.outputs.push({ ...s.polisher.cycle.result.outputs[0] }); },
+        s => { s.polisher.cycle.result.outputs[0].amount++; }, s => { s.polisher.cycle.result.outputs[0].polishedValue++; },
+        s => { s.polisher.cycle.result.outputs[0].resourceId = "amber"; },
+        s => { s.polisher.cycle.result.outputs[0].stage = "raw"; },
+        s => { s.polisher.cycle.result.events[0].amount++; }, s => { s.polisher.cycle.result.events[0].type = "mined"; },
+        s => { s.polisher.cycle.result.events[0].destination = "inventory"; },
+        ...["cashDelta", "factoryXPDelta", "gemDustDelta"].map(key => s => { s.polisher.cycle.result[key] = 1; }),
+        s => { s.polisher.cycle.durationMs++; }, s => { s.polisher.cycle.effectContext.valueLevel = 5001; },
+        s => { s.polisher.cycle.inputs[0].amount = 2; }, s => { s.polisher.cycle.inputs[0].resourceId = "stone"; },
+        s => { s.polisher.investment.entries = []; }, s => { s.polisher.queue = [{ id: "polisher:9/queue:1", lot: rawReservationLot(1) }]; },
+        s => { s.processedInventory.refined.push(rawReservationLot(1)); }, s => { delete s.processedInventory.polished; },
+        s => { s.processedInventory.extra = []; }, s => { s.inventory.ruby = -1; }, s => { s.cash = 0; }
+    ];
+    for (const mutate of mutations) {
+        const state = commitFixture(); mutate(state); const before = structuredClone(state);
+        assert.throws(() => commitFixtureResult(state)); assert.deepEqual(state, before);
+    }
+    const state = commitFixture();
+    assert.throws(() => commitModel.prepareCommit(state, "polisher:9", state.polisher.cycle.id));
+    assert.throws(() => commitModel.prepareCommit(state, state.polisher.id, "polisher:8/cycle:2"));
+});
+
+test("Polisher commit rejects accessor and unsupported array data without executing it", () => {
+    const poison = () => { assert.fail("accessor executed"); };
+    for (const target of ["result", "event", "processed"]) {
+        const state = commitFixture();
+        const object = target === "result" ? state.polisher.cycle.result : target === "event" ? state.polisher.cycle.result.events[0] : state.processedInventory.polished;
+        const key = target === "result" ? "cashDelta" : target === "event" ? "amount" : "0";
+        Object.defineProperty(object, key, { enumerable: true, get: poison });
+        assert.throws(() => commitFixtureResult(state), /Invalid/);
+    }
+    for (const mutate of [s => { s.processedInventory.polished.extra = 1; }, s => { s.processedInventory.refined.length = 2; },
+        s => { s.polisher.cycle.result.outputs.extra = 1; }]) {
+        const state = commitFixture(); mutate(state); assert.throws(() => commitFixtureResult(state));
+    }
+});
+
+test("Polisher commit returns independent nested inventory, queues and payments", () => {
+    const state = commitFixture();
+    state.polisher.queue = [{ id: "polisher:8/queue:1", lot: rawReservationLot(3) }];
+    state.processedInventory.refined.push({ ...rawReservationLot(2), stage: "refined", refineCount: 1, preRefinerValue: 50, refineBonus: 0.5 });
+    const before = structuredClone(state), result = commitFixtureResult(state);
+    result.inventory.ruby = 999; result.polisher.queue[0].lot.amount = 999; result.polisher.queue[0].id = "changed";
+    result.polisher.investment.entries[0].cashPaid = 999; result.polisher.tier = 9;
+    result.processedInventory.polished[0].amount = 999; result.processedInventory.refined[0].preRefinerValue = 999;
+    result.processedInventory.polished.push({}); result.polisher.queue.push({});
+    assert.deepEqual(state, before);
+});
+
+test("Polisher commit candidates do not change production saves or activate rewards", () => {
+    for (const raw of [null, ...[undefined, 0, 1].map(saveVersion => JSON.stringify({ saveVersion, cash: 6000, factoryXP: 100, droppers: 0, adders: 0, multipliers: 0 }))]) {
+        const app = ready(raw), before = app.state(), writes = app.writes.length;
+        commitFixtureResult(commitFixture());
+        assert.deepEqual(app.state(), before); assert.equal(app.writes.length, writes);
+        assert.equal(saveAndReload(app).state().saveVersion, 1);
+        assert.equal(Object.hasOwn(app.state(), "processedInventory"), false);
+    }
+});
+
 const resolutionModel = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; Date.now = () => { throw Error("unexpected clock"); }; PolisherResolutionCandidateModel;');
 function resolutionFixture(tier = 1, quantity = 1) {
     return structuredClone(reservationModels.reserve.prepareReservation(reservationFixture(tier, quantity), "polisher:8",

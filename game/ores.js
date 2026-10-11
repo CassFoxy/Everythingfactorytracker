@@ -2010,7 +2010,7 @@ const PolisherResolutionCandidateModel = (() => {
             invalid("operation sequence");
         return n;
     }
-    function validateReservedCandidate(state){
+    function validateCycleCandidate(state, phase){
         record(state, ["polisher", "inventory"]);
         const m = state.polisher;
         record(m, ["id", "slot", "tier", "selectedOreId", "queue", "investment", "nextCycleSequence", "cycle"]);
@@ -2024,7 +2024,7 @@ const PolisherResolutionCandidateModel = (() => {
         if(m.investment.entries.some(p => p.kind === "tier" && p.targetLevel > m.tier)) invalid("paid tier exceeds ownership");
         const c = m.cycle;
         record(c, ["id", "phase", "startedAtMs", "durationMs", "inputs", "saleUnitValues", "effectContext", "result"]);
-        if(c.phase !== "reserved" || c.result !== null) invalid("unresolved reservation required");
+        if(c.phase !== phase || (phase === "reserved" && c.result !== null)) invalid("required cycle phase/result");
         const used = new Set([operationSequence(c.id, m.id + "/cycle:", m.nextCycleSequence)]);
         if(!Array.isArray(m.queue) || Reflect.ownKeys(m.queue).length !== m.queue.length + 1) invalid("dense queue");
         for(let i = 0; i < m.queue.length; i++){
@@ -2045,11 +2045,8 @@ const PolisherResolutionCandidateModel = (() => {
         return CycleEffectContextModel.validateMetadata(c.effectContext, "polisher", {
             startedAtMs: c.startedAtMs, durationMs: c.durationMs, inputs: c.inputs, saleUnitValues: c.saleUnitValues });
     }
-    function prepareResolution(state, polisherId, cycleId, nowMs){
-        const metadata = validateReservedCandidate(state), m = state.polisher, c = m.cycle;
-        if(polisherId !== m.id || cycleId !== c.id) invalid("unknown owner or stale cycle request");
-        timestamp(nowMs);
-        if(nowMs < c.startedAtMs + c.durationMs) invalid("deadline not reached");
+    function validateReservedCandidate(state){ return validateCycleCandidate(state, "reserved"); }
+    function createResult(metadata){
         const bound = metadata.effectContext;
         // E1 has validated positive compatible quantities and their finite sum.
         const quantity = metadata.inputs.reduce((sum, lot) => sum + lot.amount, 0);
@@ -2060,6 +2057,34 @@ const PolisherResolutionCandidateModel = (() => {
         // Canonical output validation; event facts are copied from that validated
         // output. No XP rule is invented, and no event handlers are dispatched.
         InventoryModel.validateLot(output);
+        return result;
+    }
+    // E4 verifies serialized output against the same bound calculation as E3.
+    // This verifies integrity, not durable provenance or prior event delivery.
+    function validateResolvedCandidate(state){
+        const metadata = validateCycleCandidate(state, "resolved");
+        const actual = state.polisher.cycle.result, expected = createResult(metadata);
+        record(actual, ["outputs", "cashDelta", "factoryXPDelta", "gemDustDelta", "events"]);
+        for(const key of ["cashDelta", "factoryXPDelta", "gemDustDelta"])
+            if(actual[key] !== 0) invalid("unsupported reward delta");
+        for(const key of ["outputs", "events"]){
+            const array = actual[key];
+            if(!Array.isArray(array) || array.length !== 1 || Reflect.ownKeys(array).length !== 2) invalid("one result entry required");
+            const d = Object.getOwnPropertyDescriptor(array, "0");
+            if(!d || !d.enumerable || !("value" in d)) invalid("result data entry");
+            record(d.value, Object.keys(expected[key][0]));
+            for(const field of Object.keys(expected[key][0]))
+                if(d.value[field] !== expected[key][0][field]) invalid("result does not match reservation");
+        }
+        InventoryModel.validateLot(actual.outputs[0]);
+        return metadata;
+    }
+    function prepareResolution(state, polisherId, cycleId, nowMs){
+        const metadata = validateReservedCandidate(state), m = state.polisher, c = m.cycle;
+        if(polisherId !== m.id || cycleId !== c.id) invalid("unknown owner or stale cycle request");
+        timestamp(nowMs);
+        if(nowMs < c.startedAtMs + c.durationMs) invalid("deadline not reached");
+        const result = createResult(metadata);
         return { inventory: { ...state.inventory }, polisher: { ...m,
             queue: m.queue.map(entry => ({ id: entry.id, lot: { ...entry.lot } })),
             investment: { entries: m.investment.entries.map(payment => ({ ...payment })) },
@@ -2068,5 +2093,49 @@ const PolisherResolutionCandidateModel = (() => {
     // Repeating a call on the same unchanged reserved snapshot deterministically
     // prepares the same proposal. Only a future writer can reject cross-call replay;
     // resolved input and stale expected IDs are rejected here, never recomputed.
-    return Object.freeze({ validateReservedCandidate, prepareResolution });
+    return Object.freeze({ validateReservedCandidate, validateResolvedCandidate, prepareResolution });
+})();
+
+// V1-070E4: exact {polisher,inventory,processedInventory} projection only.
+// Clearing this candidate's cycle is NOT a durable production commit. The future
+// full-state writer must include all approved event consumers in the same atomic
+// transaction. No event is dispatched or acknowledged by this projection.
+const PolisherCommitCandidateModel = (() => {
+    function invalid(message){ throw new TypeError("Invalid Polisher commit: " + message); }
+    function record(value, fields){
+        if(!value || typeof value !== "object" || Array.isArray(value)) invalid("plain record");
+        const proto = Object.getPrototypeOf(value);
+        if(proto !== null && Object.getPrototypeOf(proto) !== null) invalid("plain record");
+        if(Reflect.ownKeys(value).length !== fields.length) invalid("exact fields");
+        for(const field of fields){
+            const d = Object.getOwnPropertyDescriptor(value, field);
+            if(!d || !d.enumerable || !("value" in d)) invalid("data field");
+        }
+    }
+    function validateCandidate(state){
+        record(state, ["polisher", "inventory", "processedInventory"]);
+        PolisherResolutionCandidateModel.validateResolvedCandidate({ polisher: state.polisher, inventory: state.inventory });
+        record(state.processedInventory, ["polished", "refined"]);
+        for(const stage of ["polished", "refined"]){
+            const array = state.processedInventory[stage];
+            if(!Array.isArray(array) || Reflect.ownKeys(array).length !== array.length + 1) invalid("dense processed array");
+            for(let i = 0; i < array.length; i++){
+                const d = Object.getOwnPropertyDescriptor(array, i);
+                if(!d || !d.enumerable || !("value" in d)) invalid("processed data entry");
+            }
+        }
+        InventoryModel.validateProcessedInventory(state.processedInventory);
+    }
+    function prepareCommit(state, polisherId, cycleId){
+        validateCandidate(state);
+        const m = state.polisher;
+        if(polisherId !== m.id || cycleId !== m.cycle.id) invalid("unknown owner or stale cycle request");
+        const processedInventory = InventoryModel.addProcessedLot(state.processedInventory, m.cycle.result.outputs[0]);
+        return { inventory: { ...state.inventory }, processedInventory, polisher: { ...m,
+            queue: m.queue.map(entry => ({ id: entry.id, lot: { ...entry.lot } })),
+            investment: { entries: m.investment.entries.map(payment => ({ ...payment })) }, cycle: null } };
+    }
+    // The returned cleared candidate rejects replay. Reusing the unchanged input
+    // can prepare the same proposal; only a durable single writer prevents replay.
+    return Object.freeze({ validateCandidate, prepareCommit });
 })();
