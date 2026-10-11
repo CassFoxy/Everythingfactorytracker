@@ -52,6 +52,10 @@ This is a bounded extension of V1, not a whole-player regrouping. Unmentioned es
 
 The existing bonus/cosmetic containers are retained to avoid losing supported V1 data. New writers do not introduce legacy machine aliases for new features. Existing unknown compatibility keys, including historical names, are evidence, not canonical machine names.
 
+### Future Polished-output statistics extension
+
+[V1-152A1 field contract](POLISHED_OUTPUT_STATISTICS_CONTRACT.md) reserves `statistics.lifetime.polishedOutput` and `statistics.thisRebirth.polishedOutput` as complete per-ore Count maps. Its pure projection, fresh defaults and central reset ownership are defined there; no production fields are activated. Absent legacy history is still a migration gate, not a zero-default policy. Existing unknown `statistics` data follows section 9 collision preservation before any approved migration installs the namespace. Broader statistics/challenge schemas remain separate work.
+
 ### Permanent-perk integration boundary
 
 This contract does **not** add an empty Rebirth/challenge subsystem to ship with the machine transition. Until a permanent-perk consumer exists, new-system formulas use their Defined unowned level (0), and deferred Inscription multipliers remain 1. When implemented, actual owned levels/currencies require their own validated, migrated persistence additions. Do not treat archived V1 bonuses as those purchases. This document still specifies how those future Defined effects affect owned tiers, investments, durability and resets; it does not fabricate ownership now. Existing nonzero bonus effects that would otherwise be lost are a compatibility gate, not a reason to force level 0 over them.

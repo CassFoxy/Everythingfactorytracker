@@ -2139,3 +2139,55 @@ const PolisherCommitCandidateModel = (() => {
     // can prepare the same proposal; only a durable single writer prevents replay.
     return Object.freeze({ validateCandidate, prepareCommit });
 })();
+
+// V1-152A1: narrow statistics value, not a save or migration adapter.
+// See docs/POLISHED_OUTPUT_STATISTICS_CONTRACT.md. Only a future full-state
+// writer can bind this proposed increment to a successful Polisher commit.
+const PolishedOutputStatisticsCandidateModel = (() => {
+    const scopes = Object.freeze(["lifetime", "thisRebirth"]);
+    function invalid(message){ throw new TypeError("Invalid polished statistics: " + message); }
+    function record(value, fields){
+        if(!value || typeof value !== "object" || Array.isArray(value)) invalid("plain record");
+        const proto = Object.getPrototypeOf(value);
+        if(proto !== null && Object.getPrototypeOf(proto) !== null) invalid("plain record");
+        if(Reflect.ownKeys(value).length !== fields.length) invalid("exact fields");
+        for(const field of fields){
+            const d = Object.getOwnPropertyDescriptor(value, field);
+            if(!d || !d.enumerable || !("value" in d)) invalid("data field");
+        }
+    }
+    function count(value, minimum = 0){
+        if(typeof value !== "number" || !Number.isFinite(value) || !Number.isInteger(value) || value < minimum)
+            invalid("finite integer count");
+    }
+    function createStatistics(){
+        return Object.fromEntries(scopes.map(scope => [scope, { polishedOutput: Object.fromEntries(ORE_KEYS.map(id => [id, 0])) }]));
+    }
+    function validateStatistics(statistics){
+        record(statistics, scopes);
+        for(const scope of scopes){
+            record(statistics[scope], ["polishedOutput"]);
+            const map = statistics[scope].polishedOutput;
+            record(map, ORE_KEYS);
+            for(const id of ORE_KEYS) count(map[id]);
+        }
+    }
+    function validateEvent(event){
+        record(event, ["type", "resourceId", "stage", "refineCount", "amount"]);
+        if(event.type !== "polished" || !ORE_KEYS.includes(event.resourceId) || event.stage !== "polished" || event.refineCount !== 0)
+            invalid("canonical polished event");
+        count(event.amount, 1);
+    }
+    function prepareIncrement(statistics, event){
+        validateStatistics(statistics); validateEvent(event);
+        const candidate = createStatistics();
+        for(const scope of scopes){
+            const map = statistics[scope].polishedOutput, before = map[event.resourceId], after = before + event.amount;
+            count(after);
+            if(after - before !== event.amount || after - event.amount !== before) invalid("quantity precision");
+            candidate[scope].polishedOutput = { ...map, [event.resourceId]: after };
+        }
+        return candidate;
+    }
+    return Object.freeze({ createStatistics, validateStatistics, validateEvent, prepareIncrement });
+})();

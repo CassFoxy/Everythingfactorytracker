@@ -12,6 +12,85 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+const polishedStats = vm.runInNewContext(ores + '\nPolishedOutputStatisticsCandidateModel;');
+function polishedEvent(resourceId = "ruby", amount = 1) { return { type: "polished", resourceId, stage: "polished", refineCount: 0, amount }; }
+
+test("Polished statistics fresh maps are complete, independent and increment every catalogue ore by quantity", () => {
+    const ids = vm.runInNewContext(ores + '\nORE_KEYS;');
+    const state = structuredClone(polishedStats.createStatistics()), before = structuredClone(state);
+    assert.deepEqual(Object.keys(state.lifetime.polishedOutput), Array.from(ids));
+    freezeCandidate(state);
+    for (const id of ids) {
+        const event = polishedEvent(id, 25), originalEvent = structuredClone(event); freezeCandidate(event);
+        const result = structuredClone(polishedStats.prepareIncrement(state, event));
+        for (const scope of ["lifetime", "thisRebirth"]) {
+            assert.equal(result[scope].polishedOutput[id], 25);
+            for (const other of ids) if (other !== id) assert.equal(result[scope].polishedOutput[other], 0);
+        }
+        assert.deepEqual(state, before); assert.deepEqual(event, originalEvent);
+    }
+    const next = polishedStats.prepareIncrement(polishedStats.prepareIncrement(state, polishedEvent()), polishedEvent("ruby", 25));
+    assert.equal(next.lifetime.polishedOutput.ruby, 26); assert.equal(next.thisRebirth.polishedOutput.ruby, 26);
+    next.lifetime.polishedOutput.ruby = 8;
+    assert.equal(next.thisRebirth.polishedOutput.ruby, 26);
+    assert.equal(polishedStats.createStatistics().lifetime.polishedOutput.ruby, 0);
+});
+
+test("Polished statistics reject malformed events and exact projection violations", () => {
+    const state = polishedStats.createStatistics();
+    const events = [null, {}, { ...polishedEvent(), extra: true }];
+    for (const key of Object.keys(polishedEvent())) { const e = polishedEvent(); delete e[key]; events.push(e); }
+    for (const [key, values] of Object.entries({ type: ["resourceAcquired", "smelted", null], resourceId: ["stone", "wood", "scrap", "metal", "unknown", 1],
+        stage: ["raw", "refined"], refineCount: [1, "0", null], amount: [0, -1, 0.5, NaN, Infinity, "1", null] }))
+        for (const value of values) events.push({ ...polishedEvent(), [key]: value });
+    for (const event of events) assert.throws(() => polishedStats.prepareIncrement(state, event));
+    for (const mutate of [s => { delete s.lifetime; }, s => { s.extra = {}; }, s => { s.lifetime.extra = {}; },
+        s => { delete s.thisRebirth.polishedOutput.ruby; }, s => { s.lifetime.polishedOutput.stone = 0; },
+        s => { s.lifetime.polishedOutput = []; }, s => { s.thisRebirth = null; },
+        ...[-1, 0.5, NaN, Infinity, "1", null].map(value => s => { s.thisRebirth.polishedOutput.amber = value; })]) {
+        const bad = structuredClone(state); mutate(bad); const before = structuredClone(bad);
+        assert.throws(() => polishedStats.prepareIncrement(bad, polishedEvent())); assert.deepEqual(bad, before);
+    }
+});
+
+test("Polished statistics reject accessors without invoking them", () => {
+    for (const target of ["root", "scope", "map", "event"]) {
+        const state = polishedStats.createStatistics(), event = polishedEvent();
+        const [object, key] = target === "root" ? [state, "lifetime"] : target === "scope" ? [state.lifetime, "polishedOutput"] :
+            target === "map" ? [state.thisRebirth.polishedOutput, "ruby"] : [event, "amount"];
+        Object.defineProperty(object, key, { enumerable: true, get() { assert.fail("accessor invoked"); } });
+        assert.throws(() => polishedStats.prepareIncrement(state, event), /Invalid polished statistics/);
+    }
+});
+
+test("Polished statistics preserve representable large counts and reject quantity loss atomically", () => {
+    const state = polishedStats.createStatistics(); state.lifetime.polishedOutput.ruby = 2 ** 53;
+    const next = polishedStats.prepareIncrement(state, polishedEvent("ruby", 2));
+    assert.equal(next.lifetime.polishedOutput.ruby, 2 ** 53 + 2); assert.equal(next.thisRebirth.polishedOutput.ruby, 2);
+    for (const [before, amount] of [[2 ** 53, 1], [Number.MAX_VALUE, Number.MAX_VALUE], [1, 2 ** 54]]) {
+        const bad = polishedStats.createStatistics(); bad.thisRebirth.polishedOutput.ruby = before;
+        const snapshot = structuredClone(bad);
+        assert.throws(() => polishedStats.prepareIncrement(bad, polishedEvent("ruby", amount))); assert.deepEqual(structuredClone(bad), snapshot);
+    }
+});
+
+test("Polished statistics interoperate with E3/E4 facts without rewriting results or live saves", () => {
+    const cycle = commitFixture(10, 25), before = structuredClone(cycle), stats = polishedStats.createStatistics();
+    const result = polishedStats.prepareIncrement(stats, cycle.polisher.cycle.result.events[0]);
+    result.lifetime.polishedOutput.amber = 100; result.thisRebirth.polishedOutput.ruby = 100;
+    assert.equal(stats.lifetime.polishedOutput.amber, 0); assert.equal(stats.thisRebirth.polishedOutput.ruby, 0);
+    assert.deepEqual(cycle, before); assert.equal(commitFixtureResult(cycle).polisher.cycle, null);
+    for (const raw of [null, JSON.stringify({ saveVersion: 1, cash: 500, droppers: 0, adders: 0, multipliers: 0,
+        achievementStats: { totalOresMined: 12, oresDiscovered: 2, oresSmelted: 3 }, statistics: { legacy: 17 } })]) {
+        const app = ready(raw), snapshot = app.state(), writes = app.writes.length;
+        polishedStats.prepareIncrement(stats, polishedEvent());
+        assert.deepEqual(app.state(), snapshot); assert.equal(app.writes.length, writes);
+        const loaded = saveAndReload(app).state(); assert.equal(loaded.saveVersion, 1);
+        assert.deepEqual(loaded.achievementStats, snapshot.achievementStats);
+        assert.deepEqual(loaded.statistics, snapshot.statistics);
+    }
+});
+
 const commitModel = vm.runInNewContext(ores + '\nMath.random = () => { throw Error("unexpected RNG"); }; Date.now = () => { throw Error("unexpected clock"); }; PolisherCommitCandidateModel;');
 function commitFixture(tier = 1, quantity = 1) {
     return { ...structuredClone(resolveFixture(resolutionFixture(tier, quantity))), processedInventory: { polished: [], refined: [] } };
