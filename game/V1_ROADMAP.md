@@ -794,6 +794,18 @@ The result is unapplied. No stock debit, output insertion, award, event dispatch
 
 Six regressions cover reservation-helper interoperability, full/partial batches, exact/overdue deadlines, active tier/selection changes, preserved metadata, stale/replay rejection, malformed state, independent result records and schema-1 compatibility. Four syntax checks, 358 Node tests and all 12 browser scenarios pass locally. Result commit, durable coordination, live Polisher/other machine integration and V1-017/V1-018 remain incomplete. Next bounded work: pure Polisher result-commit candidates; no live activation.
 
+### V1-070E4 — Pure Polisher Result-Commit Candidates
+
+Status: ✅ COMPLETE (pure candidate scope only)
+
+`PolisherCommitCandidateModel` accepts exactly `{polisher,inventory,processedInventory}` and explicit expected owner/cycle IDs. Shared E3 validation checks the resolved cycle's owner, operation sequence, inputs, captured duration and context. Its stored result must contain exactly one matching Polished Lot and `polished` event, with zero Cash/XP/Dust deltas, reproducible from the bound value basis and perk level. Current owned upgrades do not reprice that result.
+
+The candidate uses `InventoryModel.addProcessedLot` to add output once, coalescing only exactly compatible historical cohorts and rejecting unsafe count arithmetic. It clears the cycle while retaining raw inventory, queue, investment, current settings and operation sequence in independent nested records. Unsupported fields, malformed results and stale/repeated commits against the cleared candidate reject.
+
+Reserve, resolve and commit are now independently modeled pure proposals, not successful durable production transactions. Reusing the unchanged resolved input can prepare the same proposal again. E4 validates the event but does not dispatch or acknowledge any event consumer. **Production integration remains incomplete until all approved event effects and inventory/cycle changes participate in one full-state atomic transaction under a durable single writer.** No event logs, acknowledgement flags, production fields or schema changes are added; saveVersion remains 1.
+
+Seven focused regressions cover result integrity, exact cohort merging, input conservation, replay boundaries, T1 historical values, malformed/accessor data, immutable inputs and independent records. Four syntax checks, 365 Node regressions and all 12 existing browser scenarios pass locally. Durable result commits, full event-consumer integration, V1-050C2, live Polisher and other machine lifecycles, V1-017 and V1-018 remain outstanding. Next bounded work: define the full-state Polisher commit/event-consumer transaction boundary before durable coordination implementation; do not activate V2 processing.
+
 
 ---
 
