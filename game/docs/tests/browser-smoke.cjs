@@ -102,6 +102,7 @@ const server = http.createServer((req, res) => {
             assert.equal(await page.evaluate(()=>save.cash),450);
             await page.locator('#buyMiningPower').click();
             assert.equal(await page.locator('#buyMiningPower').textContent(),'Purchased');
+            assert.match(await page.locator('#manualPowerLink').textContent(),/Mining Power I owned/);
             await page.locator('#unlockMiner').click();
             assert.equal(await page.evaluate(()=>save.factory.miners.length),0);
             assert.equal(await page.evaluate(()=>unlockDevelopmentMiner()),false);

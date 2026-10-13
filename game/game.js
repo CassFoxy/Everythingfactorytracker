@@ -4359,12 +4359,14 @@ function renderDevelopmentMiner(){
     const active = isMinerDevelopment();
     document.getElementById("minerPanel").hidden = !active;
     document.getElementById("miningPowerCard").hidden = !active;
+    document.getElementById("manualPowerStatus").hidden = !active;
     document.getElementById("legacyModeNotice").hidden = active;
     document.getElementById("legacyDropperOverview").hidden = active;
     document.getElementById("dropperCard").hidden = active;
     document.getElementById("multiplierCard").hidden = active;
     if(!active) return;
     const miner = save.factory.miners[0], unlocked = save.shop.minerUnlocked;
+    document.getElementById("manualPowerLink").textContent = save.shop.miningPower ? "Mining Power I owned · 50% chance of +1 resource" : "Mining Power I · available in the Shop";
     document.getElementById("buyMiningPower").disabled = save.shop.miningPower === 1 || save.cash < 250;
     document.getElementById("buyMiningPower").textContent = save.shop.miningPower ? "Purchased" : "Buy Mining Power I · $250";
     document.getElementById("unlockMiner").disabled = unlocked || !save.shop.miningPower || save.cash < 100;
