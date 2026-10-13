@@ -285,10 +285,12 @@ function getRecoveryRawSave(){
 }
 
 function exportRecoverySave(){
-    const raw = getRecoveryRawSave();
-    if(!recoveryState.active || raw === null) return;
+    if(!recoveryState.active && !gameStarted) return;
+    const statusId = recoveryState.active ? "recoveryStatus" : "legacyExportStatus";
     let url;
     try{
+        const raw = recoveryState.active ? getRecoveryRawSave() : localStorage.getItem(SAVE_KEY);
+        if(raw === null) return;
         url = URL.createObjectURL(new Blob([raw], { type: "text/plain;charset=utf-8" }));
         const link = document.createElement("a");
         link.href = url;
@@ -298,11 +300,11 @@ function exportRecoverySave(){
         link.remove();
         // Allow the browser to begin the download before releasing its URL.
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        document.getElementById("recoveryStatus").textContent =
+        document.getElementById(statusId).textContent =
             "Download requested. Keep the file before choosing Start fresh.";
     }catch(error){
         if(url) URL.revokeObjectURL(url);
-        document.getElementById("recoveryStatus").textContent =
+        document.getElementById(statusId).textContent =
             "The download could not start. Your save is unchanged. Please try again.";
     }
 }
@@ -4197,7 +4199,7 @@ function validateDevelopmentSave(state){
                 if(cycle.result !== null) throw Error("Reserved cycle has result");
             }else if(cycle.phase === "resolved"){
                 const expected = minerResult(cycle.result?.outputs?.[0]?.resourceId);
-                // Exact canonical nested shapes; JSON comparison is safe here after parsing or trusted construction.
+                // Exact canonical nested shapes and values, independent of JSON key order.
                 validateDevelopmentResult(cycle.result, expected);
             }else throw Error("Invalid cycle phase");
         }

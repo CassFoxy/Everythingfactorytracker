@@ -281,6 +281,9 @@ const server = http.createServer((req, res) => {
         const legacy = { ...current, cash: 456, extraMetadata: { keep: true } };
         delete legacy.saveVersion;
         const app = await session(JSON.stringify(legacy));
+        const legacyDownload = app.page.waitForEvent("download");
+        await app.page.locator("#exportLegacySave").click();
+        await legacyDownload;
         const loaded = await app.page.evaluate(() => JSON.parse(JSON.stringify(save)));
         assert.deepEqual(loaded, { ...legacy, saveVersion: 1 });
         await app.page.evaluate(() => saveGame());
