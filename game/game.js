@@ -2387,6 +2387,13 @@ document.getElementById(
 
 function updateUI(){
 
+    // Presentation only: reuse existing ownership/costs, without parallel state.
+    document.getElementById("dropperProduction").textContent =
+        formatNumber(save.droppers, 0) + (save.droppers === 1 ? " Dropper running" : " Droppers running");
+    for(const [id, cost] of [["buyDropper", getDropperCost()], ["buyAdder", getAdderCost()], ["buyMultiplier", getMultiplierCost()]]){
+        document.getElementById(id).disabled = save.cash < cost;
+    }
+
     save.factoryLevel = getFactoryLevelFromXP(save.factoryXP);
     document.getElementById("factoryLevel").textContent =
     save.factoryLevel;
@@ -2419,6 +2426,8 @@ const xpPercent =
     "xpBar"
 ).style.width =
     xpPercent + "%";
+
+document.getElementById("xpBar").ariaValueNow = String(xpPercent);
 
 document.getElementById(
     "factoryXP"
