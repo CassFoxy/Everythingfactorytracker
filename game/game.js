@@ -184,7 +184,8 @@ function createDefaultMilestones(){
 
 }
 // Save schema versions are independent of game and design versions.
-// Version 0 is the existing unversioned format; version 1 only adds this tag.
+// Version 0 is the legacy unversioned format. Schema 1 also hosts the explicit
+// private miner-1 profile; this is not the complete V2 state.
 const SAVE_VERSION = 1;
 const SAVE_KEY = "ef_incremental";
 let save;
@@ -206,6 +207,7 @@ function showSaveRecovery(error){
     document.getElementById("saveRecovery").hidden = false;
 
     const reasons = {
+        DEVELOPMENT_INCOMPATIBLE: "This is an incompatible development save. Export it below, or confirm Start Fresh to use this build.",
         PARSE_ERROR: "The saved text could not be read.",
         VERSION_ERROR: "This save version is not supported by this game.",
         MIGRATION_ERROR: "The save could not be upgraded safely.",
@@ -274,6 +276,7 @@ function startLoadedGame(loaded){
     document.getElementById("gameRoot").hidden = false;
     document.getElementById("gameRoot").inert = false;
     startGameplay();
+    if(isMinerDevelopment()) updateDevelopmentMiner();
     return true;
 }
 
@@ -621,6 +624,7 @@ function readVersionedSave(serializedSave){
     }
     try{
         validateSaveData(migrated);
+        validateDevelopmentSave(migrated);
     }catch(error){
         throw error?.code ? error : saveLoadError("VALIDATION_ERROR", "Save validation failed. Stored data was not changed.", error);
     }
@@ -703,7 +707,7 @@ function completeValidatedSave(validatedSave){
 }
 
 function initializeGameState(loadedSave){
-    save = loadedSave === null ? createDefaultSave() : completeValidatedSave(loadedSave);
+    save = loadedSave === null ? createMinerDevelopmentSave() : completeValidatedSave(loadedSave);
     // XP is authoritative; preserve existing Cash/XP, including the legacy XP fallback.
     save.factoryLevel = getFactoryLevelFromXP(save.factoryXP);
 }
@@ -860,7 +864,8 @@ function claimAchievement(id){
 }
 
 function saveGame(){
-        if(!gameStarted || recoveryState.active) return;
+        if(!gameStarted || recoveryState.active || pendingDevelopmentWrite) return;
+        if(isMinerDevelopment()) { commitDevelopmentState(copySaveData(save)); return; }
         save.factoryLevel = getFactoryLevelFromXP(save.factoryXP);
         localStorage.setItem(
             "ef_incremental",
@@ -2028,6 +2033,7 @@ function getMultiplierCost(){
 
 
 function produceStone(){
+    if(isMinerDevelopment() || pendingDevelopmentWrite) return;
 
     let amount =
         save.droppers;
@@ -2113,6 +2119,7 @@ function rollManualTier(roll = Math.random()){
 }
 
 function mineOre(){
+    if(isMinerDevelopment()) return mineDevelopmentOre();
 
     const tier = rollManualTier();
 
@@ -2386,6 +2393,7 @@ document.getElementById(
 }
 
 function updateUI(){
+    renderDevelopmentMiner();
 
     // Presentation only: reuse existing ownership/costs, without parallel state.
     document.getElementById("dropperProduction").textContent =
@@ -2685,6 +2693,9 @@ if(
 }
 
 function startGameplay(){
+ document.getElementById("buyMiningPower").onclick = buyMiningPower;
+ document.getElementById("unlockMiner").onclick = unlockDevelopmentMiner;
+ document.getElementById("buyMiner").onclick = buyDevelopmentMiner;
 document.getElementById("mineButton")
 .onclick = function(){
 
@@ -2697,6 +2708,7 @@ document.getElementById("mineButton")
     document.getElementById("buyDropper")
         .onclick = function(){
 
+        if(isMinerDevelopment() || pendingDevelopmentWrite) return;
         const cost =
             getDropperCost();
 
@@ -2731,6 +2743,7 @@ document.getElementById("mineButton")
 document.getElementById("buyMultiplier")
 .onclick = function(){
 
+    if(isMinerDevelopment() || pendingDevelopmentWrite) return;
     const cost =
         getMultiplierCost();
 
@@ -2766,7 +2779,9 @@ setInterval(function(){
 
 setInterval(function(){
 
-    updateAutoFurnace();
+    if(pendingDevelopmentWrite) return;
+    updateDevelopmentMiner();
+    if(!pendingDevelopmentWrite) updateAutoFurnace();
 
 }, 100);
 
@@ -3529,6 +3544,23 @@ document.getElementById(
 }
 
 function confirmSmelt(){
+    if(isMinerDevelopment()){
+        if(autoFurnaceState.processing || pendingDevelopmentWrite) return;
+        const success = developmentCommand(next => {
+            const {key, amount, value} = pendingSmelt;
+            developmentOre(key);
+            if(!Number.isInteger(amount) || amount <= 0 || amount > next.inventory[key] || !Number.isFinite(value) || value < 0) throw Error("Invalid Furnace selection");
+            const remaining = next.inventory[key] - amount;
+            if(remaining + amount !== next.inventory[key] || next.inventory[key] - remaining !== amount) throw Error("Inventory precision exhausted");
+            next.inventory[key] = remaining;
+            next.cash = exactDevelopmentAdd(next.cash, amount * value);
+            next.achievementStats.oresSmelted = exactDevelopmentAdd(next.achievementStats.oresSmelted, amount);
+            next.factoryXP = exactDevelopmentAdd(next.factoryXP, amount);
+            prepareDevelopmentProgress(next);
+        });
+        if(success){ closeSmeltConfirm(); buildFurnaceMenu(); }
+        return;
+    }
 
     if(autoFurnaceState.processing){
 
@@ -4085,4 +4117,264 @@ function resetSave(){
 document.getElementById("exportRawSave").onclick = exportRecoverySave;
 document.getElementById("retrySaveLoad").onclick = attemptSaveLoad;
 document.getElementById("resetRecoverySave").onclick = resetRecoverySave;
+// V1-GAME01: private development profile. Not public V2 activation.
+let pendingDevelopmentWrite = null;
+function isMinerDevelopment(state = save){ return state.developmentProfile === "miner-1"; }
+function createMinerDevelopmentSave(){
+    return Object.assign(createDefaultSave(), {
+        developmentProfile: "miner-1",
+        shop: { miningPower: 0, minerUnlocked: false },
+        manual: { firstActionCompleted: false, equippedPickaxeId: "pickaxe:default", pickaxes: [] },
+        factory: { minerSlots: MinerCandidateModel.createSlotAccess(), miners: [] },
+        identity: { nextEntitySequence: 1, nextManualEquipSequence: 1 }
+    });
+}
+function developmentRecord(value, keys){
+    if(!value || typeof value !== "object" || Array.isArray(value) ||
+        Reflect.ownKeys(value).length !== keys.length || keys.some(key => {
+            const d = Object.getOwnPropertyDescriptor(value, key);
+            return !d || !d.enumerable || !("value" in d);
+        })) throw Error("Invalid development record");
+}
+function minerProjection(state){
+    return { cash: state.cash, shop: { minerUnlocked: state.shop.minerUnlocked },
+        factory: state.factory, identity: state.identity };
+}
+function developmentOre(id){
+    if(id === "stone") return { key: "stone", name: "Stone", emoji: "🪨", value: 1, xp: 1, tier: 0 };
+    for(const [index, ores] of [TIER_1_ORES,TIER_2_ORES,TIER_3_ORES,TIER_4_ORES].entries()){
+        if(ores.includes(id)) return { ...ORES[id], key: id, tier: index + 1 };
+    }
+    throw Error("Unknown resource");
+}
+function validateDevelopmentResult(actual, expected){
+    if(expected !== null && typeof expected === "object"){
+        if(Array.isArray(expected)){
+            if(!Array.isArray(actual) || actual.length !== expected.length || Reflect.ownKeys(actual).length !== actual.length + 1) throw Error("Invalid result array");
+        }else developmentRecord(actual, Object.keys(expected));
+        for(const key of Object.keys(expected)) validateDevelopmentResult(actual[key], expected[key]);
+    }else if(actual !== expected) throw Error("Invalid Miner result");
+}
+function minerResult(resourceId){
+    const ore = developmentOre(resourceId);
+    if(ore.tier === 4) throw Error("Tier 1 Miner cannot produce T4");
+    return { outputs: [InventoryModel.createLot({ resourceId, stage: "raw", refineCount: 0, amount: 1,
+        polishedValue: null, preRefinerValue: null, refineBonus: null })],
+        cashDelta: 0, factoryXPDelta: ore.xp, gemDustDelta: 0,
+        events: [{ type: "resourceAcquired", resourceId, stage: "raw", refineCount: 0, amount: 1 }] };
+}
+function validateDevelopmentSave(state){
+    if(!Object.prototype.hasOwnProperty.call(state, "developmentProfile")) return; // supported legacy mode
+    try{
+        if(!isMinerDevelopment(state)) throw Error("Unsupported development profile");
+        for(const key of Object.keys(createDefaultSave())) if(!Object.hasOwn(state, key)) throw Error("Missing development field: " + key);
+        for(const key of ["stone", ...ORE_KEYS]) if(!Object.hasOwn(state.inventory, key)) throw Error("Missing inventory counter");
+        developmentRecord(state.shop, ["miningPower", "minerUnlocked"]);
+        if(![0,1].includes(state.shop.miningPower) || state.shop.minerUnlocked && state.shop.miningPower !== 1)
+            throw Error("Invalid Mining Power prerequisite");
+        developmentRecord(state.manual, ["firstActionCompleted", "equippedPickaxeId", "pickaxes"]);
+        if(typeof state.manual.firstActionCompleted !== "boolean" || state.manual.equippedPickaxeId !== "pickaxe:default" ||
+            !Array.isArray(state.manual.pickaxes) || state.manual.pickaxes.length) throw Error("Unsupported Pickaxe state");
+        const projection = copySaveData(minerProjection(state));
+        if(!Array.isArray(projection.factory.miners) || projection.factory.miners.length > 1 ||
+            JSON.stringify(projection.factory.minerSlots) !== "[true,false,false,false,false]" || state.droppers !== 0)
+            throw Error("Only first Miner slot is active; legacy Droppers are retired");
+        for(const miner of projection.factory.miners){
+            const cycle = miner.cycle;
+            miner.cycle = null; // explicit idle projection; active data is validated below, never discarded from state
+            if(miner.tier !== 1 || miner.slot !== 1 || miner.oreLuckLevel !== 0 || !state.shop.minerUnlocked)
+                throw Error("Unsupported Miner ownership");
+            if(cycle === null) continue;
+            developmentRecord(cycle, ["id","phase","startedAtMs","durationMs","inputs","saleUnitValues","effectContext","result"]);
+            if(cycle.id !== miner.id + "/cycle:" + (miner.nextCycleSequence - 1) || miner.nextCycleSequence < 2)
+                throw Error("Invalid cycle identity");
+            CycleEffectContextModel.validateMetadata(cycle.effectContext, "miner", {
+                startedAtMs: cycle.startedAtMs, durationMs: cycle.durationMs, inputs: cycle.inputs, saleUnitValues: cycle.saleUnitValues });
+            const c = cycle.effectContext;
+            if(c.tier !== 1 || c.overallLuck !== 1 || c.rebirthOreLuckLevel !== 0 || c.localOreLuckLevel !== 0 || c.speedLevel !== 0)
+                throw Error("Unsupported bound effects");
+            if(cycle.phase === "reserved"){
+                if(cycle.result !== null) throw Error("Reserved cycle has result");
+            }else if(cycle.phase === "resolved"){
+                const expected = minerResult(cycle.result?.outputs?.[0]?.resourceId);
+                // Exact canonical nested shapes; JSON comparison is safe here after parsing or trusted construction.
+                validateDevelopmentResult(cycle.result, expected);
+            }else throw Error("Invalid cycle phase");
+        }
+        MinerCandidateModel.validateCandidate(projection, []);
+    }catch(error){
+        throw saveLoadError("DEVELOPMENT_INCOMPATIBLE", "Incompatible development save: " + error.message, error);
+    }
+}
+function exactDevelopmentAdd(before, amount){
+    const after = before + amount;
+    if(!Number.isFinite(after) || after - before !== amount || after - amount !== before) throw Error("Quantity precision exhausted");
+    return after;
+}
+function prepareDevelopmentProgress(state){
+    state.factoryLevel = getFactoryLevelFromXP(state.factoryXP);
+    for(const level of FACTORY_MILESTONES) if(state.factoryLevel >= level) state.factoryMilestones[level] = true;
+    for(const [id, achievement] of Object.entries(ACHIEVEMENTS)){
+        const value = achievement.type === "stat" ? state.achievementStats[achievement.stat] || 0 : state.factoryLevel;
+        if(value >= achievement.target && !state.achievements[id]?.unlocked)
+            state.achievements[id] = { unlocked: true, claimed: false };
+    }
+}
+function prepareDevelopmentAward(state, resourceId, amount, manual){
+    const ore = developmentOre(resourceId);
+    state.inventory[resourceId] = exactDevelopmentAdd(state.inventory[resourceId], amount);
+    state.totalOres = exactDevelopmentAdd(state.totalOres, amount);
+    const counter = ore.tier === 0 ? "stoneOres" : "tier" + ore.tier + "Ores";
+    state[counter] = exactDevelopmentAdd(state[counter], amount);
+    state.factoryXP = exactDevelopmentAdd(state.factoryXP, ore.xp * amount);
+    if(ore.tier){
+        if(state.oreCollection[resourceId] === 0) state.achievementStats.oresDiscovered++;
+        state.oreCollection[resourceId] = exactDevelopmentAdd(state.oreCollection[resourceId], amount);
+    }
+    if(manual){
+        state.lastOre = ore.emoji + " " + ore.name; state.lastOreValue = ore.value;
+        state.achievementStats.totalOresMined = exactDevelopmentAdd(state.achievementStats.totalOresMined, 1);
+        state.manual.firstActionCompleted = true;
+    }
+    prepareDevelopmentProgress(state);
+}
+function publishDevelopmentState(next){
+    const previous = save;
+    save = next;
+    document.getElementById("minerFeedback").textContent = "";
+    for(const id of ORE_KEYS) if(previous.oreCollection[id] === 0 && save.oreCollection[id] > 0){
+        const ore = developmentOre(id); showDiscoveryPopup(ore.emoji + " " + ore.name, ore.value);
+    }
+    for(const [id, progress] of Object.entries(save.achievements))
+        if(progress.unlocked && !previous.achievements[id]?.unlocked) pendingAchievement = ACHIEVEMENTS[id];
+    for(const level of FACTORY_MILESTONES)
+        if(save.factoryMilestones[level] && !previous.factoryMilestones[level]) pendingMilestone = level;
+    updateUI();
+}
+function retryDevelopmentWrite(){
+    if(!pendingDevelopmentWrite) return false;
+    try{
+        localStorage.setItem(SAVE_KEY, pendingDevelopmentWrite.serialized);
+    }catch(error){
+        document.getElementById("developmentWriteError").textContent = "Saving failed. Gameplay is paused. Free browser storage, then retry the same transaction. Your previous stored save is preserved.";
+        document.getElementById("developmentWriteRecovery").hidden = false;
+        document.getElementById("gameRoot").inert = true;
+        return false;
+    }
+    const next = pendingDevelopmentWrite.candidate;
+    pendingDevelopmentWrite = null;
+    document.getElementById("developmentWriteRecovery").hidden = true;
+    document.getElementById("gameRoot").inert = false;
+    publishDevelopmentState(next);
+    return true;
+}
+function commitDevelopmentState(candidate){
+    if(pendingDevelopmentWrite || recoveryState.active) return false;
+    validateSaveData(candidate); validateDevelopmentSave(candidate);
+    const serialized = JSON.stringify(candidate);
+    pendingDevelopmentWrite = { candidate, serialized };
+    return retryDevelopmentWrite();
+}
+function developmentCommand(prepare){
+    if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    try{ const next = copySaveData(save); prepare(next); return commitDevelopmentState(next); }
+    catch(error){ document.getElementById("minerFeedback").textContent = error.message; return false; }
+}
+function developmentDebit(cash, price){
+    const remaining = cash - price;
+    if(cash < price || !Number.isFinite(remaining) || remaining < 0 || remaining + price !== cash || cash - remaining !== price)
+        throw Error("Insufficient Cash or unrepresentable debit");
+    return remaining;
+}
+function buyMiningPower(){
+    return developmentCommand(next => {
+        if(next.shop.miningPower !== 0) throw Error("Mining Power I is already owned");
+        const cost = CashPricingModel.calculateCashPrice(250, { category: "miningPower", discountLevel: 0 });
+        next.cash = developmentDebit(next.cash, cost);
+        next.shop.miningPower = 1;
+    });
+}
+function unlockDevelopmentMiner(){
+    return developmentCommand(next => {
+        if(next.shop.miningPower !== 1) throw Error("Purchase Mining Power I first");
+        if(next.shop.minerUnlocked) throw Error("Miners are already unlocked");
+        next.cash = developmentDebit(next.cash, CashPricingModel.calculateCashPrice(100, { category: "unlockMiner", discountLevel: 0 }));
+        next.shop.minerUnlocked = true;
+    });
+}
+function buyDevelopmentMiner(){
+    return developmentCommand(next => {
+        const result = MinerCandidateModel.preparePurchase(minerProjection(next), 1, { discountLevel: 0, preservationLevel: 0 }, []);
+        next.cash = result.cash; next.factory = result.factory; next.identity = result.identity;
+    });
+}
+function mineDevelopmentOre(){
+    return developmentCommand(next => {
+        const tier = next.manual.firstActionCompleted ? rollManualTier() : 0;
+        const ore = tier === 0 ? developmentOre("stone") : getRandomOre([TIER_1_ORES,TIER_2_ORES,TIER_3_ORES,TIER_4_ORES][tier - 1]);
+        const power = 0.25 * (DEFAULT_PICKAXE.rawPower + 2 * next.shop.miningPower);
+        const amount = Math.floor(power) + (power % 1 > 0 && Math.random() < power % 1 ? 1 : 0);
+        prepareDevelopmentAward(next, ore.key, amount, true);
+    });
+}
+function updateDevelopmentMiner(){
+    if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active || !save.factory.miners.length) return;
+    const now = Date.now(), miner = save.factory.miners[0];
+    const cycle = miner.cycle;
+    if(cycle === null){
+        developmentCommand(next => {
+            const m = next.factory.miners[0];
+            if(m.nextCycleSequence >= Number.MAX_SAFE_INTEGER) throw Error("Miner sequence exhausted");
+            m.cycle = { id: m.id + "/cycle:" + m.nextCycleSequence++, phase: "reserved", startedAtMs: now,
+                durationMs: MinerTierModel.getProductionInterval(m.tier, 0) * 1000, inputs: [], saleUnitValues: null,
+                effectContext: { version: 1, kind: "miner", tier: m.tier, overallLuck: 1, rebirthOreLuckLevel: 0, localOreLuckLevel: m.oreLuckLevel, speedLevel: 0 }, result: null };
+        });
+    }else if(cycle.phase === "reserved" && now >= cycle.startedAtMs + cycle.durationMs){
+        developmentCommand(next => {
+            const c = next.factory.miners[0].cycle, effects = c.effectContext;
+            const probabilities = MinerTierModel.getTierProbabilities(effects.tier, effects.overallLuck);
+            const roll = Math.random(); let cumulative = 0, tier = 3;
+            for(let i = 0; i <= 3; i++){
+                cumulative += probabilities[i === 0 ? "stone" : "tier" + i];
+                if(roll < cumulative){ tier = i; break; }
+            }
+            const id = tier === 0 ? "stone" : MinerOreLuckModel.selectOreId(tier, effects.rebirthOreLuckLevel, effects.localOreLuckLevel, Math.random());
+            c.result = minerResult(id); c.phase = "resolved";
+        });
+    }else if(cycle.phase === "resolved"){
+        developmentCommand(next => {
+            const m = next.factory.miners[0], output = m.cycle.result.outputs[0];
+            prepareDevelopmentAward(next, output.resourceId, output.amount, false);
+            m.cycle = null;
+        });
+    }
+    renderDevelopmentMiner();
+    // Complete this one operation, then reserve at NOW, never at an old deadline.
+    if(!pendingDevelopmentWrite && cycle !== null && save.factory.miners[0].cycle !== cycle)
+        updateDevelopmentMiner();
+}
+function renderDevelopmentMiner(){
+    const active = isMinerDevelopment();
+    document.getElementById("minerPanel").hidden = !active;
+    document.getElementById("miningPowerCard").hidden = !active;
+    document.getElementById("legacyModeNotice").hidden = active;
+    document.getElementById("legacyDropperOverview").hidden = active;
+    document.getElementById("dropperCard").hidden = active;
+    document.getElementById("multiplierCard").hidden = active;
+    if(!active) return;
+    const miner = save.factory.miners[0], unlocked = save.shop.minerUnlocked;
+    document.getElementById("buyMiningPower").disabled = save.shop.miningPower === 1 || save.cash < 250;
+    document.getElementById("buyMiningPower").textContent = save.shop.miningPower ? "Purchased" : "Buy Mining Power I · $250";
+    document.getElementById("unlockMiner").disabled = unlocked || !save.shop.miningPower || save.cash < 100;
+    document.getElementById("unlockMiner").textContent = unlocked ? "Miner system unlocked" : "Unlock Miners · $100";
+    document.getElementById("buyMiner").disabled = !unlocked || !!miner || save.cash < 100;
+    document.getElementById("buyMiner").textContent = miner ? "Slot 1 occupied" : "Buy Tier 1 Miner · $100";
+    document.getElementById("minerStatus").textContent = miner ? "Tier 1 Miner · 1 resource per 5-second cycle" : unlocked ? "Slot 1 is free and vacant. Purchase your Miner separately." : "Requires Mining Power I. Unlocking does not buy a machine.";
+    const c = miner?.cycle;
+    const progress = c ? Math.max(0, Math.min(100, (Date.now() - c.startedAtMs) / c.durationMs * 100)) : 0;
+    document.getElementById("minerProgress").value = progress;
+    document.getElementById("minerCycleStatus").textContent = c?.phase === "resolved" ? "Output resolved · awaiting saved delivery" : c ? "Mining… " + Math.floor(progress) + "%" : miner ? "Ready for the next cycle" : "No Miner owned";
+}
+
+document.getElementById("retryDevelopmentWrite").onclick = retryDevelopmentWrite;
 attemptSaveLoad();

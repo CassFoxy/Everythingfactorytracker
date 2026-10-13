@@ -83,6 +83,82 @@ const server = http.createServer((req, res) => {
             await app.context.close();
             return before;
         }
+        for(const [width,height] of [[1920,1080],[1366,768],[390,844]]) {
+            const app=await session(null), {page}=app;
+            await page.setViewportSize({width,height});
+            assert.equal(await page.locator('#buyMiningPower').isDisabled(),true);
+            assert.equal(await page.evaluate(()=>unlockDevelopmentMiner()),false);
+            assert.equal(await page.evaluate(()=>buyDevelopmentMiner()),false);
+            // Real clicks through the real entry point; deterministic Stone, no injected Cash.
+            await page.evaluate(()=>{ for(let i=0;i<450;i++) document.getElementById('mineButton').click(); });
+            assert.equal(await page.evaluate(()=>save.inventory.stone),450);
+            await page.getByRole('button',{name:'🔥 Open Furnace',exact:true}).click();
+            for(let batch=0;batch<45;batch++) {
+                await page.getByRole('button',{name:'Select',exact:true}).click();
+                await page.getByRole('button',{name:'100%',exact:true}).click();
+                await page.getByRole('button',{name:'Confirm',exact:true}).click();
+            }
+            await page.evaluate(()=>closeFurnace());
+            assert.equal(await page.evaluate(()=>save.cash),450);
+            await page.locator('#buyMiningPower').click();
+            assert.equal(await page.locator('#buyMiningPower').textContent(),'Purchased');
+            await page.locator('#unlockMiner').click();
+            assert.equal(await page.evaluate(()=>save.factory.miners.length),0);
+            assert.equal(await page.evaluate(()=>unlockDevelopmentMiner()),false);
+            await page.locator('#buyMiner').click();
+            assert.equal(await page.evaluate(()=>buyDevelopmentMiner()),false);
+            assert.equal(await page.evaluate(()=>save.cash),0);
+            assert.equal(await page.locator('#dropperCard').isVisible(),false);
+            assert.equal(await page.locator('#legacyDropperOverview').isVisible(),false);
+            await page.evaluate(()=>testIntervals.find(t=>t.ms===100).callback());
+            const reserved=await page.evaluate(()=>JSON.parse(JSON.stringify(save.factory.miners[0])));
+            assert.equal(reserved.cycle.durationMs,5000);
+            await page.evaluate(()=>{ testNow+=5000; testIntervals.find(t=>t.ms===100).callback(); });
+            assert.equal(await page.evaluate(()=>save.inventory.stone),1);
+            assert.equal(await page.evaluate(()=>save.achievementStats.totalOresMined),450);
+            const id=await page.evaluate(()=>save.factory.miners[0].id);
+            await page.reload();
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].id),id);
+            await page.evaluate(()=>{ testNow=save.factory.miners[0].cycle.startedAtMs+3600000; testIntervals.find(t=>t.ms===100).callback(); });
+            assert.equal(await page.evaluate(()=>save.inventory.stone),2);
+            await page.evaluate(()=>{ for(let i=0;i<10;i++) testIntervals.find(t=>t.ms===100).callback(); testIntervals.find(t=>t.ms===1000).callback(); });
+            assert.equal(await page.evaluate(()=>save.inventory.stone),2);
+            assert.equal(await page.evaluate(()=>save.droppers),0);
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+            await page.evaluate(()=>{testNow+=2500;testIntervals.find(t=>t.ms===100).callback();scrollTo(0,0);});
+            if(process.env.TEFI_UI_SCREENSHOTS){
+                fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});
+                await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`miner-${width}.png`),fullPage:true});
+            }
+            assert.deepEqual(app.errors,[]); await app.context.close();
+            console.log(`PASS Chromium: playable Miner opening, 450 mined/smelted Stone, purchases, cycle, reload and no double output at ${width}x${height}.`);
+        }
+        {
+            const app=await session(null),{page}=app;
+            await page.evaluate(()=>{save.cash=450;buyMiningPower();unlockDevelopmentMiner();window.realSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota');};});
+            const before=await page.evaluate(()=>JSON.stringify(save));
+            await page.locator('#buyMiner').click();
+            assert.equal(await page.evaluate(()=>JSON.stringify(save)),before);
+            assert.equal(await page.locator('#developmentWriteRecovery').isVisible(),true);
+            await page.evaluate(()=>{Storage.prototype.setItem=realSetItem;});
+            await page.locator('#retryDevelopmentWrite').click();
+            assert.equal(await page.evaluate(()=>save.factory.miners.length),1);
+            assert.equal(await page.evaluate(()=>save.cash),0);
+            await page.evaluate(()=>{const bad=JSON.parse(localStorage.getItem('ef_incremental'));bad.developmentProfile='miner-unsupported';localStorage.setItem('ef_incremental',JSON.stringify(bad));});
+            const raw=await page.evaluate(()=>localStorage.getItem('ef_incremental'));
+            await page.reload();
+            assert.equal(await page.locator('#saveRecovery').isVisible(),true);
+            assert.match(await page.locator('#recoveryReason').textContent(),/incompatible development save/i);
+            const download=page.waitForEvent('download');await page.locator('#exportRawSave').click();await download;
+            page.once('dialog',dialog=>dialog.dismiss()); await page.locator('#resetRecoverySave').click();
+            assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),raw);
+            page.once('dialog',dialog=>dialog.accept()); await page.locator('#resetRecoverySave').click();
+            assert.equal(await page.evaluate(()=>save.developmentProfile),'miner-1');
+            assert.equal(await page.evaluate(()=>save.factory.miners.length),0);
+            assert.deepEqual(app.errors,[]); await app.context.close();
+            console.log('PASS Chromium: failed Miner purchase retry and incompatible development export/confirmed reset.');
+        }
+
         for (const [width, height] of [[1920, 1080], [1366, 768], [768, 1024], [390, 844]]) {
             const app = await session(JSON.stringify({ cash: 10000, factoryXP: 2500, droppers: 0, adders: 0, multipliers: 0 }));
             const { page } = app;
@@ -176,7 +252,7 @@ const server = http.createServer((req, res) => {
         await fresh.context.close();
         console.log("PASS Chromium: fresh $0/XP 0/Level 0, progress boundary, mining and reload.");
 
-        const manual = await session(null);
+        const manual = await session(JSON.stringify({cash:0,factoryXP:0,droppers:0,adders:0,multipliers:0}));
         // This roll formerly selected T4; Default access must redirect it into T2.
         await manual.page.evaluate(() => { Math.random = () => 0; });
         await manual.page.locator("#mineButton").click();
@@ -343,3 +419,4 @@ const server = http.createServer((req, res) => {
         await new Promise(resolve => server.close(resolve));
     }
 })().catch(error => { console.error(error); process.exitCode = 1; });
+

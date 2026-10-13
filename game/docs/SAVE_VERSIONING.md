@@ -1,5 +1,28 @@
 # Save schema version 1 — accepted persistence foundation
 
+## V1-GAME01 — approved private development activation (2026-10-13)
+
+The owner authorizes development save resets for this private, unreleased prototype. Fresh games now use **saveVersion 1 plus developmentProfile: "miner-1"**, a deliberately bounded profile, **not the complete V2 schema**. No V1→V2 migration is activated. The existing storage key and whole-object JSON write remain.
+
+Required additional fields in this profile:
+
+- `shop:{miningPower:0|1,minerUnlocked:Boolean}`; unlocking requires Mining Power I.
+- `manual:{firstActionCompleted:Boolean,equippedPickaxeId:"pickaxe:default",pickaxes:[]}`. The first action is Stone; the flag and award save together. Later actions keep the existing Default tier access/selection. Mining Power uses 0.25 × (4 + 2 × level), with an independent fractional quantity roll. No material or duplication consumer is activated.
+- `identity:{nextEntitySequence,nextManualEquipSequence}`, positive safe counters; purchase consumes one entity sequence.
+- `factory:{minerSlots:[true,false,false,false,false],miners:[]}`, at most one canonical Tier 1, local-Ore-Luck-0 Miner in slot 1. Its investment, operation counter, and nullable Cycle use the V2 field shapes. No other future factory groups are implied.
+
+All existing baseline fields and inventory resource counters are required in a stored development profile. The new groups are validated, never defaulted into a damaged development record. Unknown baseline compatibility data is retained; the new narrow records reject extra fields. Unsupported development profiles, invalid ownership/counters/cycles/results, and missing profile fields stop startup. Original bytes remain available through recovery export, retry, and confirmation-required Start Fresh. Existing supported untagged V0/V1 saves still load in **labelled legacy mode**, preserving their Dropper and Furnace behavior; no Miner is reconstructed from them. To enter the new progression, export if desired and explicitly reset. No valid legacy save is silently deleted. Normal reloads retain the chosen profile.
+
+Fresh profile Droppers are retired (zero ownership, hidden/rejected purchase, no timer output). The ineffective legacy Multiplier purchase is also hidden/rejected there; legacy mode keeps it. Existing Adder/Furnace behavior remains separate. The first Miner uses its own model-driven 5-second cycle and is never a converted Dropper.
+
+Mining Power I costs $250, Unlock Miner $100, and the separate Miner $100. CashPricingModel applies the approved categories, with Discount level 0 because this slice exposes no permanent Discount purchase. MinerCandidateModel constructs the entity and actual purchase ledger. Purchases save the complete validated candidate before publishing Cash, ownership or success.
+
+A single existing 100ms gameplay callback services the Miner; UI progress never grants output. Reserve writes the canonical ID (`miner:<n>/cycle:<sequence>`), time and version-1 effects. Resolve writes one canonical raw output/result using MinerTierModel and MinerOreLuckModel. Commit writes inventory, approved base resource XP, generated-resource tier/total counters, unique ore discovery/Collection and existing eligible achievement/milestone facts with the cycle cleared. Automated output never increments the manual-action achievement counter or replaces the last manually mined display. No new challenge effects are inferred. Notifications occur after the write. Next reservation starts at the present time, never an old deadline. A reopened overdue reservation resolves once; a resolved result is delivered without rerolling; a future timestamp retains its remaining wait. No repeated offline cycles.
+
+A failed Miner/manual-development transaction write retains the exact serialized candidate, publishes none of it, and pauses conflicting gameplay behind a visible Retry control. Retry writes that candidate, including any already-rolled result; reload instead recovers the last durable snapshot. The private profile uses the same durable candidate boundary for manual Furnace sales. Existing legacy Furnace reservation formulas/timestamps remain unchanged. This is a single-page/single-writer assumption, not multi-tab or external-tampering protection, and not the general V1-050C2 coordinator.
+
+**Replaced only for private development:** complete legacy machine reconstruction/compensation, full migrated-machine consumer coverage and public V2 activation are not prerequisites to this fresh-profile slice. **Still mandatory:** validated state, explicit confirmed reset, no speculative Miner awards, exclusive cycle identity, original effect/timing binding, exactly-once delivery relative to successful whole-state writes, and visible failures. Public release still needs an explicit supported-save policy and complete validators/consumers for all included features. This reset exception does not certify public compatibility or complete V1-017/018. Tier upgrades, local upgrades, extra slots, resale, grid placement, Rebirth and the other new machines remain unimplemented.
+
 ## Current baseline and future contract — V1-016
 
 Production remains **saveVersion 1**, including accepted V1-021A: fresh Cash/XP/Level are 0/0/0. Existing Cash/XP are retained; absent legacy XP still defaults to 100. Factory Level is a non-negative compatibility cache derived from XP on initialization, updates, display and save. Older ticket reports below record their original results and are not a claim that the old $100/Level-1 defaults remain current.
