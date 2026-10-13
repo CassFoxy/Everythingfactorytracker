@@ -83,6 +83,76 @@ const server = http.createServer((req, res) => {
             await app.context.close();
             return before;
         }
+        for (const [width, height] of [[1920, 1080], [1366, 768], [768, 1024], [390, 844]]) {
+            const app = await session(JSON.stringify({ cash: 10000, factoryXP: 2500, droppers: 0, adders: 0, multipliers: 0 }));
+            const { page } = app;
+            await page.setViewportSize({ width, height });
+            assert.equal(await page.locator('.game-layout > section').count(), 3);
+            const geometry = await page.evaluate(() => {
+                const ids = [...document.querySelectorAll('[id]')].map(el => el.id);
+                const panels = [...document.querySelectorAll('.game-layout > section')].map(el => {
+                    const r = el.getBoundingClientRect(); return { x:r.x, y:r.y, right:r.right };
+                });
+                return { duplicate: ids.length !== new Set(ids).size, overflow: document.documentElement.scrollWidth > innerWidth, panels };
+            });
+            assert.equal(geometry.duplicate, false); assert.equal(geometry.overflow, false);
+            if (width >= 1100) assert.equal(geometry.panels[0].y, geometry.panels[2].y);
+            if (width < 700) assert.ok(geometry.panels[1].y > geometry.panels[0].y);
+            await page.locator('#mineButton').click();
+            assert.equal(await page.locator('#lastOre').textContent(), '🪨 Stone');
+            assert.equal(await page.locator('#factoryXP').textContent(), await page.evaluate(() => formatXP(2501) + ' / ' + formatXP(3600)));
+            for (const [button, modal] of [['Inventory','inventoryModal'], ['Collection Book','collectionModal'], ['Statistics','statsModal'], ['Milestones','milestonesModal'], ['Achievements','achievementsModal']]) {
+                await page.getByRole('button', { name:new RegExp(button) }).click();
+                assert.equal(await page.locator('#'+modal).isVisible(), true);
+                const bounds = await page.locator('#'+modal+' .modal-content').boundingBox();
+                assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width);
+                await page.locator('#'+modal).getByRole('button', { name:'Close', exact:true }).click();
+                assert.equal(await page.locator('#'+modal).isVisible(), false);
+            }
+            const purchaseTotal = await page.evaluate(() => getDropperCost() + getAdderCost() + getMultiplierCost());
+            for (const name of ['Dropper','Adder','Multiplier']) await page.locator('#buy'+name).click();
+            assert.deepEqual(await page.evaluate(() => [save.droppers,save.adders,save.multipliers]), [1,1,1]);
+            assert.equal(await page.evaluate(() => save.cash), 10000 - purchaseTotal);
+            assert.equal(await page.locator('#cash').textContent(), await page.evaluate(() => '$' + formatCash(save.cash)));
+            assert.notEqual(await page.locator('#dropperCost').textContent(), '10');
+            await page.evaluate(() => testIntervals.find(t => t.ms === 1000).callback());
+            assert.equal(await page.evaluate(() => save.inventory.stone), 2);
+            await page.getByRole('button', { name:'🔥 Open Furnace', exact:true }).click();
+            await page.getByRole('button', { name:'Select', exact:true }).click();
+            await page.getByRole('button', { name:'100%', exact:true }).click();
+            await page.getByRole('button', { name:'Confirm', exact:true }).click();
+            await page.locator('#furnaceModal').getByRole('button', { name:'Close', exact:true }).click();
+            assert.equal(await page.evaluate(() => save.inventory.stone), 0);
+            await page.evaluate(() => { save.furnaceTier = 2; updateUI(); updateAutoFurnaceUI(); });
+            assert.equal(await page.locator('#autoFurnaceModeSelect').isVisible(), true);
+            await page.locator('#autoFurnaceModeSelect').selectOption('stoneOnly');
+            await page.locator('#autoFurnaceBatchModeSelect').selectOption('full');
+            assert.equal(await page.evaluate(() => save.autoFurnaceMode), 'stoneOnly');
+            await page.locator('#autoFurnaceToggle').click();
+            assert.equal(await page.evaluate(() => autoFurnaceState.enabled), false);
+            await page.locator('#autoFurnaceToggle').click();
+            assert.equal(await page.evaluate(() => autoFurnaceState.enabled), true);
+            await page.locator('#autoFurnaceBatchModeSelect').selectOption('available');
+            await page.keyboard.press('Tab');
+            await page.locator('#mineButton').focus();
+            assert.equal(await page.locator('#mineButton').evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
+            await page.evaluate(() => window.scrollTo(0,0));
+            if (process.env.TEFI_UI_SCREENSHOTS) {
+                fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS, { recursive:true });
+                await page.screenshot({ path:path.join(process.env.TEFI_UI_SCREENSHOTS, 'tefi-'+width+'.png'), fullPage:true });
+            }
+            await page.locator('.dev-tools summary').click();
+            page.once('dialog', dialog => dialog.dismiss());
+            await page.getByRole('button', { name:'⚠ Reset Save', exact:true }).click();
+            assert.equal(await page.evaluate(() => save.droppers), 1);
+            page.once('dialog', dialog => dialog.accept());
+            await page.getByRole('button', { name:'⚠ Reset Save', exact:true }).click();
+            await page.waitForFunction(() => save.cash === 0);
+            assert.equal(await page.locator('#buyDropper').isDisabled(), true);
+            assert.deepEqual(app.errors, []);
+            await app.context.close();
+            console.log('PASS Chromium: earthy layout, controls, purchases, reset and no overflow at '+width+'×'+height+'.');
+        }
         const fresh = await session(null);
         async function assertProgress(page, cash, xp, level, width) {
             assert.deepEqual(await page.evaluate(() => [save.cash, save.factoryXP, save.factoryLevel]),

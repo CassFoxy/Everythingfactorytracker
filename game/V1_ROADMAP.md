@@ -4,6 +4,14 @@ Updated 6 October 2026 after owner approval of the consolidated design handoff. 
 
 ## Authority and status
 
+### V1-UI01 — Earthy, Compact Incremental Gameplay Layout
+
+**Status: ✅ COMPLETE (current prototype UI scope).** The actual `/game/` page now uses a persistent Cash/XP/Level header and Mining / Factory / Shop columns, stacking responsively. Sandstone borders, copper controls, moss progress and CSS block-shaped ore decoration follow the owner's supplied earthy brief; no separate artwork brief was found. Existing IDs, mining, purchase gates/costs, automatic Dropper production, Furnace controls, modals and saves are retained. Rendering-only JavaScript adds affordability states, accessible XP progress and the owned-Dropper overview. No save reset or machine migration is required.
+
+Four syntax checks and 370 Node regressions pass. Browser coverage now includes 16 scenarios: the 12 existing checks plus real UI interactions at 1920×1080, 1366×768, 768×1024 and 390×844, with no duplicate IDs, horizontal overflow or unexpected console errors. Screenshots were captured and inspected. GitHub Pages serves static `game/index.html` at `/Everythingfactorytracker/game/`; merging to main triggers the existing Pages deployment. Future Miner/Polisher/Refiner/Furnace integration, durable coordination and V2 activation remain outstanding.
+
+Next playable ticket: a bounded first-Miner vertical slice (purchase and first automated output in the new factory panel), after explicitly satisfying its ownership/persistence/activation prerequisites. Do not treat pure models as live gameplay or bypass the V2 gate. Not implemented by V1-UI01.
+
 Follow [AGENTS.md](AGENTS.md), then the owner-approved [handoff](docs/TEFI_Consolidated_Development_Specification.md), the synchronized [Game Bible](docs/GAME_BIBLE.md), this roadmap and existing implementation, in that order for this synchronization. The Bible carries canonical gameplay; the handoff remains a reference, not a replacement Bible.
 
 Retain existing implementation statuses: **✅ COMPLETE** (implemented, tested and accepted for the named scope), **🟠 IN PROGRESS** (prototype/components exist, requirements remain), **⚪ NOT STARTED**, **🟣 DESIGN REQUIRED**, **🔵 REVIEW REQUIRED**. A separate **Design: DESIGN COMPLETE / READY** qualifier never marks implementation complete. **Design: DEFERRED** means excluded from the current implementation phase. **Recommended** values remain proposals.
