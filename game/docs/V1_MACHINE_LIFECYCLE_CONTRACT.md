@@ -1,5 +1,7 @@
 # V1-070 — Independent Machine Lifecycle Contract
 
+**Private development exception — V1-GAME01:** The owner approved a fresh-only playable Tier 1 Miner profile, identified by `developmentProfile:"miner-1"` within schema 1. See [the exact development save/activation boundary](SAVE_VERSIONING.md#v1-game01--approved-private-development-activation-2026-10-13). This bounded runtime now uses canonical Miner/Cycle records; the complete V2 schema and public migration/activation remain gated. No historical machine reconstruction or compensation is claimed. Existing untagged saves keep their legacy mode; incompatible profiles require export/explicit confirmed reset. This scoped exception supersedes blanket “no entity runtime” wording below for GAME01 only. T1 semantics and all unrelated design gates remain unchanged.
+
 **Status:** Technical contract complete; gated transitions remain blocked. **Production saveVersion: 1.** No entity runtime, transaction coordinator, simulator or V2 writer is implemented by this document.
 
 Follow [AGENTS.md](../AGENTS.md), the [Game Bible](GAME_BIBLE.md), [owner handoff](TEFI_Consolidated_Development_Specification.md), [V2 state contract](V2_STATE_CONTRACT.md) and [current save contract](SAVE_VERSIONING.md). The V2 contract owns serialized fields, types, defaults and lifetimes; this document defines how future consumers use them. Defined gameplay remains canonical; Recommended, Open and Deferred material is not promoted. No cost/rarity catalogue is replaced here.

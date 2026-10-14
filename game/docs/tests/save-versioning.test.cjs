@@ -2227,7 +2227,7 @@ test("candidate helpers never attach machine entities to fresh or legacy/current
         assert.equal(after.saveVersion, 1);
         assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
         for (const field of ["factory", "identity", "shop", "investment", "miners", "minerSlots"])
-            assert.equal(Object.hasOwn(after, field), false);
+            assert.equal(Object.hasOwn(after, field), Object.hasOwn(before, field));
         assert.deepEqual(saveAndReload(app).state(), after);
     }
 });
@@ -2444,7 +2444,7 @@ test("candidate investment operations leave live schema-1 saves and legacy trans
         assert.equal(after.saveVersion, 1);
         assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
         for (const field of ["investment", "entries", "payments", "refund", "factory", "shop", "identity", "compatibility"])
-            assert.equal(Object.hasOwn(after, field), false, field);
+            assert.equal(Object.hasOwn(after, field), Object.hasOwn(before, field), field);
         assert.deepEqual(saveAndReload(app).state(), after);
     }
 });
@@ -2590,7 +2590,7 @@ test("pure Cash quotes preserve schema-1 state and legacy purchase behavior", ()
         assert.equal(after.saveVersion, 1);
         assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
         for (const key of ["shop", "investment", "payments", "discountLevel", "factoryPurchaseDiscount", "factory"])
-            assert.equal(Object.hasOwn(after, key), false, key);
+            assert.equal(Object.hasOwn(after, key), Object.hasOwn(before, key), key);
         assert.deepEqual(saveAndReload(app).state(), after);
     }
 });
@@ -2837,7 +2837,7 @@ test("unused candidate models leave fresh and existing schema-1 saves and gamepl
         assert.equal(after.saveVersion, 1);
         assert.ok(Object.values(after.inventory).every(Number.isInteger));
         for (const key of ["manual", "manualProgress", "pickaxes", "materials", "processedInventory", "identity", "factory", "compatibility"])
-            assert.equal(Object.hasOwn(after, key), false, key);
+            assert.equal(Object.hasOwn(after, key), Object.hasOwn(before, key), key);
         app = saveAndReload(app);
         assert.deepEqual(app.state(), after);
     }
@@ -2861,7 +2861,7 @@ test("Default Pickaxe is unconditional runtime state for fresh and legacy/curren
             assert.equal(app.state().saveVersion, 1);
             for (const key of ["manualProgress", "manual", "firstActionCompleted", "pickaxes",
                 "pickaxeId", "equippedPickaxeId", "durability", "identity", "materials"])
-                assert.equal(Object.hasOwn(app.state(), key), false, key);
+                assert.equal(Object.hasOwn(app.state(), key), Object.hasOwn(before, key), key);
         }
     }
 });
@@ -2881,7 +2881,7 @@ test("Default weights remove locked tiers before normalization without a manual 
 });
 
 test("Default manual boundary rolls select only Stone, T1 or T2 including former rare-tier rolls", () => {
-    const app = ready();
+    const app = ready(JSON.stringify({cash:0,factoryXP:0,droppers:0,adders:0,multipliers:0}));
     const t2End = 250 / 249994;
     const oreEnd = t2End + 10000 / 249994;
     const cases = [[0, 2], [Number.MIN_VALUE, 2], [0.000004, 2], [0.000024, 2],
@@ -2905,7 +2905,7 @@ test("Default manual boundary rolls select only Stone, T1 or T2 including former
 });
 
 test("accessible T2 award retains quantity, discovery, XP, achievements and reload", () => {
-    let app = ready();
+    let app = ready(JSON.stringify({cash:0,factoryXP:0,droppers:0,adders:0,multipliers:0}));
     // First action still rolls normally; no first-Stone lifecycle is introduced.
     app.run("Math.random = () => 0; mineOre(); updateUI();");
     assert.equal(app.state().inventory.citrine, 1);
@@ -2938,11 +2938,11 @@ test("manual access does not change automated Stone production or duplication", 
     assert.equal(app.run("ORE_KEYS.every(key => save.inventory[key] === 0)"), true);
 });
 
-test("canonical factory creates the complete fresh state and a valid round trip", () => {
+test("development factory creates the complete fresh state and a valid round trip", () => {
     const app = ready();
-    const defaults = JSON.parse(app.run("JSON.stringify(createDefaultSave())"));
+    const defaults = JSON.parse(app.run("JSON.stringify(createMinerDevelopmentSave())"));
     assert.deepEqual(app.state(), defaults);
-    app.run("validateSaveData(createDefaultSave()); saveGame();");
+    app.run("validateSaveData(createMinerDevelopmentSave()); saveGame();");
     assert.deepEqual(ready(app.stored()).state(), defaults);
 });
 
@@ -2950,7 +2950,7 @@ test("canonical saves own every mutable nested value independently", () => {
     const app = ready();
     const before = app.state();
     app.run(`
-        const isolated = createDefaultSave();
+        const isolated = createMinerDevelopmentSave();
         isolated.inventory.stone = 99;
         isolated.oreCollection.diamond = 2;
         isolated.factoryMilestones[10] = true;
@@ -2962,13 +2962,13 @@ test("canonical saves own every mutable nested value independently", () => {
         isolated.cosmetics.equipped.furnace = "test";
         isolated.autoFurnaceBatch.push({ test: true });
     `);
-    assert.deepEqual(JSON.parse(app.run("JSON.stringify(createDefaultSave())")), before);
+    assert.deepEqual(JSON.parse(app.run("JSON.stringify(createMinerDevelopmentSave())")), before);
     assert.deepEqual(app.state(), before);
     assert.equal(app.run("isolated.cycleBonuses.oreValue"), 0);
 });
 
 test("each missing optional top-level field uses canonical defaults with the preserved XP exception", () => {
-    const defaults = ready().state();
+    const defaults = JSON.parse(ready().run("JSON.stringify(createDefaultSave())"));
     for (const key of Object.keys(defaults)) {
         if (["saveVersion", "cash", "droppers", "adders", "multipliers"].includes(key)) continue;
         const partial = structuredClone(defaults);
@@ -2983,7 +2983,7 @@ test("each missing optional top-level field uses canonical defaults with the pre
 });
 
 test("every missing nested default is restored without replacing its populated siblings", () => {
-    const defaults = ready().state();
+    const defaults = JSON.parse(ready().run("JSON.stringify(createDefaultSave())"));
     const paths = [];
     function leaves(value, prefix = []) {
         for (const [key, child] of Object.entries(value)) {
@@ -3894,7 +3894,7 @@ function ready(raw) {
 }
 
 function legacyFixture() {
-    const data = ready().state();
+    const data = JSON.parse(ready().run("JSON.stringify(createDefaultSave())"));
     delete data.saveVersion;
     Object.assign(data, { cash: 12345, droppers: 4, adders: 2, multipliers: 1,
         stoneValue: 3, factoryXP: 1234, factoryLevel: 3, furnaceTier: 2,
@@ -4078,7 +4078,7 @@ test("mine, buy Dropper, produce, manually smelt and reload preserve the normal 
 });
 
 test("ore discovery, achievements, milestones, costs and furnace tiers retain current behavior", () => {
-    const app = ready();
+    const app = ready(JSON.stringify({cash:0,factoryXP:0,droppers:0,adders:0,multipliers:0}));
     app.run("Math.random = () => 0.01; mineOre(); updateUI();");
     assert.equal(app.state().inventory.amber, 1);
     assert.equal(app.state().oreCollection.amber, 1);
@@ -4125,4 +4125,141 @@ test("Reset Save still requires confirmation and creates a versioned fresh save 
     assert.equal(app.stored(), null);
     assert.equal(app.reloaded(), true);
     assert.equal(ready(app.stored()).state().saveVersion, 1);
+});
+
+// GAME01 integration uses real game handlers, storage and controlled clock/RNG.
+function ownedDevelopmentMiner() {
+    const app = ready();
+    app.run('save.cash=450; buyMiningPower(); unlockDevelopmentMiner(); buyDevelopmentMiner();');
+    assert.equal(app.state().factory.miners.length, 1);
+    return app;
+}
+test('GAME01 fresh profile, opening Stone, Mining Power quantity and separate paid gates', () => {
+    const app = ready();
+    assert.equal(app.state().developmentProfile, 'miner-1');
+    assert.equal(app.run('buyMiningPower()'), false);
+    assert.equal(app.run('unlockDevelopmentMiner()'), false);
+    assert.equal(app.run('buyDevelopmentMiner()'), false);
+    app.run('Math.random=()=>0; mineOre();'); // first action guaranteed Stone even on rare roll
+    assert.equal(app.state().inventory.stone, 1);
+    app.run('save.cash=450; buyMiningPower();');
+    assert.equal(app.state().cash, 200);
+    assert.equal(app.state().shop.miningPower, 1);
+    assert.equal(app.run('buyMiningPower()'), false);
+    app.run('Math.random=()=>0.25; mineOre();');
+    assert.equal(app.state().inventory.stone, 3);
+    app.run('Math.random=()=>0.75; mineOre();');
+    assert.equal(app.state().inventory.stone, 4);
+    assert.equal(app.state().achievementStats.totalOresMined, 3);
+    assert.equal(app.run('unlockDevelopmentMiner()'), true);
+    assert.equal(app.state().factory.miners.length, 0);
+    assert.equal(app.run('unlockDevelopmentMiner()'), false);
+    assert.equal(app.run('buyDevelopmentMiner()'), true);
+    assert.equal(app.state().cash, 0);
+    const m=app.state().factory.miners[0];
+    assert.deepEqual(m.investment.entries,[{kind:'purchase',targetLevel:null,cashPaid:100,basis:'actual'}]);
+    assert.equal(m.id,'miner:1'); assert.equal(m.tier,1); assert.equal(m.cycle,null);
+    assert.equal(app.run('buyDevelopmentMiner()'), false);
+    assert.equal(app.state().identity.nextEntitySequence,2);
+    app.run('save.cash=100;'); app.elements.get('buyDropper').onclick(); app.run('produceStone()');
+    assert.equal(app.state().droppers,0); assert.equal(app.state().inventory.stone,4);
+});
+test('GAME01 Miner captures context, pays once, reserves from present and survives reload', () => {
+    let app=ownedDevelopmentMiner(); app.tick(100);
+    const reserved=app.state().factory.miners[0].cycle;
+    assert.equal(reserved.id,'miner:1/cycle:1'); assert.equal(reserved.durationMs,5000);
+    assert.equal(reserved.phase,'reserved'); assert.equal(reserved.result,null);
+    assert.deepEqual(reserved.effectContext,{version:1,kind:'miner',tier:1,overallLuck:1,rebirthOreLuckLevel:0,localOreLuckLevel:0,speedLevel:0});
+    app.advance(4999); app.tick(100); assert.equal(app.state().totalOres,0);
+    app.advance(1); app.tick(100);
+    assert.equal(app.state().inventory.stone,1); assert.equal(app.state().factoryXP,1);
+    assert.equal(app.state().achievementStats.totalOresMined,0);
+    assert.equal(app.state().factory.miners[0].cycle.id,'miner:1/cycle:2');
+    const raw=app.stored(); app=boot(raw,'',{},app.now()+3600000);
+    app.tick(100); assert.equal(app.state().inventory.stone,2);
+    assert.equal(app.state().factory.miners[0].cycle.startedAtMs,app.now());
+    for(let i=0;i<10;i++) app.tick(100);
+    assert.equal(app.state().inventory.stone,2);
+    const reloaded=boot(app.stored(),'',{},app.now()); reloaded.tick(100);
+    assert.equal(reloaded.state().inventory.stone,2);
+});
+test('GAME01 uses automated tier and within-tier models without manual click credit or T4', () => {
+    for(const [roll, tier] of [[0,0],[0.96,1],[0.99999,3]]) {
+        const app=ownedDevelopmentMiner(); app.tick(100); app.advance(5000);
+        app.run(`Math.random=()=>${roll}`); app.tick(100);
+        assert.equal(app.state().totalOres,1);
+        assert.equal(app.state().achievementStats.totalOresMined,0);
+        assert.equal(app.state().tier4Ores,0);
+        assert.equal(app.state()[tier ? 'tier'+tier+'Ores':'stoneOres'],1);
+        if(tier){
+            const id=app.run(`MinerOreLuckModel.selectOreId(${tier},0,0,${roll})`);
+            assert.equal(app.state().inventory[id],1); assert.equal(app.state().oreCollection[id],1);
+            assert.equal(app.state().achievementStats.oresDiscovered,1);
+            assert.equal(app.state().factoryXP,app.run(`ORES[${JSON.stringify(id)}].xp`));
+        }
+    }
+});
+test('GAME01 failed purchase is unpublished and exact pending retry consumes Cash and identity once', () => {
+    const app=ready(); app.run('save.cash=450; buyMiningPower(); unlockDevelopmentMiner();');
+    const before=app.state(), raw=app.stored(); app.faults.write=true;
+    assert.equal(app.run('buyDevelopmentMiner()'),false);
+    assert.deepEqual(app.state(),before); assert.equal(app.stored(),raw);
+    assert.equal(app.elements.get('gameRoot').inert,true);
+    app.run('mineOre(); buyDevelopmentMiner();'); app.tick(100); app.tick(5000);
+    assert.deepEqual(app.state(),before);
+    app.faults.write=false; assert.equal(app.run('retryDevelopmentWrite()'),true);
+    assert.equal(app.state().cash,0); assert.equal(app.state().identity.nextEntitySequence,2);
+    assert.equal(app.run('retryDevelopmentWrite()'),false);
+});
+test('GAME01 failures at reservation, result and reward writes retain the exact candidate', () => {
+    for(const phase of ['reserve','resolve','commit']) {
+        const app=ownedDevelopmentMiner();
+        if(phase!=='reserve') app.tick(100);
+        if(phase==='commit') app.run('save.factory.miners[0].cycle.phase="resolved"; save.factory.miners[0].cycle.result=minerResult("amber"); saveGame();');
+        const before=app.state(), raw=app.stored(); app.advance(5000); app.faults.write=true;
+        app.tick(100); assert.deepEqual(app.state(),before); assert.equal(app.stored(),raw);
+        const pending=app.run('pendingDevelopmentWrite.serialized');
+        app.run('Math.random=()=>0.99999'); app.tick(100);
+        assert.equal(app.run('pendingDevelopmentWrite.serialized'),pending);
+        app.faults.write=false; app.run('retryDevelopmentWrite()');
+        assert.equal(app.stored(),pending);
+        if(phase==='reserve') app.advance(5000);
+        app.tick(100);
+        assert.equal(app.state().totalOres,1);
+        const restored=boot(app.stored(),'',{},app.now()); restored.tick(100);
+        assert.equal(restored.state().totalOres,1);
+    }
+});
+test('GAME01 invalid development ownership and cycles preserve original bytes and require confirmed reset', () => {
+    const base=ownedDevelopmentMiner(); base.tick(100);
+    const source=base.state();
+    for(const mutate of [s=>s.developmentProfile='miner-99',s=>delete s.shop,s=>s.shop.minerUnlocked=false,
+        s=>s.factory.miners.push(structuredClone(s.factory.miners[0])),s=>s.factory.miners[0].id='miner:01',
+        s=>s.factory.miners[0].tier=2,s=>s.factory.miners[0].cycle.id='miner:1/cycle:99',
+        s=>s.factory.miners[0].cycle.durationMs=1,s=>s.factory.miners[0].cycle.effectContext.speedLevel=1,
+        s=>s.factory.miners[0].cycle.result={},s=>s.droppers=1,s=>delete s.inventory.stone]) {
+        const state=structuredClone(source); mutate(state); const raw=JSON.stringify(state), app=boot(raw);
+        assert.equal(app.run('recoveryState.active'),true); assert.equal(app.stored(),raw);
+        assert.equal(app.writes.length,0); assert.equal(app.intervals.length,0);
+        assert.equal(app.run('getRecoveryRawSave()'),raw);
+        app.confirmReset(false); app.run('resetRecoverySave()'); assert.equal(app.stored(),raw);
+        app.confirmReset(true); app.run('resetRecoverySave()');
+        assert.equal(app.state().developmentProfile,'miner-1'); assert.equal(app.state().factory.miners.length,0);
+    }
+});
+test('GAME01 resolved result validation rejects extra awards and future timestamps are retained', () => {
+    const app=ownedDevelopmentMiner(); app.tick(100);
+    app.run('save.factory.miners[0].cycle.phase="resolved"; save.factory.miners[0].cycle.result=minerResult("ruby"); saveGame();');
+    const state=app.state();
+    for(const mutate of [r=>r.cashDelta=1,r=>r.outputs[0].amount=2,r=>r.factoryXPDelta=9999,
+        r=>r.outputs.push(r.outputs[0]),r=>r.events[0].amount=2,r=>r.extra=true]) {
+        const bad=structuredClone(state); mutate(bad.factory.miners[0].cycle.result);
+        const rejected=boot(JSON.stringify(bad)); assert.equal(rejected.run('recoveryState.active'),true);
+    }
+    const restored=boot(app.stored()); restored.run('Math.random=()=>0'); restored.tick(100);
+    assert.equal(restored.state().inventory.ruby,1); assert.equal(restored.state().totalOres,1);
+    const future=ownedDevelopmentMiner(); future.advance(100000); future.tick(100);
+    const loaded=boot(future.stored()); loaded.tick(100);
+    assert.equal(loaded.state().totalOres,0);
+    assert.equal(loaded.state().factory.miners[0].cycle.startedAtMs,future.now());
 });

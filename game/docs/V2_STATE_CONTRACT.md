@@ -1,5 +1,7 @@
 # V1-016 — V2 state and compatibility contract
 
+**Private development exception — V1-GAME01:** The owner approved a fresh-only playable Tier 1 Miner profile, identified by `developmentProfile:"miner-1"` within schema 1. See [the exact development save/activation boundary](SAVE_VERSIONING.md#v1-game01--approved-private-development-activation-2026-10-13). This bounded runtime now uses canonical Miner/Cycle records; the complete V2 schema and public migration/activation remain gated. No historical machine reconstruction or compensation is claimed. Existing untagged saves keep their legacy mode; incompatible profiles require export/explicit confirmed reset. This scoped exception supersedes blanket “no entity runtime” wording below for GAME01 only. T1 semantics and all unrelated design gates remain unchanged.
+
 **Contract revision:** 1, 2026-10-07. **Production saveVersion: 1.** This is a technical design for a future adjacent migration, not an activated schema or an implementation result.
 
 Follow [AGENTS.md](../AGENTS.md), the synchronized [Game Bible](GAME_BIBLE.md), its [owner handoff](TEFI_Consolidated_Development_Specification.md), and [SAVE_VERSIONING.md](SAVE_VERSIONING.md). References A–L below mean the handoff/Bible references. Gameplay **Defined**, **Recommended**, **Open / DESIGN REQUIRED**, and **Deferred** retain their meanings. Field names and record layouts here are technical choices; they do not settle an Open gameplay rule. The [decision gates](#decision-gates) are part of this contract.

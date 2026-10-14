@@ -17,6 +17,7 @@
     <button id="resetRecoverySave" class="dev-reset">Start fresh…</button>
     <p id="recoveryStatus" role="status"></p>
 </section>
+<section id="developmentWriteRecovery" class="save-recovery" hidden role="alert"><h2>Save paused</h2><p id="developmentWriteError"></p><button id="retryDevelopmentWrite">Retry saved transaction</button><p>Reloading restores the last successful save; the pending change has not been published.</p></section>
 <div id="gameRoot" hidden inert>
  <header class="game-header">
   <div class="brand"><span class="brand-icon" aria-hidden="true">🏭</span><div><h1>Everything Factory <span>Incremental</span></h1><span class="build-tag">TEFI · Development build</span></div></div>
@@ -36,6 +37,7 @@
    <div class="section-heading"><span class="eyebrow">01 / The mine</span><h2 id="miningTitle">Strike something good.</h2><p>Every factory starts with a little digging.</p></div>
    <div class="mine-scene" aria-hidden="true"><span class="rock rock-one"></span><span class="rock rock-two"></span><span class="ore-chunk ore-amber"></span><span class="ore-chunk ore-violet"></span><span class="ore-chunk ore-cyan"></span><span class="pickaxe">⛏</span></div>
    <button id="mineButton" class="mine-button">⛏ Produce Ore</button>
+   <p id="manualPowerStatus" class="mining-power-status" hidden><a id="manualPowerLink" href="#miningPowerCard">Mining Power I · available in the Shop</a></p>
    <div class="mining-feedback" aria-live="polite"><span class="eyebrow">Last find</span><strong id="lastOre">None</strong><span>Base value <span id="lastOreValue">$0</span></span></div>
    <div class="mining-total">Resources produced <strong id="totalOres">0</strong></div>
    <div class="mining-links"><button onclick="openInventory()">📦 Inventory</button><button onclick="openCollection()">📖 Collection Book</button></div>
@@ -43,7 +45,8 @@
   </section>
   <section class="game-panel factory-panel" aria-labelledby="factoryTitle">
    <div class="section-heading"><span class="eyebrow">02 / Production floor</span><h2 id="factoryTitle">Your factory</h2><p>Keep the machines working. Turn ore into Cash.</p></div>
-   <article class="machine-overview"><div class="machine-icon" aria-hidden="true">🏗</div><div><h3>Dropper production</h3><p id="dropperProduction">0 Droppers running</p><small>Automatic Stone production · every second</small></div></article>
+   <article id="minerPanel" class="furnace-workbench" hidden><h3>⛏ Miner · Slot 1</h3><p id="minerStatus"></p><div class="miner-actions"><button id="unlockMiner">Unlock Miners · $100</button><button id="buyMiner">Buy Tier 1 Miner · $100</button></div><label for="minerProgress" id="minerCycleStatus">No Miner owned</label><progress id="minerProgress" max="100" value="0"></progress><p id="minerFeedback" role="status"></p></article><p id="legacyModeNotice" class="shop-note" hidden>Legacy prototype save: Dropper gameplay remains separate. Download your save before using Reset Save in development tools to start the playable Miner build. <button id="exportLegacySave" onclick="exportRecoverySave()">Download legacy save</button><span id="legacyExportStatus" role="status"></span></p>
+<article id="legacyDropperOverview" class="machine-overview"><div class="machine-icon" aria-hidden="true">🏗</div><div><h3>Dropper production</h3><p id="dropperProduction">0 Droppers running</p><small>Automatic Stone production · every second</small></div></article>
    <article class="furnace-workbench" id="furnaceCard"><div class="machine-heading"><span aria-hidden="true">🔥</span><div><h3 id="furnaceName">Starter Furnace</h3><p>Smelt capacity <strong id="furnaceCapacity">10</strong></p></div></div>
     <p>Smelt resources from your inventory to earn Cash.</p>
     <div class="furnace-actions"><button onclick="openFurnace()">🔥 Open Furnace</button><button id="upgradeFurnace">Upgrade Furnace</button></div>
@@ -52,7 +55,8 @@
    <div class="factory-note"><span aria-hidden="true">▦</span><p>Build at your own pace.<br><span>Mine → collect → smelt → expand.</span></p></div>
   </section>
   <section class="game-panel shop-panel" aria-labelledby="shopTitle"><div class="section-heading"><span class="eyebrow">03 / Supply depot</span><h2 id="shopTitle">Shop & upgrades</h2><p>Small purchases. A growing factory.</p></div>
- <article class="shop-row" id="dropperCard">
+ <article class="shop-row" id="miningPowerCard" hidden><h3>⛏ Mining Power I</h3><p>Default Pickaxe: 1 resource plus a 50% chance of one more per click. Required to unlock Miners.</p><button id="buyMiningPower">Buy Mining Power I · $250</button></article>
+<article class="shop-row" id="dropperCard">
    <div class="shop-heading"><h3><span aria-hidden="true">🏗</span> Dropper</h3><span class="owned">Owned <strong id="droppers">0</strong></span></div>
    <p>Produces Stone automatically each second.</p><div class="shop-action"><span class="price">$<span id="dropperCost">0</span></span><button id="buyDropper">Buy Dropper</button></div>
  </article>
