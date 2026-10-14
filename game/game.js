@@ -2698,6 +2698,7 @@ function startGameplay(){
  document.getElementById("buyMiningPower").onclick = buyMiningPower;
  document.getElementById("unlockMiner").onclick = unlockDevelopmentMiner;
  document.getElementById("buyMiner").onclick = buyDevelopmentMiner;
+ document.getElementById("upgradeMiner").onclick = () => upgradeDevelopmentMiner(document.getElementById("upgradeMiner").dataset.minerId);
 document.getElementById("mineButton")
 .onclick = function(){
 
@@ -4159,7 +4160,7 @@ function validateDevelopmentResult(actual, expected){
 }
 function minerResult(resourceId){
     const ore = developmentOre(resourceId);
-    if(ore.tier === 4) throw Error("Tier 1 Miner cannot produce T4");
+    if(ore.tier === 4) throw Error("This build's Miner cannot produce T4");
     return { outputs: [InventoryModel.createLot({ resourceId, stage: "raw", refineCount: 0, amount: 1,
         polishedValue: null, preRefinerValue: null, refineBonus: null })],
         cashDelta: 0, factoryXPDelta: ore.xp, gemDustDelta: 0,
@@ -4184,8 +4185,15 @@ function validateDevelopmentSave(state){
         for(const miner of projection.factory.miners){
             const cycle = miner.cycle;
             miner.cycle = null; // explicit idle projection; active data is validated below, never discarded from state
-            if(miner.tier !== 1 || miner.slot !== 1 || miner.oreLuckLevel !== 0 || !state.shop.minerUnlocked)
+            if(![1,2].includes(miner.tier) || miner.slot !== 1 || miner.oreLuckLevel !== 0 || !state.shop.minerUnlocked)
                 throw Error("Unsupported Miner ownership");
+            // This profile has no Discount/Preservation ownership. Require the
+            // exact purchase history; never infer paid tiers from owned level.
+            const entries = [{ kind: "purchase", targetLevel: null,
+                cashPaid: CashPricingModel.calculateCashPrice(100, { category: "minerPurchase", discountLevel: 0 }), basis: "actual" }];
+            if(miner.tier === 2) entries.push({ kind: "tier", targetLevel: 2,
+                cashPaid: MinerTierModel.getTierUpgradePrice(2, 0), basis: "actual" });
+            validateDevelopmentResult(miner.investment, { entries });
             if(cycle === null) continue;
             developmentRecord(cycle, ["id","phase","startedAtMs","durationMs","inputs","saleUnitValues","effectContext","result"]);
             if(cycle.id !== miner.id + "/cycle:" + (miner.nextCycleSequence - 1) || miner.nextCycleSequence < 2)
@@ -4193,7 +4201,7 @@ function validateDevelopmentSave(state){
             CycleEffectContextModel.validateMetadata(cycle.effectContext, "miner", {
                 startedAtMs: cycle.startedAtMs, durationMs: cycle.durationMs, inputs: cycle.inputs, saleUnitValues: cycle.saleUnitValues });
             const c = cycle.effectContext;
-            if(c.tier !== 1 || c.overallLuck !== 1 || c.rebirthOreLuckLevel !== 0 || c.localOreLuckLevel !== 0 || c.speedLevel !== 0)
+            if(![1,2].includes(c.tier) || c.tier > miner.tier || c.overallLuck !== 1 || c.rebirthOreLuckLevel !== 0 || c.localOreLuckLevel !== 0 || c.speedLevel !== 0)
                 throw Error("Unsupported bound effects");
             if(cycle.phase === "reserved"){
                 if(cycle.result !== null) throw Error("Reserved cycle has result");
@@ -4310,6 +4318,25 @@ function buyDevelopmentMiner(){
         next.cash = result.cash; next.factory = result.factory; next.identity = result.identity;
     });
 }
+function upgradeDevelopmentMiner(minerId){
+    return developmentCommand(next => {
+        // Certify the complete active record BEFORE projecting it for the
+        // intentionally idle-only pure calculator. The projection is not saved.
+        validateSaveData(next); validateDevelopmentSave(next);
+        const miner = next.factory.miners.find(item => item.id === minerId);
+        if(!miner) throw Error("Unknown Miner ID");
+        if(miner.tier !== 1) throw Error("Tier 2 is the maximum for this build");
+        const projection = copySaveData(minerProjection(next));
+        projection.factory.miners[0].cycle = null;
+        const result = MinerUpgradeCandidateModel.prepareTierUpgrade(projection, minerId, 0, []);
+        const upgraded = result.factory.miners[0];
+        next.cash = result.cash;
+        miner.tier = upgraded.tier;
+        miner.investment = upgraded.investment;
+        // Everything else, including reserved/resolved work and its sequence,
+        // remains untouched. developmentCommand validates and writes atomically.
+    });
+}
 function mineDevelopmentOre(){
     return developmentCommand(next => {
         const tier = next.manual.firstActionCompleted ? rollManualTier() : 0;
@@ -4373,11 +4400,17 @@ function renderDevelopmentMiner(){
     document.getElementById("unlockMiner").textContent = unlocked ? "Miner system unlocked" : "Unlock Miners · $100";
     document.getElementById("buyMiner").disabled = !unlocked || !!miner || save.cash < 100;
     document.getElementById("buyMiner").textContent = miner ? "Slot 1 occupied" : "Buy Tier 1 Miner · $100";
-    document.getElementById("minerStatus").textContent = miner ? "Tier 1 Miner · 1 resource per 5-second cycle" : unlocked ? "Slot 1 is free and vacant. Purchase your Miner separately." : "Requires Mining Power I. Unlocking does not buy a machine.";
     const c = miner?.cycle;
+    const interval = miner ? MinerTierModel.getProductionInterval(miner.tier, 0) : 0;
+    document.getElementById("minerStatus").textContent = miner ? "Owned Tier " + miner.tier + " Miner · 1 resource per cycle · Next cycle: Tier " + miner.tier + " (" + interval + "s)" : unlocked ? "Slot 1 is free and vacant. Purchase your Miner separately." : "Requires Mining Power I. Unlocking does not buy a machine.";
+    const upgrade = document.getElementById("upgradeMiner"), price = MinerTierModel.getTierUpgradePrice(2, 0);
+    upgrade.dataset.minerId = miner?.id || "";
+    upgrade.disabled = !miner || miner.tier === 2 || save.cash < price;
+    upgrade.textContent = miner?.tier === 2 ? "Tier 2 purchased · Max for this build" : "Upgrade to Tier 2 · $" + formatCash(price);
+    document.getElementById("minerUpgradeHint").textContent = !miner ? "Purchase your first Miner to upgrade it." : miner.tier === 2 ? "Further tiers are not available in this build." : save.cash < price ? "Earn $" + formatCash(price) + " Cash. The current cycle keeps its original effects." : "Faster production and improved ore chances begin next cycle.";
     const progress = c ? Math.max(0, Math.min(100, (Date.now() - c.startedAtMs) / c.durationMs * 100)) : 0;
     document.getElementById("minerProgress").value = progress;
-    document.getElementById("minerCycleStatus").textContent = c?.phase === "resolved" ? "Output resolved · awaiting saved delivery" : c ? "Mining… " + Math.floor(progress) + "%" : miner ? "Ready for the next cycle" : "No Miner owned";
+    document.getElementById("minerCycleStatus").textContent = c ? "Current cycle: Tier " + c.effectContext.tier + " · " + c.durationMs / 1000 + "s · " + (c.phase === "resolved" ? "Output resolved · awaiting saved delivery" : "Mining… " + Math.floor(progress) + "%") : miner ? "Ready for the next cycle" : "No Miner owned";
 }
 
 document.getElementById("retryDevelopmentWrite").onclick = retryDevelopmentWrite;

@@ -127,12 +127,74 @@ const server = http.createServer((req, res) => {
             assert.equal(await page.evaluate(()=>save.droppers),0);
             assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
             await page.evaluate(()=>{testNow+=2500;testIntervals.find(t=>t.ms===100).callback();scrollTo(0,0);});
+
+            // GAME02: earn the upgrade through manual mining/Furnace, not a Cash fixture.
+            assert.equal(await page.locator('#upgradeMiner').isDisabled(),true);
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMiner(save.factory.miners[0].id)),false);
+            await page.evaluate(()=>{for(let i=0;i<400;i++) document.getElementById('mineButton').click();});
+            await page.getByRole('button',{name:'🔥 Open Furnace',exact:true}).click();
+            for(let batch=0;batch<40;batch++){
+                await page.getByRole('button',{name:'Select',exact:true}).click();
+                await page.getByRole('button',{name:'100%',exact:true}).click();
+                await page.getByRole('button',{name:'Confirm',exact:true}).click();
+            }
+            await page.evaluate(()=>closeFurnace());
+            assert.equal(await page.evaluate(()=>save.cash),400);
+            const beforeUpgrade=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMiner('miner:999')),false);
+            await page.locator('#upgradeMiner').click();
+            const upgraded=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+            assert.equal(upgraded.cash,0); assert.equal(upgraded.factory.miners[0].tier,2);
+            assert.deepEqual(upgraded.factory.miners[0].cycle,beforeUpgrade.factory.miners[0].cycle);
+            assert.deepEqual(upgraded.identity,beforeUpgrade.identity);
+            assert.equal(upgraded.factory.miners[0].id,id);
+            assert.deepEqual(upgraded.factory.miners[0].investment.entries[1],{kind:'tier',targetLevel:2,cashPaid:400,basis:'actual'});
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMiner(save.factory.miners[0].id)),false);
+            assert.equal(await page.locator('#upgradeMiner').isDisabled(),true);
+            assert.match(await page.locator('#minerStatus').textContent(),/Owned Tier 2.*Next cycle: Tier 2/);
+            assert.match(await page.locator('#minerCycleStatus').textContent(),/Current cycle: Tier 1.*5s/);
+            await page.reload();
+            assert.deepEqual(await page.evaluate(()=>save.factory.miners[0]),upgraded.factory.miners[0]);
+            await page.evaluate(()=>{
+                const c=save.factory.miners[0].cycle; testNow=c.startedAtMs+2500; Math.random=()=>0.955;
+                testIntervals.find(t=>t.ms===100).callback();scrollTo(0,0);
+            });
+            if(process.env.TEFI_UI_SCREENSHOTS){
+                fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});
+                await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'miner-upgraded-old-cycle-'+width+'.png'),fullPage:true});
+            }
+            await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+5000;testIntervals.find(t=>t.ms===100).callback();});
+            assert.equal(await page.evaluate(()=>save.inventory.stone),3,'old Tier 1 produces Stone at roll 0.955');
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].cycle.effectContext.tier),2);
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].cycle.durationMs),4800);
+            const tier2=await page.evaluate(()=>JSON.parse(JSON.stringify(save.factory.miners[0])));
+            await page.reload();
+            assert.deepEqual(await page.evaluate(()=>save.factory.miners[0]),tier2);
+            await page.evaluate(()=>{
+                Math.random=()=>0.955;testNow=save.factory.miners[0].cycle.startedAtMs+4800;
+                testIntervals.find(t=>t.ms===100).callback();
+            });
+            assert.equal(await page.evaluate(()=>save.tier1Ores),1,'Tier 2 same roll produces an ore');
+            assert.equal(await page.evaluate(()=>save.tier4Ores),0);
+            assert.equal(await page.evaluate(()=>save.inventory[MinerOreLuckModel.selectOreId(1,0,0,0.955)]),1);
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].investment.entries.length),2);
+            // A persisted resolved result recovers without RNG or duplicate delivery.
+            await page.evaluate(()=>{
+                const c=save.factory.miners[0].cycle;c.phase='resolved';c.result=minerResult('amber');saveGame();
+            });
+            const amberBefore=await page.evaluate(()=>save.inventory.amber);
+            await page.reload();
+            assert.equal(await page.evaluate(()=>save.inventory.amber),amberBefore+1);
+            await page.reload();
+            assert.equal(await page.evaluate(()=>save.inventory.amber),amberBefore+1);
+            await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+2400;testIntervals.find(t=>t.ms===100).callback();scrollTo(0,0);});
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
             if(process.env.TEFI_UI_SCREENSHOTS){
                 fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});
                 await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`miner-${width}.png`),fullPage:true});
             }
             assert.deepEqual(app.errors,[]); await app.context.close();
-            console.log(`PASS Chromium: playable Miner opening, 450 mined/smelted Stone, purchases, cycle, reload and no double output at ${width}x${height}.`);
+            console.log(`PASS Chromium: playable Miner opening and Tier 2 upgrade, earned Cash, active binding, resolved reload and no double output at ${width}x${height}.`);
         }
         {
             const app=await session(null),{page}=app;
@@ -158,6 +220,52 @@ const server = http.createServer((req, res) => {
             assert.equal(await page.evaluate(()=>save.factory.miners.length),0);
             assert.deepEqual(app.errors,[]); await app.context.close();
             console.log('PASS Chromium: failed Miner purchase retry and incompatible development export/confirmed reset.');
+        }
+
+
+        {
+            const app=await session(null),{page}=app;
+            await page.evaluate(()=>{
+                save.cash=850;buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner();updateDevelopmentMiner();
+                window.realSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota');};
+            });
+            const before=await page.evaluate(()=>JSON.stringify(save));
+            const durable=await page.evaluate(()=>localStorage.getItem('ef_incremental'));
+            await page.locator('#upgradeMiner').click();
+            assert.equal(await page.evaluate(()=>JSON.stringify(save)),before);
+            assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),durable);
+            assert.equal(await page.locator('#developmentWriteRecovery').isVisible(),true);
+            const pending=await page.evaluate(()=>pendingDevelopmentWrite.serialized);
+            await page.evaluate(()=>{testNow+=10000;testIntervals.find(t=>t.ms===100).callback();upgradeDevelopmentMiner('miner:1');});
+            assert.equal(await page.evaluate(()=>pendingDevelopmentWrite.serialized),pending);
+            await page.evaluate(()=>{Storage.prototype.setItem=realSetItem;});
+            await page.locator('#retryDevelopmentWrite').click();
+            assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),pending);
+            assert.equal(await page.evaluate(()=>save.cash),0);
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].investment.entries.length),2);
+            const valid=JSON.parse(pending);
+            await page.reload();
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].tier),2);
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMiner('miner:1')),false);
+            await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+3600000;testIntervals.find(t=>t.ms===100).callback();});
+            const total=await page.evaluate(()=>save.totalOres);
+            await page.evaluate(()=>{for(let i=0;i<10;i++)testIntervals.find(t=>t.ms===100).callback();});
+            assert.equal(await page.evaluate(()=>save.totalOres),total);
+            assert.deepEqual(app.errors,[]);await app.context.close();
+            for(const mutate of [
+                s=>s.factory.miners[0].investment.entries.pop(),
+                s=>s.factory.miners[0].investment.entries[1].cashPaid=1,
+                s=>s.factory.miners[0].cycle.effectContext.tier=2,
+                s=>s.factory.miners[0].cycle.id='miner:999/cycle:1'
+            ]){
+                const bad=structuredClone(valid);mutate(bad);const raw=JSON.stringify(bad);
+                const invalid=await session(raw);
+                assert.equal(await invalid.page.locator('#saveRecovery').isVisible(),true);
+                assert.equal(await invalid.page.evaluate(()=>localStorage.getItem('ef_incremental')),raw);
+                assert.equal(await invalid.page.evaluate(()=>testIntervals.length),0);
+                assert.deepEqual(invalid.errors,[]);await invalid.context.close();
+            }
+            console.log('PASS Chromium: Tier 2 exact failed-write retry, no duplicate/offline payout and forged investment/cycle recovery.');
         }
 
         for (const [width, height] of [[1920, 1080], [1366, 768], [768, 1024], [390, 844]]) {

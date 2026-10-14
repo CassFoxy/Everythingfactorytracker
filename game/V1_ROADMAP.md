@@ -1,14 +1,24 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME02 — Playable Miner Tier 1→2 Upgrade
+
+**Status: ✅ COMPLETE — bounded private development profile.** The Factory panel buys Tier 2 for the canonical $400 (Discount 0), on the same Miner with an actual tier investment entry and no new identity. Full-state validation precedes an idle calculation projection; only Cash, tier and ledger change. The existing reserved/resolved cycle is retained, and later reservations use Tier 2 distribution and 4.8-second duration. UI distinguishes owned tier, active-cycle tier/duration and next-cycle tier, with a clear Tier 2 build cap.
+
+Supported `miner-1` saves stay schema 1 and load without reset. Exact payment history and bound-cycle integrity are required. Failed writes retain the exact candidate, block conflicting operations and publish only after successful retry. Deterministic Node/browser regressions cover earned-Cash upgrades, reserved/resolved work, reload, malformed saves, model-based output and retry at desktop/laptop/mobile widths.
+
+Tier 3–25, additional slots, local Ore Luck, resale, grid placement, Rebirth, Polisher/Refiner, complete statistics/challenges, public migration/activation and general V1-050C2 coordination remain outstanding. The full Miner system is not complete.
+
+Next bounded playable improvement: enable only the first local Ore Luck upgrade, with the existing model price, investment, future-cycle binding and save/reload coverage. Not implemented here.
+
 ## V1-GAME01 — First Playable Miner Vertical Slice
 
 **Status: ✅ COMPLETE — bounded private development profile.** Fresh games can mine/smelt, buy Mining Power I ($250), unlock Miners ($100), separately buy the first Tier 1 Miner ($100), receive model-driven output and reload. The first slot, immutable ID, actual purchase ledger and reserve/resolve/commit writes are active only in the validated `miner-1` profile. Dropper production is retired there; supported old saves retain a labelled legacy mode. See [development save policy](docs/SAVE_VERSIONING.md#v1-game01--approved-private-development-activation-2026-10-13) for owner-approved reset/export and public-release distinctions.
 
 The browser regression mines and smelts 450 Stone through the actual page, buys all three steps, observes production, and reloads without duplicate payouts at 1920, 1366 and 390px widths. Node coverage includes transaction failures, exact retry, malformed saves, bound cycles and no offline chains.
 
-This does not complete V1-071A2/B2/C2, V1-025 in its full release scope, V1-050C2, V1-017 or V1-018. Additional slots, paid tier/local upgrades, resale, grid, Rebirth and other new machine consumers remain outstanding. No public-save compatibility is certified.
+This does not complete V1-071A2/B2/C2, V1-025 in its full release scope, V1-050C2, V1-017 or V1-018. Additional slots, Tier 3+ and local upgrades, resale, grid, Rebirth and other new machine consumers remain outstanding. No public-save compatibility is certified.
 
-Next bounded playable ticket: enable Tier 1→2 Miner upgrades only, using the existing upgrade candidate and T1 future-cycle binding, including active-cycle validation and durable save/reload tests. Not implemented here.
+Tier 1→2 is now implemented by V1-GAME02 above; the remainder stays outstanding.
 
 Updated 6 October 2026 after owner approval of the consolidated design handoff. The web implementation remains the reference for a later Luau port.
 
