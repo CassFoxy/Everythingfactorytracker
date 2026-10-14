@@ -4263,3 +4263,112 @@ test('GAME01 resolved result validation rejects extra awards and future timestam
     assert.equal(loaded.state().totalOres,0);
     assert.equal(loaded.state().factory.miners[0].cycle.startedAtMs,future.now());
 });
+test('GAME02 idle, reserved and resolved upgrades preserve identity, cycles and exact payment', () => {
+    for(const phase of ['idle','reserved','resolved']){
+        const app=ownedDevelopmentMiner();
+        if(phase!=='idle') app.tick(100);
+        if(phase==='resolved') app.run('save.factory.miners[0].cycle.phase="resolved"; save.factory.miners[0].cycle.result=minerResult("amber");');
+        app.run('save.cash=500; saveGame();');
+        const before=app.state(), writes=app.writes.length;
+        assert.equal(app.run('upgradeDevelopmentMiner("miner:1")'),true);
+        const after=app.state(), m=after.factory.miners[0];
+        assert.equal(after.cash,100); assert.equal(m.tier,2);
+        assert.deepEqual(m.cycle,before.factory.miners[0].cycle);
+        assert.deepEqual(after.identity,before.identity);
+        assert.equal(m.nextCycleSequence,before.factory.miners[0].nextCycleSequence);
+        assert.deepEqual(m.investment.entries,[...before.factory.miners[0].investment.entries,
+            {kind:'tier',targetLevel:2,cashPaid:400,basis:'actual'}]);
+        const expected=structuredClone(before); expected.cash=100; expected.factory.miners[0].tier=2;
+        expected.factory.miners[0].investment=m.investment;
+        assert.deepEqual(after,expected);
+        assert.equal(app.writes.length,writes+1);
+        assert.equal(app.run('upgradeDevelopmentMiner("miner:1")'),false);
+        assert.deepEqual(app.state(),after);
+        const reload=boot(app.stored(),'',{},app.now()); assert.equal(reload.error,undefined);
+        if(phase === "reserved") assert.deepEqual(reload.state(),after);
+        assert.equal(reload.state().factory.miners[0].tier,2);
+        assert.deepEqual(reload.state().factory.miners[0].investment,m.investment);
+        if(phase==='resolved'){
+            reload.tick(100); assert.equal(reload.state().inventory.amber,1);
+            reload.tick(100); assert.equal(reload.state().inventory.amber,1);
+        }
+    }
+});
+test('GAME02 bound Tier 1 finishes unchanged, then Tier 2 uses model interval and distribution', () => {
+    const app=ownedDevelopmentMiner(); app.tick(100); app.advance(1000);
+    const old=app.state().factory.miners[0].cycle;
+    app.run('save.cash=400; upgradeDevelopmentMiner("miner:1"); Math.random=()=>0.955;');
+    assert.deepEqual(app.state().factory.miners[0].cycle,old);
+    app.advance(3999); app.tick(100); assert.equal(app.state().totalOres,0);
+    app.advance(1); app.tick(100);
+    assert.equal(app.state().inventory.stone,1,'0.955 lies below Tier 1 Stone anchor');
+    const next=app.state().factory.miners[0].cycle;
+    assert.equal(next.effectContext.tier,2); assert.equal(next.durationMs,app.run('MinerTierModel.getProductionInterval(2,0)*1000'));
+    assert.equal(next.durationMs,4800);
+    const reload=boot(app.stored(),'',{},app.now()); reload.run('Math.random=()=>0.955;');
+    reload.advance(4799); reload.tick(100); assert.equal(reload.state().totalOres,1);
+    reload.advance(1); reload.tick(100);
+    assert.equal(reload.state().tier1Ores,1,'same roll exceeds Tier 2 Stone anchor');
+    const id=reload.run('MinerOreLuckModel.selectOreId(1,0,0,0.955)');
+    assert.equal(reload.state().inventory[id],1);
+    assert.equal(reload.state().tier4Ores,0);
+    assert.equal(reload.state().achievementStats.totalOresMined,0);
+    const overdue=boot(reload.stored(),'',{},reload.now()+3600000); overdue.tick(100);
+    assert.equal(overdue.state().totalOres,3);
+    overdue.tick(100); assert.equal(overdue.state().totalOres,3);
+});
+test('GAME02 upgrade rejection leaves state and stored bytes intact', () => {
+    const empty=ready(); assert.equal(empty.run('upgradeDevelopmentMiner("miner:1")'),false);
+    for(const cash of [0,399,NaN,Infinity,-1,2**60]){
+        const app=ownedDevelopmentMiner(); app.tick(100); app.run('save.cash='+cash);
+        const before=app.state(),raw=app.stored();
+        assert.equal(app.run('upgradeDevelopmentMiner("miner:1")'),false);
+        assert.deepEqual(app.state(),before); assert.equal(app.stored(),raw);
+    }
+    const app=ownedDevelopmentMiner(); app.run('save.cash=400; saveGame();');
+    for(const id of ['miner:2','miner:01',null,1]){
+        const raw=app.stored(); assert.equal(app.run('upgradeDevelopmentMiner('+JSON.stringify(id)+')'),false);
+        assert.equal(app.stored(),raw);
+    }
+});
+test('GAME02 failed upgrade retains one exact candidate and blocks conflicting production', () => {
+    const app=ownedDevelopmentMiner(); app.tick(100); app.run('save.cash=400; saveGame();');
+    const before=app.state(),raw=app.stored(); app.faults.write=true;
+    assert.equal(app.run('upgradeDevelopmentMiner("miner:1")'),false);
+    assert.deepEqual(app.state(),before); assert.equal(app.stored(),raw);
+    const pending=app.run('pendingDevelopmentWrite.serialized');
+    app.advance(10000); app.tick(100); app.run('mineOre(); upgradeDevelopmentMiner("miner:1");');
+    assert.equal(app.run('pendingDevelopmentWrite.serialized'),pending);
+    assert.deepEqual(app.state(),before);
+    assert.equal(ready(raw).state().factory.miners[0].tier,1,'reload uses last successful state');
+    app.faults.write=false; assert.equal(app.run('retryDevelopmentWrite()'),true);
+    assert.equal(app.stored(),pending);
+    assert.equal(app.state().cash,0); assert.equal(app.state().factory.miners[0].investment.entries.length,2);
+    assert.deepEqual(app.state().factory.miners[0].cycle,before.factory.miners[0].cycle);
+    assert.equal(app.run('retryDevelopmentWrite()'),false);
+    assert.equal(app.run('upgradeDevelopmentMiner("miner:1")'),false);
+    app.tick(100); assert.equal(app.state().totalOres,1);
+});
+test('GAME02 forged tiers, payments and bound-cycle data enter recovery without overwriting', () => {
+    const app=ownedDevelopmentMiner(); app.tick(100); app.run('save.cash=400; upgradeDevelopmentMiner("miner:1");');
+    const good=app.state();
+    for(const mutate of [
+        s=>s.factory.miners[0].tier=3,
+        s=>s.factory.miners[0].investment.entries.pop(),
+        s=>s.factory.miners[0].investment.entries[1].cashPaid=399,
+        s=>s.factory.miners[0].investment.entries[1].basis='legacyEquivalentV1',
+        s=>s.factory.miners[0].investment.entries[1].targetLevel=3,
+        s=>s.factory.miners[0].investment.entries.push({...s.factory.miners[0].investment.entries[1]}),
+        s=>s.factory.miners[0].investment.entries[0].cashPaid=0,
+        s=>s.factory.miners[0].cycle.effectContext.tier=2,
+        s=>s.factory.miners[0].cycle.effectContext.tier=3,
+        s=>s.factory.miners[0].cycle.effectContext.overallLuck=2,
+        s=>s.factory.miners[0].cycle.durationMs=4800,
+        s=>s.factory.miners[0].nextCycleSequence++,
+        s=>s.factory.miners[0].cycle.result={},
+        s=>{s.factory.miners[0].tier=1;s.factory.miners[0].investment.entries.pop();s.factory.miners[0].cycle.effectContext.tier=2;s.factory.miners[0].cycle.durationMs=4800;}
+    ]){
+        const bad=structuredClone(good);mutate(bad);const raw=JSON.stringify(bad),loaded=boot(raw);
+        assert.equal(loaded.run('recoveryState.active'),true);assert.equal(loaded.stored(),raw);assert.equal(loaded.writes.length,0);
+    }
+});
