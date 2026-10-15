@@ -1,5 +1,17 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME04 — Playable Miner Tier 3 Upgrade
+
+**Status: ✅ COMPLETE — bounded private development profile.** The existing Factory upgrade control advances Tier 2→3 for the canonical $1,600 at Discount 0. It uses the shared active-cycle adapter and derives the next tier from authoritative ownership; Tier 3 is the build cap. Cash, tier and one actual payment commit together, retaining identity, slot, local Luck and cycle sequence.
+
+Validation requires the exact Tier 2 and Tier 3 payments in tier order, allowing Local Ore Luck I anywhere in that history without reordering it. Valid GAME01–GAME03 saves remain schema 1 / `miner-1` and need no reset. Reserved/resolved older work retains all bound effects. New Tier 3 cycles use the canonical distribution and 4.608-second interval, one resource and no T4.
+
+Node/browser regressions cover purchases, model-driven output, local Luck order, old/new/resolved cycle reload, exact retry, forged history, recovery and desktop/laptop/mobile controls. Existing manual mining, Furnace, legacy mode and reset flow remain covered.
+
+Tier 4–25, extra slots, local Level 2–50, resale, grid, Rebirth, Polisher/Refiner, complete statistics/challenges and public V2 migration/activation remain outstanding. The full Miner system is not complete.
+
+Next bounded playable enhancement: Local Ore Luck 1→2, with canonical pricing, investment, future-cycle binding and save/reload coverage. Not implemented here.
+
 ## V1-GAME03 — First Playable Miner Local Ore Luck Upgrade
 
 **Status: ✅ COMPLETE — bounded private development profile.** Slot 1's Tier 1 or 2 Miner can buy local Ore Luck 0→1 for the model-quoted $1,000 (no Factory Discount), recording one actual payment and retaining identity/cycle/sequence. The shared active-cycle adapter changes only Cash, local ownership and ledger, with full validation and successful write required before publication. Either tier/local purchase order is supported without rewriting history.
@@ -10,7 +22,7 @@ Deterministic Node/browser coverage includes both purchase orders and tiers, res
 
 Local levels 2–50, Tier 3–25, additional slots, resale, grid, Rebirth, other machines, complete statistics/challenges, general durable coordination and public V2 migration/activation remain outstanding.
 
-Next bounded playable enhancement: enable only Miner Tier 2→3, preserving active work and the existing local Ore Luck state. Not implemented here.
+Tier 2→3 is now implemented by V1-GAME04 above; higher tiers remain outstanding.
 
 ## V1-GAME02 — Playable Miner Tier 1→2 Upgrade
 
