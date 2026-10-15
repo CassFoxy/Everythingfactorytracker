@@ -268,6 +268,102 @@ const server = http.createServer((req, res) => {
             console.log('PASS Chromium: Tier 2 exact failed-write retry, no duplicate/offline payout and forged investment/cycle recovery.');
         }
 
+
+        // GAME03: controlled owning fixtures, but earn the Luck price by mining/smelting.
+        for(const [width,height,tier] of [[1920,1080,1],[1366,768,2],[390,844,2]]){
+            const app=await session(null),{page}=app;await page.setViewportSize({width,height});
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:1')),false);
+            await page.evaluate(tier=>{
+                save.cash=tier===1?450:850;buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner();
+                if(tier===2)upgradeDevelopmentMiner('miner:1');updateDevelopmentMiner();
+            },tier);
+            assert.equal(await page.locator('#upgradeMinerOreLuck').isDisabled(),true);
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:1')),false);
+            await page.evaluate(()=>{
+                for(let i=0;i<1000;i++)document.getElementById('mineButton').click();
+                for(let i=0;i<100;i++){prepareSmelt('stone',save.stoneValue,1);confirmSmelt();}
+            });
+            assert.equal(await page.evaluate(()=>save.cash),1000);
+            assert.equal(await page.evaluate(()=>save.inventory.stone),0);
+            const before=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+            if(width===390){
+                await page.evaluate(()=>{window.realSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota');};});
+                await page.locator('#upgradeMinerOreLuck').click();
+                assert.equal(await page.locator('#developmentWriteRecovery').isVisible(),true);
+                assert.deepEqual(await page.evaluate(()=>save),before);
+                const pending=await page.evaluate(()=>pendingDevelopmentWrite.serialized);
+                await page.evaluate(()=>{upgradeDevelopmentMinerOreLuck('miner:1');upgradeDevelopmentMiner('miner:1');testIntervals.find(t=>t.ms===100).callback();});
+                assert.equal(await page.evaluate(()=>pendingDevelopmentWrite.serialized),pending);
+                await page.evaluate(()=>{Storage.prototype.setItem=realSetItem;});
+                await page.locator('#retryDevelopmentWrite').click();
+                assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),pending);
+            }else await page.locator('#upgradeMinerOreLuck').click();
+            const after=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+            assert.equal(after.cash,0);assert.equal(after.factory.miners[0].oreLuckLevel,1);
+            assert.deepEqual(after.identity,before.identity);
+            assert.deepEqual(after.factory.miners[0].cycle,before.factory.miners[0].cycle);
+            assert.equal(after.factory.miners[0].tier,tier);
+            assert.deepEqual(after.factory.miners[0].investment.entries.at(-1),{kind:'oreLuck',targetLevel:1,cashPaid:1000,basis:'actual'});
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:1')),false);
+            assert.equal(await page.locator('#upgradeMinerOreLuck').isDisabled(),true);
+            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/1.*1.*1.02×.*Current cycle: Level 0/);
+            await page.reload();
+            assert.deepEqual(await page.evaluate(()=>save.factory.miners[0]),after.factory.miners[0]);
+            await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+2000;renderDevelopmentMiner();scrollTo(0,0);});
+            if(process.env.TEFI_UI_SCREENSHOTS){
+                fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});
+                await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'ore-luck-old-cycle-'+width+'.png'),fullPage:true});
+            }
+            const ids=await page.evaluate(()=>{
+                const roll=(MinerOreLuckModel.getOreProbabilities(1,0,0)[0].probability+MinerOreLuckModel.getOreProbabilities(1,0,1)[0].probability)/2;
+                return [MinerOreLuckModel.selectOreId(1,0,0,roll),MinerOreLuckModel.selectOreId(1,0,1,roll)];
+            });assert.notEqual(ids[0],ids[1]);
+            async function completeOreCycle(){
+                await page.evaluate(()=>{
+                    const c=save.factory.miners[0].cycle,p=MinerTierModel.getTierProbabilities(c.effectContext.tier,1);
+                    const oreRoll=(MinerOreLuckModel.getOreProbabilities(1,0,0)[0].probability+MinerOreLuckModel.getOreProbabilities(1,0,1)[0].probability)/2;
+                    let call=0;Math.random=()=>++call%2?p.stone+p.tier1/2:oreRoll;
+                    testNow=c.startedAtMs+c.durationMs;testIntervals.find(t=>t.ms===100).callback();
+                });
+            }
+            await completeOreCycle();
+            assert.equal(await page.evaluate(id=>save.inventory[id],ids[0]),1);
+            assert.equal(await page.evaluate(id=>save.inventory[id],ids[1]),0);
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].cycle.effectContext.localOreLuckLevel),1);
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].cycle.durationMs),before.factory.miners[0].cycle.durationMs);
+            await page.reload();await completeOreCycle();
+            assert.equal(await page.evaluate(id=>save.inventory[id],ids[1]),1);
+            assert.equal(await page.evaluate(()=>save.totalOres),1002);
+            assert.equal(await page.evaluate(()=>save.tier4Ores),0);
+            assert.equal(await page.evaluate(()=>save.achievementStats.totalOresMined),1000);
+            // Resolved saved output recovers verbatim even with Level 0 context and Level 1 owner.
+            await page.evaluate(()=>{
+                const c=save.factory.miners[0].cycle;c.effectContext.localOreLuckLevel=0;c.phase='resolved';c.result=minerResult('ruby');saveGame();
+            });
+            await page.reload();assert.equal(await page.evaluate(()=>save.inventory.ruby),1);
+            await page.reload();assert.equal(await page.evaluate(()=>save.inventory.ruby),1);
+            await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+3600000;testIntervals.find(t=>t.ms===100).callback();});
+            const total=await page.evaluate(()=>save.totalOres);
+            await page.evaluate(()=>{for(let i=0;i<10;i++)testIntervals.find(t=>t.ms===100).callback();});
+            assert.equal(await page.evaluate(()=>save.totalOres),total);
+            await page.evaluate(()=>{testNow+=2000;renderDevelopmentMiner();scrollTo(0,0);});
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'ore-luck-'+width+'.png'),fullPage:true});
+            const valid=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+            assert.deepEqual(app.errors,[]);await app.context.close();
+            if(width===390)for(const mutate of [
+                s=>s.factory.miners[0].investment.entries.pop(),
+                s=>s.factory.miners[0].investment.entries.at(-1).cashPaid=999,
+                s=>s.factory.miners[0].cycle.effectContext.localOreLuckLevel=2
+            ]){
+                const bad=structuredClone(valid);mutate(bad);const raw=JSON.stringify(bad),invalid=await session(raw);
+                assert.equal(await invalid.page.locator('#saveRecovery').isVisible(),true);
+                assert.equal(await invalid.page.evaluate(()=>localStorage.getItem('ef_incremental')),raw);
+                assert.deepEqual(invalid.errors,[]);await invalid.context.close();
+            }
+            console.log('PASS Chromium: Local Ore Luck I on Tier '+tier+', earned Cash, active binding, deterministic ore change, reload/retry at '+width+'x'+height+'.');
+        }
+
         for (const [width, height] of [[1920, 1080], [1366, 768], [768, 1024], [390, 844]]) {
             const app = await session(JSON.stringify({ cash: 10000, factoryXP: 2500, droppers: 0, adders: 0, multipliers: 0 }));
             const { page } = app;
