@@ -348,7 +348,7 @@ const FURNACES = [
 
 {
     name: "Auto Furnace",
-    capacity: 100,
+    capacity: 10000,
     cost: 2500
 }
 
