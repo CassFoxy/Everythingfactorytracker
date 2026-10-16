@@ -57,6 +57,18 @@ The shared adapter retains the entire reserved/resolved cycle, identity, slot, t
 
 Local levels 3–50, Tier 4–25, additional slots and other future systems remain unimplemented.
 
+## V1-DEV01 — private testing controls
+
+The owner-approved testing exception adds optional `developerTools: { furnaceEnabled: boolean }` to schema 1 / `miner-1`, not public V2. Fresh states use false. An absent record in an otherwise valid older development save is completed to false after validation, without a reset. A present malformed record, unknown setting key or non-Boolean value rejects through existing export/recovery. Untagged legacy saves remain unchanged and cannot use these tools.
+
+Cash presets and custom additions use the existing complete-state development transaction. Custom text accepts decimal integer digits only; values must be positive and exactly represented. Addition must preserve the requested quantity exactly, with no arbitrary smaller Cash cap. Failed writes publish neither Cash nor settings: the exact candidate and serialized bytes remain pending, conflicting commands block, and Retry persists that proposal once. Feedback is ephemeral, not a new saved field.
+
+Developer Furnace is a reversible manual-sale mode, not a tier or purchase. Its capacity is the selected owned inventory quantity; no Infinity or fake capacity is stored. Confirmation revalidates resource identity, positive integer quantity, ownership, mode and exact arithmetic. It recalculates the current ordinary applicable value (existing Stone value or catalogue ore value), then applies 1,000× exactly once. Presentation-only preview values are not authoritative. Ordinary smelting XP and statistics count the original quantity, without a multiplier. Normal Furnace ownership and upgrades are preserved.
+
+Switching requires no active Auto Furnace batch. Stop automatic processing and let any existing batch finish before enabling. While enabled, Auto Furnace is paused and clearly labelled; its saved preference is retained. Restoring normal mode restores ordinary manual capacity/value and normal automatic processing. A development save combining enabled testing mode with a reserved Auto Furnace batch is invalid; no reservation is silently discarded. Manual sale write failures retain their exact candidate and keep Retry accessible above the confirmation modal; successful retry clears the stale confirmation.
+
+These controls are private testing utilities, not authenticated access. They must be disabled or excluded before public release. They do not change Miner formulas, ordinary Furnace progression, legacy recovery, public migration gates or saveVersion.
+
 ## Current baseline and future contract — V1-016
 
 Production remains **saveVersion 1**, including accepted V1-021A: fresh Cash/XP/Level are 0/0/0. Existing Cash/XP are retained; absent legacy XP still defaults to 100. Factory Level is a non-negative compatibility cache derived from XP on initialization, updates, display and save. Older ticket reports below record their original results and are not a claim that the old $100/Level-1 defaults remain current.

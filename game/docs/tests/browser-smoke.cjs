@@ -84,6 +84,66 @@ const server = http.createServer((req, res) => {
             return before;
         }
         for(const [width,height] of [[1920,1080],[1366,768],[390,844]]) {
+            const app=await session(null),{page}=app;await page.setViewportSize({width,height});
+            await page.locator('.dev-tools summary').click();
+            let cash=0;
+            for(const [label,amount] of [['Add $1,000',1000],['Add $1,000,000',1000000],['Add $1,000,000,000',1000000000]]){
+                await page.getByRole('button',{name:label,exact:true}).click();cash+=amount;
+                assert.equal(await page.evaluate(()=>save.cash),cash);
+            }
+            await page.locator('#devCashAmount').fill('2500000');await page.locator('#devAddCash').click();cash+=2500000;
+            assert.equal(await page.evaluate(()=>save.cash),cash);assert.equal(await page.locator('#buyMiningPower').isDisabled(),false);
+            for(const invalid of ['0','-1','1.5','NaN','Infinity','abc','9007199254740993']){
+                await page.locator('#devCashAmount').fill(invalid);await page.locator('#devAddCash').click();assert.equal(await page.evaluate(()=>save.cash),cash);
+            }
+            if(width===390){
+                await page.evaluate(()=>{window.realSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota');};});
+                await page.locator('#devCashAmount').fill('1000');await page.locator('#devAddCash').click();
+                assert.equal(await page.evaluate(()=>save.cash),cash);const pending=await page.evaluate(()=>pendingDevelopmentWrite.serialized);
+                await page.evaluate(()=>{addDeveloperCash(1000);setDeveloperFurnace(true);Storage.prototype.setItem=realSetItem;});
+                await page.locator('#retryDevelopmentWrite').click();cash+=1000;
+                assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),pending);assert.equal(await page.evaluate(()=>save.cash),cash);
+            }
+            await page.locator('#enableDeveloperFurnace').click();assert.equal(await page.locator('#furnaceCapacity').textContent(),'Unlimited');
+            assert.equal(await page.locator('#furnaceName').textContent(),'Developer Furnace');assert.equal(await page.evaluate(()=>save.furnaceTier),0);
+            await page.reload();assert.equal(await page.evaluate(()=>save.cash),cash);assert.equal(await page.evaluate(()=>save.developerTools.furnaceEnabled),true);
+            await page.locator('.dev-tools summary').click();
+            await page.evaluate(()=>{for(let i=0;i<120;i++)document.getElementById('mineButton').click();});
+            const before=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+            await page.getByRole('button',{name:'🔥 Open Furnace',exact:true}).click();
+            await page.locator('#furnaceItems').getByRole('button',{name:'Select',exact:true}).click();
+            await page.locator('#furnaceItems').getByRole('button',{name:'100%',exact:true}).click();
+            assert.equal(await page.locator('#confirmAmount').textContent(),'120');assert.equal(await page.locator('#confirmValue').textContent(),'1,000');assert.equal(await page.locator('#confirmTotal').textContent(),'120,000');
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'dev-furnace-confirm-'+width+'.png'),fullPage:true});}
+            if(width===390)await page.evaluate(()=>{window.realSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota');};});
+            await page.locator('#smeltConfirmModal').getByRole('button',{name:'Confirm',exact:true}).click();
+            if(width===390){
+                assert.deepEqual(await page.evaluate(()=>save),before);const pending=await page.evaluate(()=>pendingDevelopmentWrite.serialized);
+                await page.evaluate(()=>{confirmSmelt();addDeveloperCash(1000);Storage.prototype.setItem=realSetItem;});
+                await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),pending);
+            }
+            cash+=120000;assert.equal(await page.evaluate(()=>save.cash),cash);assert.equal(await page.evaluate(()=>save.inventory.stone),0);
+            assert.equal(await page.evaluate(()=>save.factoryXP),before.factoryXP+120);assert.equal(await page.evaluate(()=>save.achievementStats.oresSmelted),120);
+            assert.equal(await page.evaluate(()=>confirmSmelt()),false);assert.equal(await page.locator('#smeltConfirmModal').isVisible(),false);
+            await page.locator('#furnaceModal .close-button').click();
+            await page.evaluate(()=>{save.furnaceTier=2;save.inventory.stone=25;saveGame();updateUI();testIntervals.find(t=>t.ms===100).callback();});
+            assert.equal(await page.evaluate(()=>save.inventory.stone),25);assert.match(await page.locator('#autoFurnaceControls').textContent(),/paused/);
+            await page.locator('#restoreNormalFurnace').click();assert.equal(await page.locator('#furnaceName').textContent(),'Auto Furnace');assert.equal(await page.locator('#furnaceCapacity').textContent(),'10000');
+            await page.evaluate(()=>testIntervals.find(t=>t.ms===100).callback());assert.equal(await page.evaluate(()=>save.autoFurnaceBatch[0].amount),25);
+            assert.equal(await page.evaluate(()=>setDeveloperFurnace(true)),false);
+            await page.evaluate(()=>{testNow+=10000;testIntervals.find(t=>t.ms===100).callback();});cash+=25;
+            assert.equal(await page.evaluate(()=>save.cash),cash);
+            await page.locator('#enableDeveloperFurnace').click();await page.reload();assert.equal(await page.evaluate(()=>save.furnaceTier),2);
+            await page.locator('.dev-tools summary').click();await page.locator('#devCashAmount').fill('2500000');
+            const layout=await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id),input=document.getElementById('devCashAmount').getBoundingClientRect();return {overflow:document.documentElement.scrollWidth>innerWidth,duplicate:ids.length!==new Set(ids).size,inputFits:input.left>=0&&input.right<=innerWidth};});
+            assert.deepEqual(layout,{overflow:false,duplicate:false,inputFits:true});
+            await page.evaluate(()=>scrollTo(0,0));
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'dev-panel-'+width+'.png'),fullPage:true});
+            const valid=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));assert.deepEqual(app.errors,[]);await app.context.close();
+            if(width===390){const bad={...valid,developerTools:{furnaceEnabled:'yes'}},raw=JSON.stringify(bad),invalid=await session(raw);assert.equal(await invalid.page.locator('#saveRecovery').isVisible(),true);assert.equal(await invalid.page.evaluate(()=>localStorage.getItem('ef_incremental')),raw);assert.deepEqual(invalid.errors,[]);await invalid.context.close();}
+            console.log('PASS Chromium: developer Cash, Furnace, reload/retry, normal Auto restoration and panel at '+width+'x'+height+'.');
+        }
+        for(const [width,height] of [[1920,1080],[1366,768],[390,844]]) {
             const app=await session(null), {page}=app;
             await page.setViewportSize({width,height});
             assert.equal(await page.locator('#buyMiningPower').isDisabled(),true);

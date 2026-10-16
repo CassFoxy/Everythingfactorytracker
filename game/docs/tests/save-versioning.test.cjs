@@ -4486,6 +4486,96 @@ test('GAME03 invalid commands and malformed investment/context reject without re
         assert.equal(app.run('recoveryState.active'),true);assert.equal(app.stored(),raw);assert.equal(app.writes.length,0);
     }
 });
+test('DEV01 Cash presets/custom amounts persist exact additions and reject invalid or imprecise inputs', () => {
+    const app=ready();let total=0;
+    for(const amount of [1000,1000000,1000000000,'2500000']){
+        assert.equal(app.run('addDeveloperCash('+JSON.stringify(amount)+')'),true);total+=Number(amount);
+        assert.equal(app.state().cash,total);assert.equal(JSON.parse(app.stored()).cash,total);
+        assert.match(app.elements.get('devFeedback').textContent,/Added.*Saved/);
+    }
+    assert.equal(app.elements.get('buyMiningPower').disabled,false);
+    assert.equal(ready(app.stored()).state().cash,total);
+    for(const expression of ['0','-1','1.5','NaN','Infinity','null','{}','true','""','"abc"','"1e3"','"1.2"','"Infinity"','"9007199254740993"']){
+        const before=app.state(),raw=app.stored();assert.equal(app.run('addDeveloperCash('+expression+')'),false);assert.deepEqual(app.state(),before);assert.equal(app.stored(),raw);
+    }
+    for(const [cash,amount] of [[2**53,1],[1,2**60],[Number.MAX_VALUE,Number.MAX_VALUE]]){
+        app.run('save.cash='+cash);const before=app.state();assert.equal(app.run('addDeveloperCash('+amount+')'),false);assert.deepEqual(app.state(),before);
+    }
+    app.run('save.cash=0');assert.equal(app.run('addDeveloperCash(2**60)'),true,'no arbitrary safe-integer Cash cap');
+});
+test('DEV01 Cash write failure retains one candidate and feedback until exact retry', () => {
+    const app=ownedDevelopmentMiner();app.tick(100);const before=app.state(),raw=app.stored();app.faults.write=true;
+    assert.equal(app.run('addDeveloperCash(1000000)'),false);const pending=app.run('pendingDevelopmentWrite.serialized');
+    assert.deepEqual(app.state(),before);assert.equal(app.stored(),raw);
+    app.run('addDeveloperCash(1000);setDeveloperFurnace(true);mineOre();');app.advance(10000);app.tick(100);
+    assert.deepEqual(app.state(),before);assert.equal(app.run('pendingDevelopmentWrite.serialized'),pending);
+    app.faults.write=false;assert.equal(app.run('retryDevelopmentWrite()'),true);assert.equal(app.stored(),pending);assert.equal(app.state().cash,before.cash+1000000);
+    assert.match(app.elements.get('devFeedback').textContent,/1,000,000/);assert.equal(app.run('retryDevelopmentWrite()'),false);
+});
+test('DEV01 optional default-off settings preserve older saves; malformed settings recover without overwriting', () => {
+    const old=ownedDevelopmentMiner().state();delete old.developerTools;
+    const loaded=ready(JSON.stringify(old));assert.equal(loaded.state().developerTools.furnaceEnabled,false);assert.equal(loaded.state().factory.miners[0].id,'miner:1');
+    for(const settings of [null,{},true,{furnaceEnabled:1},{furnaceEnabled:'true'},{furnaceEnabled:false,extra:1}]){
+        const bad={...old,developerTools:settings},raw=JSON.stringify(bad),app=boot(raw);
+        assert.equal(app.run('recoveryState.active'),true);assert.equal(app.stored(),raw);assert.equal(app.writes.length,0);
+    }
+    const legacy=ready(JSON.stringify({cash:100,droppers:0,adders:0,multipliers:0}));const before=legacy.state();
+    assert.equal(legacy.run('addDeveloperCash(1000)'),false);assert.equal(legacy.run('setDeveloperFurnace(true)'),false);assert.deepEqual(legacy.state(),before);
+    assert.equal(legacy.run('developerFurnaceEnabled()'),false);
+});
+test('DEV01 Developer Furnace sells entire owned raw stock at exactly 1000x and restores ordinary limits', () => {
+    const app=ready();app.run('save.inventory.ruby=100;save.inventory.stone=20000;save.adders=9;save.furnaceTier=1;updateUI();saveGame();');
+    assert.equal(app.run('setDeveloperFurnace(true)'),true);assert.equal(app.state().furnaceTier,1);
+    assert.equal(app.elements.get('furnaceCapacity').textContent,'Unlimited');assert.equal(app.run('FURNACES.length'),3);
+    assert.equal(app.run('prepareSmelt("stone",999999,1)'),true);
+    assert.equal(app.run('pendingSmelt.amount'),20000);assert.equal(app.elements.get('confirmTotal').textContent,'200,000,000');
+    assert.equal(app.run('confirmSmelt()'),true);assert.equal(app.state().inventory.stone,0);assert.equal(app.state().cash,200000000);
+    assert.equal(app.state().factoryXP,20000);assert.equal(app.state().achievementStats.oresSmelted,20000);
+    assert.equal(app.run('confirmSmelt()'),false,'cleared preview cannot sell twice');
+    assert.equal(app.run('prepareSmelt("ruby",-100,1)'),true);
+    const quote=app.run('ORES.ruby.value*100*1000');assert.equal(app.run('confirmSmelt()'),true);assert.equal(app.state().cash,200000000+quote);
+    assert.equal(app.state().inventory.ruby,0);assert.equal(app.state().factoryXP,20100);
+    const reloaded=ready(app.stored());assert.equal(reloaded.run('developerFurnaceEnabled()'),true);assert.equal(reloaded.state().furnaceTier,1);
+    assert.equal(reloaded.run('setDeveloperFurnace(false)'),true);reloaded.run('save.inventory.stone=100;prepareSmelt("stone",999,1);');
+    const cap=reloaded.run('FURNACES[1].capacity'),cash=reloaded.state().cash;assert.equal(reloaded.run('pendingSmelt.amount'),cap);
+    assert.equal(reloaded.run('confirmSmelt()'),true);assert.equal(reloaded.state().cash,cash+cap*10);assert.equal(reloaded.state().inventory.stone,100-cap);
+});
+test('DEV01 confirmation revalidates quantity, mode and authoritative value; unsafe payouts reject atomically', () => {
+    for(const mutate of ['pendingSmelt.amount=101','pendingSmelt.amount=-1','pendingSmelt.amount=1.5','pendingSmelt.key="unknown"','pendingSmelt.key="gemDust"','save.inventory.stone=0']){
+        const app=ready();app.run('save.inventory.stone=100;setDeveloperFurnace(true);prepareSmelt("stone",1,1);'+mutate);
+        const before=app.state(),raw=app.stored();assert.equal(app.run('confirmSmelt()'),false);assert.deepEqual(app.state(),before);assert.equal(app.stored(),raw);
+    }
+    const app=ready();app.run('save.inventory.stone=100;setDeveloperFurnace(true);prepareSmelt("stone",1,1);pendingSmelt.value=1e20;');
+    assert.equal(app.run('confirmSmelt()'),true);assert.equal(app.state().cash,100000);
+    app.run('save.inventory.stone=100;prepareSmelt("stone",1,1);setDeveloperFurnace(false);');assert.equal(app.run('confirmSmelt()'),false);
+    app.run('prepareSmelt("stone",1,1);pendingSmelt.amount=100;');assert.equal(app.run('confirmSmelt()'),false,'normal capacity checked at confirmation');
+    for(const setup of ['save.cash=2**60;save.inventory.stone=1','save.cash=0;save.stoneValue=Number.MAX_VALUE;save.inventory.stone=1','save.cash=0;save.stoneValue=1;save.inventory.stone=Number.MAX_SAFE_INTEGER']){
+        const a=ready();a.run('setDeveloperFurnace(true);'+setup);const before=a.state();assert.equal(a.run('prepareSmelt("stone",1,1)'),false);assert.deepEqual(a.state(),before);
+    }
+});
+test('DEV01 failed manual sale retries exact payout once and clears the stale confirmation', () => {
+    const app=ready();app.run('save.inventory.stone=100;setDeveloperFurnace(true);prepareSmelt("stone",1,1);');
+    const before=app.state(),raw=app.stored();app.faults.write=true;assert.equal(app.run('confirmSmelt()'),false);
+    const pending=app.run('pendingDevelopmentWrite.serialized');app.run('confirmSmelt();setDeveloperFurnace(false);addDeveloperCash(1000);');
+    assert.deepEqual(app.state(),before);assert.equal(app.stored(),raw);assert.equal(app.run('pendingDevelopmentWrite.serialized'),pending);
+    app.faults.write=false;assert.equal(app.run('retryDevelopmentWrite()'),true);assert.equal(app.stored(),pending);
+    assert.equal(app.state().cash,100000);assert.equal(app.state().inventory.stone,0);assert.equal(app.state().factoryXP,100);
+    assert.equal(app.run('confirmSmelt()'),false);assert.equal(app.run('retryDevelopmentWrite()'),false);
+    assert.equal(ready(app.stored()).state().cash,100000);
+});
+test('DEV01 Auto Furnace reservations remain normal and cannot overlap testing manual sales', () => {
+    const app=ready();app.run('save.furnaceTier=2;save.inventory.stone=10;saveGame();');app.tick(100);
+    const before=app.state();assert.equal(app.run('setDeveloperFurnace(true)'),false);assert.deepEqual(app.state(),before);
+    app.advance(10000);app.tick(100);assert.equal(app.state().cash,10);
+    app.run('save.inventory.stone=30;');assert.equal(app.run('setDeveloperFurnace(true)'),true);const enabled=app.state();
+    app.run('startAutoFurnace();startAutoFurnaceCycle();');app.advance(100000);app.tick(100);
+    assert.deepEqual(app.state(),enabled);const loaded=ready(app.stored());loaded.tick(100);assert.equal(loaded.state().inventory.stone,30);
+    loaded.run('prepareSmelt("stone",1,1);confirmSmelt();');assert.equal(loaded.state().cash,30010);
+    loaded.run('save.inventory.stone=5;setDeveloperFurnace(false);');loaded.tick(100);assert.equal(loaded.state().autoFurnaceBatch[0].amount,5);
+    loaded.advance(10000);loaded.tick(100);assert.equal(loaded.state().cash,30015);
+    const bad=structuredClone(before);bad.developerTools.furnaceEnabled=true;const raw=JSON.stringify(bad),invalid=boot(raw);
+    assert.equal(invalid.run('recoveryState.active'),true);assert.equal(invalid.stored(),raw);
+});
 test('GAME05 Luck II supports every tier, interleaved payment history and cycle phase', () => {
     const orders=[['luck','luck','tier','tier'],['tier','luck','tier','luck'],['luck','tier','luck','tier'],['tier','tier','luck','luck'],['luck','tier','tier','luck'],['tier','luck','luck','tier']];
     for(const tier of [1,2,3]) for(const order of orders) for(const phase of ['idle','level0','level1','resolved']){

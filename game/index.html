@@ -30,7 +30,12 @@
   <button onclick="openStats()">📊 Statistics</button>
   <button onclick="openMilestones()">🏆 Milestones <span id="milestoneCount">0</span></button>
   <button onclick="openAchievements()">🏅 Achievements <span id="achievementCount">0</span>/<span id="achievementTotal">0</span></button>
-  <details class="dev-tools"><summary>⚙ Dev tools</summary><div><p>Development save controls</p><button class="dev-reset" onclick="resetSave()">⚠ Reset Save</button></div></details>
+  <details class="dev-tools"><summary>⚙ Dev tools</summary><div class="dev-panel">
+   <p class="dev-panel-label">Private testing only · Disable or exclude these tools before public release.</p>
+   <section><h3>Cash controls</h3><div id="devCashControls"><div class="dev-presets"><button onclick="addDeveloperCash(1000)">Add $1,000</button><button onclick="addDeveloperCash(1000000)">Add $1,000,000</button><button onclick="addDeveloperCash(1000000000)">Add $1,000,000,000</button></div><label for="devCashAmount">Custom Cash amount (whole number)</label><div class="dev-input-row"><input id="devCashAmount" type="text" inputmode="numeric" placeholder="2500000" autocomplete="off"><button id="devAddCash" onclick="addDeveloperCash(document.getElementById('devCashAmount').value)">Add Cash</button></div></div></section>
+   <section><h3>Developer Furnace</h3><p>Manual sales only · Unlimited owned input · 1,000× sale Cash. XP and statistics stay normal.</p><button id="enableDeveloperFurnace" onclick="setDeveloperFurnace(true)">Enable Developer Furnace</button><button id="restoreNormalFurnace" onclick="setDeveloperFurnace(false)">Restore Normal Furnace</button><p id="devFurnaceStatus"></p></section>
+   <section><h3>Save management</h3><button onclick="exportRecoverySave()">Download save</button><button class="dev-reset" onclick="resetSave()">⚠ Reset Save</button><p>Reset asks for confirmation.</p></section><p id="devFeedback" role="status" aria-live="polite"></p>
+  </div></details>
  </nav>
  <main class="game-layout">
   <section class="game-panel mining-panel" aria-labelledby="miningTitle">
@@ -48,7 +53,7 @@
    <article id="minerPanel" class="furnace-workbench" hidden><h3>⛏ Miner · Slot 1</h3><p id="minerStatus"></p><div class="miner-actions"><button id="unlockMiner">Unlock Miners · $100</button><button id="buyMiner">Buy Tier 1 Miner · $100</button></div><button id="upgradeMiner" aria-describedby="minerUpgradeHint">Upgrade to Tier 2</button><p id="minerUpgradeHint" class="shop-note"></p><p id="minerOreLuckStatus"></p><button id="upgradeMinerOreLuck" aria-describedby="minerOreLuckHint">Local Ore Luck I</button><p id="minerOreLuckHint" class="shop-note"></p><label for="minerProgress" id="minerCycleStatus">No Miner owned</label><progress id="minerProgress" max="100" value="0"></progress><p id="minerFeedback" role="status"></p></article><p id="legacyModeNotice" class="shop-note" hidden>Legacy prototype save: Dropper gameplay remains separate. Download your save before using Reset Save in development tools to start the playable Miner build. <button id="exportLegacySave" onclick="exportRecoverySave()">Download legacy save</button><span id="legacyExportStatus" role="status"></span></p>
 <article id="legacyDropperOverview" class="machine-overview"><div class="machine-icon" aria-hidden="true">🏗</div><div><h3>Dropper production</h3><p id="dropperProduction">0 Droppers running</p><small>Automatic Stone production · every second</small></div></article>
    <article class="furnace-workbench" id="furnaceCard"><div class="machine-heading"><span aria-hidden="true">🔥</span><div><h3 id="furnaceName">Starter Furnace</h3><p>Smelt capacity <strong id="furnaceCapacity">10</strong></p></div></div>
-    <p>Smelt resources from your inventory to earn Cash.</p>
+    <p id="furnaceModeNotice">Smelt resources from your inventory to earn Cash.</p>
     <div class="furnace-actions"><button onclick="openFurnace()">🔥 Open Furnace</button><button id="upgradeFurnace">Upgrade Furnace</button></div>
     <div id="autoFurnaceControls"></div>
    </article>
@@ -214,6 +219,7 @@
         <button class="close-button" onclick="closeFurnace()" aria-label="Close">×</button>
 
         <h2 id="furnaceModalTitle">🔥 Furnace</h2>
+        <p id="furnaceFeedback" role="status"></p>
         
         <div id="furnaceItems">
 
@@ -232,6 +238,7 @@
             🔥 Confirm Smelt
         </h2>
 
+        <p id="smeltFeedback" role="alert"></p>
         <div id="confirmOre">
 
         </div>

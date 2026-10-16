@@ -286,7 +286,7 @@ function getRecoveryRawSave(){
 
 function exportRecoverySave(){
     if(!recoveryState.active && !gameStarted) return;
-    const statusId = recoveryState.active ? "recoveryStatus" : "legacyExportStatus";
+    const statusId = recoveryState.active ? "recoveryStatus" : isMinerDevelopment() ? "devFeedback" : "legacyExportStatus";
     let url;
     try{
         const raw = recoveryState.active ? getRecoveryRawSave() : localStorage.getItem(SAVE_KEY);
@@ -699,6 +699,9 @@ function completeValidatedSave(validatedSave){
         }
     }
     fillMissing(completed, defaults);
+    // DEV01: only an absent optional setting defaults off after validation.
+    if(isMinerDevelopment(completed) && !Object.hasOwn(completed, "developerTools"))
+        completed.developerTools = { furnaceEnabled: false };
     // Existing Boolean achievement compatibility, after validation and default completion.
     for(const [id, progress] of Object.entries(completed.achievements)){
         if(typeof progress === "boolean"){
@@ -1156,6 +1159,7 @@ function getAutoFurnaceBatchValue(
 
 
 function startAutoFurnaceCycle(){
+    if(developerFurnaceEnabled()) return;
 
     if(
         !autoFurnaceState.enabled ||
@@ -1394,6 +1398,7 @@ function stopAutoFurnace(){
 }
 
 function startAutoFurnace(){
+    if(developerFurnaceEnabled()) return;
 
     autoFurnaceState.enabled =
         true;
@@ -1411,6 +1416,7 @@ function startAutoFurnace(){
 
 
 function updateAutoFurnace(){
+    if(developerFurnaceEnabled()){ updateAutoFurnaceUI(); return; }
 
     if(save.furnaceTier < 2)
         return;
@@ -1560,6 +1566,11 @@ function updateAutoFurnaceUI(){
 
     if(!container)
         return;
+
+    if(developerFurnaceEnabled()){
+        container.innerHTML = "<p>Auto Furnace paused while Developer Furnace is enabled. Restore Normal Furnace to resume its saved preference.</p>";
+        return;
+    }
 
 
     if(save.furnaceTier < 2){
@@ -2507,12 +2518,13 @@ document.getElementById("dropperCost").textContent =
 document.getElementById(
     "furnaceName"
 ).textContent =
-    furnace.name;
+    developerFurnaceEnabled() ? "Developer Furnace" : furnace.name;
 
 document.getElementById(
     "furnaceCapacity"
 ).textContent =
-    furnace.capacity;
+    developerFurnaceEnabled() ? "Unlimited" : furnace.capacity;
+    renderDeveloperTools();
 
     const upgradeButton =
 
@@ -3417,6 +3429,12 @@ const div =
             amount * value
         ).toLocaleString();
 
+if(developerFurnaceEnabled()){
+    try{
+        const quote = developmentSmeltQuote(save, key, amount);
+        div.title = "Testing sale · Amount: " + amount.toLocaleString() + "\nValue: $" + quote.value.toLocaleString() + "\nTotal: $" + quote.total.toLocaleString();
+    }catch(error){ div.title = error.message; }
+}
 const container =
     document.getElementById(
         "furnaceItems"
@@ -3475,6 +3493,7 @@ function prepareSmelt(
     value,
     percent
 ){
+    if(isMinerDevelopment()) return prepareDevelopmentSmelt(key, percent);
 
     if(autoFurnaceState.processing){
 
@@ -3549,21 +3568,20 @@ document.getElementById(
 
 function confirmSmelt(){
     if(isMinerDevelopment()){
-        if(autoFurnaceState.processing || pendingDevelopmentWrite) return;
+        if(autoFurnaceState.processing || pendingDevelopmentWrite) return false;
         const success = developmentCommand(next => {
-            const {key, amount, value} = pendingSmelt;
-            developmentOre(key);
-            if(!Number.isInteger(amount) || amount <= 0 || amount > next.inventory[key] || !Number.isFinite(value) || value < 0) throw Error("Invalid Furnace selection");
+            const {key, amount} = pendingSmelt;
+            const quote = developmentSmeltQuote(next, key, amount);
+            if(pendingSmelt.developerMode !== developerFurnaceEnabled(next)) throw Error("Furnace mode changed. Select the batch again.");
             const remaining = next.inventory[key] - amount;
             if(remaining + amount !== next.inventory[key] || next.inventory[key] - remaining !== amount) throw Error("Inventory precision exhausted");
             next.inventory[key] = remaining;
-            next.cash = exactDevelopmentAdd(next.cash, amount * value);
+            next.cash = exactDevelopmentAdd(next.cash, quote.total);
             next.achievementStats.oresSmelted = exactDevelopmentAdd(next.achievementStats.oresSmelted, amount);
             next.factoryXP = exactDevelopmentAdd(next.factoryXP, amount);
             prepareDevelopmentProgress(next);
-        });
-        if(success){ closeSmeltConfirm(); buildFurnaceMenu(); }
-        return;
+        }, { message: "Furnace sale saved.", smelt: true });
+        return success;
     }
 
     if(autoFurnaceState.processing){
@@ -4129,6 +4147,7 @@ function isMinerDevelopment(state = save){ return state.developmentProfile === "
 function createMinerDevelopmentSave(){
     return Object.assign(createDefaultSave(), {
         developmentProfile: "miner-1",
+        developerTools: { furnaceEnabled: false },
         shop: { miningPower: 0, minerUnlocked: false },
         manual: { firstActionCompleted: false, equippedPickaxeId: "pickaxe:default", pickaxes: [] },
         factory: { minerSlots: MinerCandidateModel.createSlotAccess(), miners: [] },
@@ -4173,6 +4192,12 @@ function validateDevelopmentSave(state){
     if(!Object.prototype.hasOwnProperty.call(state, "developmentProfile")) return; // supported legacy mode
     try{
         if(!isMinerDevelopment(state)) throw Error("Unsupported development profile");
+        if(Object.hasOwn(state, "developerTools")){
+            developmentRecord(state.developerTools, ["furnaceEnabled"]);
+            if(typeof state.developerTools.furnaceEnabled !== "boolean") throw Error("Invalid developer Furnace mode");
+            if(state.developerTools.furnaceEnabled && state.autoFurnaceBatch.length)
+                throw Error("Developer Furnace cannot own an automatic batch");
+        }
         for(const key of Object.keys(createDefaultSave())) if(!Object.hasOwn(state, key)) throw Error("Missing development field: " + key);
         for(const key of ["stone", ...ORE_KEYS]) if(!Object.hasOwn(state.inventory, key)) throw Error("Missing inventory counter");
         developmentRecord(state.shop, ["miningPower", "minerUnlocked"]);
@@ -4295,30 +4320,126 @@ function retryDevelopmentWrite(){
         document.getElementById("gameRoot").inert = true;
         return false;
     }
-    const next = pendingDevelopmentWrite.candidate;
+    const next = pendingDevelopmentWrite.candidate, feedback = pendingDevelopmentWrite.feedback;
     pendingDevelopmentWrite = null;
     document.getElementById("developmentWriteRecovery").hidden = true;
     document.getElementById("gameRoot").inert = false;
     publishDevelopmentState(next);
+    if(feedback){
+        document.getElementById("devFeedback").textContent = feedback.message;
+        if(feedback.smelt){ pendingSmelt = {}; closeSmeltConfirm(); buildFurnaceMenu(); }
+    }
     return true;
 }
-function commitDevelopmentState(candidate){
+function commitDevelopmentState(candidate, feedback = null){
     if(pendingDevelopmentWrite || recoveryState.active) return false;
     validateSaveData(candidate); validateDevelopmentSave(candidate);
     const serialized = JSON.stringify(candidate);
-    pendingDevelopmentWrite = { candidate, serialized };
+    pendingDevelopmentWrite = { candidate, serialized, feedback };
     return retryDevelopmentWrite();
 }
-function developmentCommand(prepare){
+function developmentCommand(prepare, feedback = null){
     if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
-    try{ const next = copySaveData(save); prepare(next); return commitDevelopmentState(next); }
-    catch(error){ document.getElementById("minerFeedback").textContent = error.message; return false; }
+    try{ validateSaveData(save); validateDevelopmentSave(save); const next = copySaveData(save); prepare(next); return commitDevelopmentState(next, feedback); }
+    catch(error){
+        document.getElementById("minerFeedback").textContent = error.message;
+        if(feedback) document.getElementById("devFeedback").textContent = error.message;
+        if(feedback?.smelt) document.getElementById("smeltFeedback").textContent = error.message;
+        return false;
+    }
 }
 function developmentDebit(cash, price){
     const remaining = cash - price;
     if(cash < price || !Number.isFinite(remaining) || remaining < 0 || remaining + price !== cash || cash - remaining !== price)
         throw Error("Insufficient Cash or unrepresentable debit");
     return remaining;
+}
+// DEV01: private-profile test tools. These are client-side utilities, not an
+// authorization boundary. Exclude/disable them before a public release.
+function developerFurnaceEnabled(state = save){
+    return isMinerDevelopment(state) && state.developerTools?.furnaceEnabled === true;
+}
+function developerAmount(input){
+    if(typeof input === "string"){
+        const text = input.trim();
+        if(!/^[0-9]+$/.test(text)) throw Error("Enter a positive whole Cash amount using digits only.");
+        const amount = Number(text);
+        if(!Number.isFinite(amount) || BigInt(text) !== BigInt(amount)) throw Error("Cash amount cannot be represented exactly.");
+        input = amount;
+    }
+    if(typeof input !== "number" || !Number.isFinite(input) || !Number.isInteger(input) || input <= 0)
+        throw Error("Cash amount must be a positive finite whole number.");
+    return input;
+}
+function addDeveloperCash(input){
+    if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    try{
+        const amount = developerAmount(input);
+        return developmentCommand(next => { next.cash = exactDevelopmentAdd(next.cash, amount); },
+            { message: "Added $" + amount.toLocaleString() + " Cash. Saved." });
+    }catch(error){ document.getElementById("devFeedback").textContent = error.message; return false; }
+}
+function setDeveloperFurnace(enabled){
+    return developmentCommand(next => {
+        if(typeof enabled !== "boolean") throw Error("Invalid Developer Furnace setting.");
+        if(autoFurnaceState.processing || next.autoFurnaceBatch.length)
+            throw Error("Wait for the current Auto Furnace batch to finish before switching.");
+        next.developerTools = { furnaceEnabled: enabled };
+    }, { message: enabled ? "Developer Furnace enabled. Manual sales only; Auto Furnace paused." : "Normal Furnace restored. Saved Auto Furnace preference retained.", smelt: true });
+}
+function exactDevelopmentProduct(a, b){
+    const result = a * b;
+    if(!Number.isFinite(a) || !Number.isFinite(b) || a < 0 || b < 0 || !Number.isFinite(result) ||
+        (a !== 0 && result / a !== b) || (b !== 0 && result / b !== a) ||
+        (Number.isInteger(a) && Number.isInteger(b) && BigInt(result) !== BigInt(a) * BigInt(b)))
+        throw Error("Sale value cannot be represented exactly.");
+    return result;
+}
+function developmentSmeltQuote(state, key, amount){
+    const ore = developmentOre(key), available = state.inventory[key];
+    if(!Number.isFinite(available) || !Number.isInteger(available) || available < 0 ||
+        !Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0 || amount > available ||
+        (!developerFurnaceEnabled(state) && amount > FURNACES[state.furnaceTier].capacity))
+        throw Error("Invalid or unavailable Furnace quantity. Select the batch again.");
+    const normalValue = key === "stone" ? state.stoneValue : ore.value;
+    const value = exactDevelopmentProduct(normalValue, developerFurnaceEnabled(state) ? 1000 : 1);
+    const total = exactDevelopmentProduct(amount, value);
+    exactDevelopmentAdd(state.cash, total);
+    return { value, total };
+}
+function prepareDevelopmentSmelt(key, percent){
+    if(pendingDevelopmentWrite || recoveryState.active || autoFurnaceState.processing) return false;
+    try{
+        validateSaveData(save); validateDevelopmentSave(save); developmentOre(key);
+        if(![0.25,0.5,1].includes(percent)) throw Error("Invalid Furnace percentage.");
+        const available = save.inventory[key];
+        const amount = Math.min(Math.floor(available * percent), developerFurnaceEnabled() ? available : FURNACES[save.furnaceTier].capacity);
+        const quote = developmentSmeltQuote(save, key, amount);
+        pendingSmelt = { key, amount, developerMode: developerFurnaceEnabled() };
+        document.getElementById("smeltFeedback").textContent = "";
+        document.getElementById("furnaceFeedback").textContent = "";
+        document.getElementById("confirmOre").textContent = developmentOre(key).name;
+        document.getElementById("confirmAmount").textContent = amount.toLocaleString();
+        document.getElementById("confirmValue").textContent = quote.value.toLocaleString();
+        document.getElementById("confirmTotal").textContent = quote.total.toLocaleString();
+        document.getElementById("smeltConfirmModal").style.display = "block";
+        return true;
+    }catch(error){
+        document.getElementById("devFeedback").textContent = error.message;
+        document.getElementById("furnaceFeedback").textContent = error.message;
+        document.getElementById("minerFeedback").textContent = error.message;
+        return false;
+    }
+}
+function renderDeveloperTools(){
+    const supported = isMinerDevelopment(), enabled = developerFurnaceEnabled();
+    document.getElementById("devCashControls").hidden = !supported;
+    document.getElementById("enableDeveloperFurnace").disabled = !supported || enabled || autoFurnaceState.processing;
+    document.getElementById("restoreNormalFurnace").disabled = !supported || !enabled;
+    document.getElementById("devFurnaceStatus").textContent = !supported ? "Cash and testing Furnace tools require the miner-1 development profile. Legacy gameplay is unchanged." :
+        enabled ? "Testing mode active. Capacity: Unlimited. Auto Furnace paused." : autoFurnaceState.processing ? "Normal Furnace active. Wait for its reserved batch before enabling testing mode." : "Normal Furnace active. Its tier and automatic preference are preserved.";
+    document.getElementById("furnaceModeNotice").textContent = enabled ? "Testing only · Manual sales ×1,000 Cash · Auto Furnace paused." : "Smelt resources from your inventory to earn Cash.";
+    document.getElementById("furnaceModalTitle").textContent = enabled ? "Developer Furnace · manual test sales" : "🔥 Furnace";
 }
 function buyMiningPower(){
     return developmentCommand(next => {

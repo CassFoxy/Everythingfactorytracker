@@ -1,5 +1,15 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-DEV01 — Expanded Developer Tools and Testing Furnace
+
+**Status: ✅ COMPLETE — bounded private development utility.** The earthy Dev tools panel provides exact Cash presets/custom additions, export/reset, and a reversible manual Developer Furnace. Testing mode accepts the eligible owned quantity without ordinary capacity limits and multiplies only normal sale Cash by 1,000. Ordinary XP/statistics, Furnace ownership and Miner gameplay remain unchanged. Auto Furnace pauses in testing mode; switching cannot discard an active batch.
+
+Schema 1 / miner-1 retains optional validated `developerTools.furnaceEnabled`; absent older settings default off without reset. All changes use the existing persist-before-publish transaction and exact failed-write retry. No public V2 activation or authentication is implied; exclude these controls before public release.
+
+Verification: 402 Node regressions, 33 browser scenarios, syntax checks, and desktop/laptop/mobile panel and manual-sale checks. Durable Cash, settings, full-inventory sales, failure/retry, malformed settings, legacy behavior and existing GAME01–GAME05 flows are covered.
+
+**V1-GAME06 — playable Miner Tier 4–5 progression remains outstanding.** Additional local Luck, slots, resale, grid, Rebirth, other machines, complete statistics/challenges and public migration/activation remain incomplete. None is implemented by this utility ticket.
+
 ## V1-GAME05 — Playable Miner Local Ore Luck II
 
 **Status: ✅ COMPLETE — bounded private development profile.** The existing Factory control supports local 0→1→2, deriving its next price from MinerOreLuckModel with no Factory Discount. Level 2 costs $1,250 and gives 1.04× at Rebirth Ore Luck 0. Tier 1–3 ownership is supported; Tier 3 remains the tier cap.
