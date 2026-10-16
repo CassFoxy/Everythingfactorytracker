@@ -4124,6 +4124,7 @@ document.getElementById("resetRecoverySave").onclick = resetRecoverySave;
 // V1-GAME01: private development profile. Not public V2 activation.
 let pendingDevelopmentWrite = null;
 const DEVELOPMENT_MINER_MAX_TIER = 3;
+const DEVELOPMENT_MINER_MAX_ORE_LUCK = 2;
 function isMinerDevelopment(state = save){ return state.developmentProfile === "miner-1"; }
 function createMinerDevelopmentSave(){
     return Object.assign(createDefaultSave(), {
@@ -4188,7 +4189,8 @@ function validateDevelopmentSave(state){
             const cycle = miner.cycle;
             miner.cycle = null; // explicit idle projection; active data is validated below, never discarded from state
             if(!Number.isInteger(miner.tier) || miner.tier < 1 || miner.tier > DEVELOPMENT_MINER_MAX_TIER ||
-                miner.slot !== 1 || ![0,1].includes(miner.oreLuckLevel) || !state.shop.minerUnlocked)
+                miner.slot !== 1 || !Number.isInteger(miner.oreLuckLevel) || miner.oreLuckLevel < 0 ||
+                miner.oreLuckLevel > DEVELOPMENT_MINER_MAX_ORE_LUCK || !state.shop.minerUnlocked)
                 throw Error("Unsupported Miner ownership");
             // This profile has no Discount/Preservation ownership. Require the
             // exact purchase history; never infer paid tiers from owned level.
@@ -4197,20 +4199,23 @@ function validateDevelopmentSave(state){
             for(let targetLevel = 2; targetLevel <= miner.tier; targetLevel++)
                 entries.push({ kind: "tier", targetLevel,
                     cashPaid: MinerTierModel.getTierUpgradePrice(targetLevel, 0), basis: "actual" });
-            if(miner.oreLuckLevel === 1) entries.push({ kind: "oreLuck", targetLevel: 1,
-                cashPaid: MinerOreLuckModel.getUpgradePrice(1, 0), basis: "actual" });
+            for(let targetLevel = 1; targetLevel <= miner.oreLuckLevel; targetLevel++)
+                entries.push({ kind: "oreLuck", targetLevel,
+                    cashPaid: MinerOreLuckModel.getUpgradePrice(targetLevel, 0), basis: "actual" });
             developmentRecord(miner.investment, ["entries"]);
             if(!Array.isArray(miner.investment.entries) || miner.investment.entries.length !== entries.length)
                 throw Error("Invalid Miner investment history");
             // Tier and local Luck are independent purchases. Validate the exact
             // required set without rewriting the chronological saved history.
-            let paidTier = 1;
+            let paidTier = 1, paidOreLuck = 0;
             for(const payment of miner.investment.entries){
                 const index = entries.findIndex(expected => expected.kind === payment?.kind && expected.targetLevel === payment?.targetLevel);
                 if(index < 0) throw Error("Unexpected or duplicate Miner payment");
                 validateDevelopmentResult(payment, entries.splice(index, 1)[0]);
                 if(payment.kind === "tier" && payment.targetLevel !== ++paidTier)
                     throw Error("Tier payments must follow purchased tier order");
+                if(payment.kind === "oreLuck" && payment.targetLevel !== ++paidOreLuck)
+                    throw Error("Ore Luck payments must follow purchased level order");
             }
             if(cycle === null) continue;
             developmentRecord(cycle, ["id","phase","startedAtMs","durationMs","inputs","saleUnitValues","effectContext","result"]);
@@ -4220,7 +4225,7 @@ function validateDevelopmentSave(state){
                 startedAtMs: cycle.startedAtMs, durationMs: cycle.durationMs, inputs: cycle.inputs, saleUnitValues: cycle.saleUnitValues });
             const c = cycle.effectContext;
             if(c.tier > miner.tier || c.overallLuck !== 1 || c.rebirthOreLuckLevel !== 0 ||
-                ![0,1].includes(c.localOreLuckLevel) || c.localOreLuckLevel > miner.oreLuckLevel || c.speedLevel !== 0)
+                c.localOreLuckLevel > miner.oreLuckLevel || c.speedLevel !== 0)
                 throw Error("Unsupported bound effects");
             if(cycle.phase === "reserved"){
                 if(cycle.result !== null) throw Error("Reserved cycle has result");
@@ -4352,8 +4357,8 @@ function upgradeDevelopmentMinerStat(minerId, kind){
         if(!miner) throw Error("Unknown Miner ID");
         if(kind !== "tier" && kind !== "oreLuck") throw Error("Unsupported Miner upgrade");
         const field = kind === "tier" ? "tier" : "oreLuckLevel";
-        if(kind === "tier" ? miner.tier >= DEVELOPMENT_MINER_MAX_TIER : miner.oreLuckLevel !== 0)
-            throw Error(kind === "tier" ? "Tier " + DEVELOPMENT_MINER_MAX_TIER + " is the maximum for this build" : "Local Ore Luck I is the maximum for this build");
+        if(kind === "tier" ? miner.tier >= DEVELOPMENT_MINER_MAX_TIER : miner.oreLuckLevel >= DEVELOPMENT_MINER_MAX_ORE_LUCK)
+            throw Error(kind === "tier" ? "Tier " + DEVELOPMENT_MINER_MAX_TIER + " is the maximum for this build" : "Local Ore Luck II is the maximum for this build");
         const projection = copySaveData(minerProjection(next));
         projection.factory.miners[0].cycle = null;
         const prepare = kind === "tier" ? MinerUpgradeCandidateModel.prepareTierUpgrade : MinerUpgradeCandidateModel.prepareOreLuckUpgrade;
@@ -4439,14 +4444,17 @@ function renderDevelopmentMiner(){
     upgrade.disabled = !miner || atCap || save.cash < price;
     upgrade.textContent = atCap ? "Tier " + DEVELOPMENT_MINER_MAX_TIER + " purchased · Max for this build" : "Upgrade to Tier " + nextTier + " · $" + formatCash(price);
     document.getElementById("minerUpgradeHint").textContent = !miner ? "Purchase your first Miner to upgrade it." : atCap ? "Further tiers are not available in this build." : save.cash < price ? "Earn $" + formatCash(price) + " Cash. The current cycle keeps its original effects." : "Faster production and improved ore chances begin next cycle.";
-    const luckButton = document.getElementById("upgradeMinerOreLuck"), luckPrice = MinerOreLuckModel.getUpgradePrice(1, 0);
+    const luckButton = document.getElementById("upgradeMinerOreLuck");
+    const luckAtCap = miner?.oreLuckLevel === DEVELOPMENT_MINER_MAX_ORE_LUCK;
+    const nextLuck = (miner?.oreLuckLevel || 0) + 1;
+    const luckPrice = luckAtCap ? null : MinerOreLuckModel.getUpgradePrice(nextLuck, 0);
     luckButton.dataset.minerId = miner?.id || "";
-    luckButton.disabled = !miner || miner.oreLuckLevel === 1 || save.cash < luckPrice;
-    luckButton.textContent = miner?.oreLuckLevel === 1 ? "Local Ore Luck I purchased · Max for this build" : "Local Ore Luck I · $" + formatCash(luckPrice);
-    document.getElementById("minerOreLuckStatus").textContent = miner ? "Local Ore Luck: " + miner.oreLuckLevel + " / 1 (" + MinerOreLuckModel.getFinalOreLuck(0, miner.oreLuckLevel).toFixed(2) + "×)" +
+    luckButton.disabled = !miner || luckAtCap || save.cash < luckPrice;
+    luckButton.textContent = luckAtCap ? "Local Ore Luck II purchased · Max for this build" : "Upgrade Local Ore Luck " + (nextLuck === 1 ? "I" : "II") + " · $" + formatCash(luckPrice);
+    document.getElementById("minerOreLuckStatus").textContent = miner ? "Local Ore Luck: " + miner.oreLuckLevel + " / " + DEVELOPMENT_MINER_MAX_ORE_LUCK + " (" + MinerOreLuckModel.getFinalOreLuck(0, miner.oreLuckLevel).toFixed(2) + "×)" +
         (c && c.effectContext.localOreLuckLevel !== miner.oreLuckLevel ? " · Current cycle: Level " + c.effectContext.localOreLuckLevel + " · Next cycle: Level " + miner.oreLuckLevel : "") : "Purchase your first Miner to upgrade Local Ore Luck.";
     document.getElementById("minerOreLuckHint").textContent = "Improves which ore is selected within a rolled tier, not the chance of a higher tier. " +
-        (miner?.oreLuckLevel === 1 ? "Future cycles use Level 1; existing work is unchanged." : "Costs $" + formatCash(luckPrice) + " Cash; no Factory Discount. " + (miner && save.cash < luckPrice ? "Insufficient Cash." : ""));
+        (luckAtCap ? "Future cycles use Level 2; existing work is unchanged." : "Costs $" + formatCash(luckPrice) + " Cash; no Factory Discount. " + (miner && save.cash < luckPrice ? "Insufficient Cash. " : "") + "Existing work keeps its captured level.");
     const progress = c ? Math.max(0, Math.min(100, (Date.now() - c.startedAtMs) / c.durationMs * 100)) : 0;
     document.getElementById("minerProgress").value = progress;
     document.getElementById("minerCycleStatus").textContent = c ? "Current cycle: Tier " + c.effectContext.tier + " · " + c.durationMs / 1000 + "s · " + (c.phase === "resolved" ? "Output resolved · awaiting saved delivery" : "Mining… " + Math.floor(progress) + "%") : miner ? "Ready for the next cycle" : "No Miner owned";

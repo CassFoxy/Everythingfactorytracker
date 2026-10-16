@@ -9,7 +9,7 @@ Required additional fields in this profile:
 - `shop:{miningPower:0|1,minerUnlocked:Boolean}`; unlocking requires Mining Power I.
 - `manual:{firstActionCompleted:Boolean,equippedPickaxeId:"pickaxe:default",pickaxes:[]}`. The first action is Stone; the flag and award save together. Later actions keep the existing Default tier access/selection. Mining Power uses 0.25 × (4 + 2 × level), with an independent fractional quantity roll. No material or duplication consumer is activated.
 - `identity:{nextEntitySequence,nextManualEquipSequence}`, positive safe counters; purchase consumes one entity sequence.
-- `factory:{minerSlots:[true,false,false,false,false],miners:[]}`, at most one canonical Tier 1, 2 or 3, local-Ore-Luck-0-or-1 Miner in slot 1. Its investment, operation counter, and nullable Cycle use the V2 field shapes. No other future factory groups are implied.
+- `factory:{minerSlots:[true,false,false,false,false],miners:[]}`, at most one canonical Tier 1, 2 or 3, local-Ore-Luck-0-through-2 Miner in slot 1. Its investment, operation counter, and nullable Cycle use the V2 field shapes. No other future factory groups are implied.
 
 All existing baseline fields and inventory resource counters are required in a stored development profile. The new groups are validated, never defaulted into a damaged development record. Unknown baseline compatibility data is retained; the new narrow records reject extra fields. Unsupported development profiles, invalid ownership/counters/cycles/results, and missing profile fields stop startup. Original bytes remain available through recovery export, retry, and confirmation-required Start Fresh. Existing supported untagged V0/V1 saves still load in **labelled legacy mode**, preserving their Dropper and Furnace behavior; no Miner is reconstructed from them. To enter the new progression, export if desired and explicitly reset. No valid legacy save is silently deleted. Normal reloads retain the chosen profile.
 
@@ -21,7 +21,7 @@ A single existing 100ms gameplay callback services the Miner; UI progress never 
 
 A failed Miner/manual-development transaction write retains the exact serialized candidate, publishes none of it, and pauses conflicting gameplay behind a visible Retry control. Retry writes that candidate, including any already-rolled result; reload instead recovers the last durable snapshot. The private profile uses the same durable candidate boundary for manual Furnace sales. Existing legacy Furnace reservation formulas/timestamps remain unchanged. This is a single-page/single-writer assumption, not multi-tab or external-tampering protection, and not the general V1-050C2 coordinator.
 
-**Replaced only for private development:** complete legacy machine reconstruction/compensation, full migrated-machine consumer coverage and public V2 activation are not prerequisites to this fresh-profile slice. **Still mandatory:** validated state, explicit confirmed reset, no speculative Miner awards, exclusive cycle identity, original effect/timing binding, exactly-once delivery relative to successful whole-state writes, and visible failures. Public release still needs an explicit supported-save policy and complete validators/consumers for all included features. This reset exception does not certify public compatibility or complete V1-017/018. Tier 4–25 upgrades, local levels 2–50, extra slots, resale, grid placement, Rebirth and the other new machines remain unimplemented.
+**Replaced only for private development:** complete legacy machine reconstruction/compensation, full migrated-machine consumer coverage and public V2 activation are not prerequisites to this fresh-profile slice. **Still mandatory:** validated state, explicit confirmed reset, no speculative Miner awards, exclusive cycle identity, original effect/timing binding, exactly-once delivery relative to successful whole-state writes, and visible failures. Public release still needs an explicit supported-save policy and complete validators/consumers for all included features. This reset exception does not certify public compatibility or complete V1-017/018. Tier 4–25 upgrades, local levels 3–50, extra slots, resale, grid placement, Rebirth and the other new machines remain unimplemented.
 
 ## V1-GAME02 — bounded Tier 2 upgrade
 
@@ -37,7 +37,7 @@ The same schema-1 `miner-1` profile accepts local Ore Luck levels 0 and 1 with o
 
 The shared active-cycle adapter invokes the appropriate pure upgrade helper using a validated independent idle projection. Only Cash, the selected ownership field and investment change in the complete candidate; the real reserved/resolved cycle and counters remain intact. Existing bound local level 0 remains valid after Level 1 purchase. Bound local level above ownership rejects. Reservation captures current ownership; the resolver uses the captured level exclusively.
 
-At Rebirth Ore Luck level 0, MinerOreLuckModel.getFinalOreLuck(0, 1) is 1.02×. Only the within-tier selector changes. Tier probabilities, Stone, interval, quantity and manual mining are unchanged; no Inscription consumer is enabled. Purchases persist before publication with exact pending retry and existing recovery. This is not public V2 activation or support for local Level 2+.
+At Rebirth Ore Luck level 0, MinerOreLuckModel.getFinalOreLuck(0, 1) is 1.02×. Only the within-tier selector changes. Tier probabilities, Stone, interval, quantity and manual mining are unchanged; no Inscription consumer is enabled. Purchases persist before publication with exact pending retry and existing recovery. GAME03 did not activate public V2; GAME05 extends local ownership to Level 2 below.
 
 ## V1-GAME04 — bounded Tier 3 upgrade
 
@@ -45,7 +45,17 @@ The same profile now supports sequential Tier 1→2→3 purchases, with no new f
 
 Tier 3 requires the original actual purchase plus the exact actual Tier 2 and Tier 3 payments. Match payments by kind and target level, reject duplicates/missing/extra payments and require paid tiers in ascending purchase order. Preserve the saved ledger order; Local Ore Luck I may occur before, between or after tier upgrades. No fabricated free tiers or price reconstruction occurs.
 
-An owned Tier 3 Miner accepts valid captured Tier 1/2/3 cycles and local levels up to its owned level. Upgrades never change a cycle's context, duration, identity, result or sequence. New Tier 3 cycles use the canonical 4.608-second interval and Tier 3 distribution; one output, no T4, unchanged within-tier Luck and automated progression semantics. Exact failed-write retry and one-cycle reload recovery remain unchanged. Tier 4+, local Level 2+, extra slots and public V2 remain out of scope.
+An owned Tier 3 Miner accepts valid captured Tier 1/2/3 cycles and local levels up to its owned level. Upgrades never change a cycle's context, duration, identity, result or sequence. New Tier 3 cycles use the canonical 4.608-second interval and Tier 3 distribution; one output, no T4, unchanged within-tier Luck and automated progression semantics. Exact failed-write retry and one-cycle reload recovery remain unchanged. Tier 4+, extra slots and public V2 remain out of scope; GAME05 extends local levels below.
+
+## V1-GAME05 — bounded Local Ore Luck II
+
+The existing schema-1 / miner-1 profile supports local levels 0–2 on owned tiers 1–3. GAME01–GAME04 saves remain valid without reset. Sequential 0→1→2 purchases use MinerOreLuckModel.getUpgradePrice(nextLevel, 0); Level 2 costs $1,250 and receives no Factory Discount. MinerOreLuckModel.getFinalOreLuck(0, 2) is 1.04×. Only future within-tier ore selection changes; tier distribution, Stone, interval, quantity, per-resource XP and manual mining do not.
+
+Level 2 requires the exact actual local payments for target levels 1 and 2 in chronological local-level order. Tier payments retain their own ascending order and may interleave freely. The validator matches kind and target, checks quoted amounts/basis, rejects duplicate/missing/unsupported payments, and never sorts or rewrites history. Ownership above Level 2 or bound local levels above ownership reject.
+
+The shared adapter retains the entire reserved/resolved cycle, identity, slot, tier and operation sequence. Bound Level 0/1 remains valid with Level 2 ownership. Only new reservations capture Level 2. Full-state validation and successful persistence precede publication; failed writes retain exact candidate bytes and block conflicting operations until controlled retry. No new save fields, migration, scheduler or public activation is introduced.
+
+Local levels 3–50, Tier 4–25, additional slots and other future systems remain unimplemented.
 
 ## Current baseline and future contract — V1-016
 

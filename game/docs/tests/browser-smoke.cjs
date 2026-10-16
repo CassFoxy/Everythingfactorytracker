@@ -306,7 +306,7 @@ const server = http.createServer((req, res) => {
             assert.deepEqual(after.factory.miners[0].investment.entries.at(-1),{kind:'oreLuck',targetLevel:1,cashPaid:1000,basis:'actual'});
             assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:1')),false);
             assert.equal(await page.locator('#upgradeMinerOreLuck').isDisabled(),true);
-            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/1.*1.*1.02×.*Current cycle: Level 0/);
+            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/1.*2.*1.02×.*Current cycle: Level 0/);
             await page.reload();
             assert.deepEqual(await page.evaluate(()=>save.factory.miners[0]),after.factory.miners[0]);
             await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+2000;renderDevelopmentMiner();scrollTo(0,0);});
@@ -364,6 +364,82 @@ const server = http.createServer((req, res) => {
             console.log('PASS Chromium: Local Ore Luck I on Tier '+tier+', earned Cash, active binding, deterministic ore change, reload/retry at '+width+'x'+height+'.');
         }
 
+
+        // GAME05: use real purchase handlers for ownership; earn the full Luck II price by mining/smelting.
+        for(const [width,height,tier] of [[1920,1080,1],[1366,768,2],[390,844,3]]){
+            const app=await session(null),{page}=app;await page.setViewportSize({width,height});
+            await page.evaluate(tier=>{
+                save.cash=1450+(tier>=2?400:0)+(tier>=3?1600:0);
+                buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner();upgradeDevelopmentMinerOreLuck('miner:1');
+                for(let t=1;t<tier;t++)upgradeDevelopmentMiner('miner:1');updateDevelopmentMiner();
+            },tier);
+            assert.equal(await page.locator('#upgradeMinerOreLuck').textContent(),'Upgrade Local Ore Luck II · $1,250');
+            assert.equal(await page.locator('#upgradeMinerOreLuck').isDisabled(),true);
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:1')),false);
+            await page.evaluate(()=>{
+                for(let i=0;i<1250;i++)document.getElementById('mineButton').click();
+                for(let i=0;i<125;i++){prepareSmelt('stone',save.stoneValue,1);confirmSmelt();}
+            });
+            assert.equal(await page.evaluate(()=>save.cash),1250);
+            const before=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:999')),false);
+            if(width===390){
+                await page.evaluate(()=>{window.realSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota');};});
+                await page.locator('#upgradeMinerOreLuck').click();assert.equal(await page.locator('#developmentWriteRecovery').isVisible(),true);
+                const pending=await page.evaluate(()=>pendingDevelopmentWrite.serialized);
+                await page.evaluate(()=>{mineOre();upgradeDevelopmentMinerOreLuck('miner:1');upgradeDevelopmentMiner('miner:1');testIntervals.find(t=>t.ms===100).callback();});
+                assert.deepEqual(await page.evaluate(()=>save),before);assert.equal(await page.evaluate(()=>pendingDevelopmentWrite.serialized),pending);
+                await page.evaluate(()=>{Storage.prototype.setItem=realSetItem;});await page.locator('#retryDevelopmentWrite').click();
+                assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),pending);
+            }else await page.locator('#upgradeMinerOreLuck').click();
+            const after=await page.evaluate(()=>JSON.parse(JSON.stringify(save))),expected=structuredClone(before);
+            expected.cash-=1250;expected.factory.miners[0].oreLuckLevel=2;
+            expected.factory.miners[0].investment.entries.push({kind:'oreLuck',targetLevel:2,cashPaid:1250,basis:'actual'});
+            assert.deepEqual(after,expected);
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:1')),false);
+            assert.equal(await page.locator('#upgradeMinerOreLuck').isDisabled(),true);
+            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/2 \/ 2 \(1.04×\).*Current cycle: Level 1/);
+            await page.reload();assert.deepEqual(await page.evaluate(()=>save.factory.miners[0]),after.factory.miners[0]);
+            await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+2000;renderDevelopmentMiner();scrollTo(0,0);});
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'luck2-old-cycle-'+width+'.png'),fullPage:true});}
+            const ids=await page.evaluate(()=>{
+                const roll=(MinerOreLuckModel.getOreProbabilities(1,0,1)[0].probability+MinerOreLuckModel.getOreProbabilities(1,0,2)[0].probability)/2;
+                return [MinerOreLuckModel.selectOreId(1,0,1,roll),MinerOreLuckModel.selectOreId(1,0,2,roll)];
+            });assert.notEqual(ids[0],ids[1]);
+            async function completeLuckCycle(){
+                await page.evaluate(()=>{
+                    const c=save.factory.miners[0].cycle,p=MinerTierModel.getTierProbabilities(c.effectContext.tier,1);
+                    const roll=(MinerOreLuckModel.getOreProbabilities(1,0,1)[0].probability+MinerOreLuckModel.getOreProbabilities(1,0,2)[0].probability)/2;
+                    window.rngCalls=0;Math.random=()=>++rngCalls%2?p.stone+p.tier1/2:roll;
+                    testNow=c.startedAtMs+c.durationMs;testIntervals.find(t=>t.ms===100).callback();
+                });assert.equal(await page.evaluate(()=>rngCalls),2);
+            }
+            await completeLuckCycle();assert.equal(await page.evaluate(id=>save.inventory[id],ids[0]),1);assert.equal(await page.evaluate(id=>save.inventory[id],ids[1]),0);
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].cycle.effectContext.localOreLuckLevel),2);
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].cycle.durationMs),before.factory.miners[0].cycle.durationMs);
+            await page.reload();await completeLuckCycle();assert.equal(await page.evaluate(id=>save.inventory[id],ids[1]),1);
+            assert.equal(await page.evaluate(()=>save.totalOres),1252);assert.equal(await page.evaluate(()=>save.achievementStats.totalOresMined),1250);
+            assert.equal(await page.evaluate(()=>save.tier4Ores),0);
+            await page.evaluate(()=>{const c=save.factory.miners[0].cycle;c.effectContext.localOreLuckLevel=0;c.phase='resolved';c.result=minerResult('ruby');saveGame();});
+            await page.reload();assert.equal(await page.evaluate(()=>save.inventory.ruby),1);await page.reload();assert.equal(await page.evaluate(()=>save.inventory.ruby),1);
+            await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+3600000;testIntervals.find(t=>t.ms===100).callback();});
+            const total=await page.evaluate(()=>save.totalOres);
+            await page.evaluate(()=>{for(let i=0;i<10;i++)testIntervals.find(t=>t.ms===100).callback();testNow+=2000;renderDevelopmentMiner();scrollTo(0,0);});
+            assert.equal(await page.evaluate(()=>save.totalOres),total);
+            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/2 \/ 2 \(1.04×\)/);
+            assert.match(await page.locator('#upgradeMinerOreLuck').textContent(),/II purchased.*Max/);
+            const layout=await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return {overflow:document.documentElement.scrollWidth>innerWidth,duplicate:ids.length!==new Set(ids).size};});
+            assert.deepEqual(layout,{overflow:false,duplicate:false});assert.deepEqual(app.errors,[]);
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'luck2-'+width+'.png'),fullPage:true});
+            const valid=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));await app.context.close();
+            if(width===390)for(const mutate of [
+                s=>s.factory.miners[0].investment.entries.splice(1,1),
+                s=>{const e=s.factory.miners[0].investment.entries;[e[1],e[4]]=[e[4],e[1]];},
+                s=>s.factory.miners[0].investment.entries.at(-1).cashPaid=1249,
+                s=>s.factory.miners[0].oreLuckLevel=3
+            ]){const bad=structuredClone(valid);mutate(bad);const raw=JSON.stringify(bad),invalid=await session(raw);assert.equal(await invalid.page.locator('#saveRecovery').isVisible(),true);assert.equal(await invalid.page.evaluate(()=>localStorage.getItem('ef_incremental')),raw);assert.deepEqual(invalid.errors,[]);await invalid.context.close();}
+            console.log('PASS Chromium: Luck II on Tier '+tier+', earned Cash, bound ore selection, reload/retry and UI at '+width+'x'+height+'.');
+        }
 
         // GAME04: an owned Tier 2 fixture, then earn the entire Tier 3 price through gameplay.
         for(const [width,height,luck] of [[1920,1080,0],[1366,768,1],[390,844,1]]){

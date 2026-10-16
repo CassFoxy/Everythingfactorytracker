@@ -1,5 +1,15 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME05 — Playable Miner Local Ore Luck II
+
+**Status: ✅ COMPLETE — bounded private development profile.** The existing Factory control supports local 0→1→2, deriving its next price from MinerOreLuckModel with no Factory Discount. Level 2 costs $1,250 and gives 1.04× at Rebirth Ore Luck 0. Tier 1–3 ownership is supported; Tier 3 remains the tier cap.
+
+The shared durable development adapter preserves identity, slot, tier, operation sequence and reserved/resolved work. Local payments must appear in ascending level order while valid tier payments may interleave; saved history is not reordered. Supported GAME01–GAME04 schema-1 / miner-1 saves need no reset. Only future within-tier ore selection changes; Stone, tier probabilities, duration, quantity, manual mining and per-resource XP rules are unchanged.
+
+Verification covers exact debit, all tier/local combinations, chronological payment histories, old/new/resolved reload, deterministic within-tier outcomes, exact failed-write retry and responsive controls. Three pre-existing Auto Furnace tests now derive their capacity fixture from the current main configuration (10,000); Furnace gameplay is unchanged.
+
+Local Level 3–50, Tier 4–25, extra slots, resale, grid, Rebirth, Polisher/Refiner, full statistics/challenges and public V2 migration/activation remain outstanding. Next bounded playable enhancement: sequential Miner Tier 3→4→5 progression, preserving active effects and investment. Not implemented here.
+
 ## V1-GAME04 — Playable Miner Tier 3 Upgrade
 
 **Status: ✅ COMPLETE — bounded private development profile.** The existing Factory upgrade control advances Tier 2→3 for the canonical $1,600 at Discount 0. It uses the shared active-cycle adapter and derives the next tier from authoritative ownership; Tier 3 is the build cap. Cash, tier and one actual payment commit together, retaining identity, slot, local Luck and cycle sequence.
@@ -10,7 +20,7 @@ Node/browser regressions cover purchases, model-driven output, local Luck order,
 
 Tier 4–25, extra slots, local Level 2–50, resale, grid, Rebirth, Polisher/Refiner, complete statistics/challenges and public V2 migration/activation remain outstanding. The full Miner system is not complete.
 
-Next bounded playable enhancement: Local Ore Luck 1→2, with canonical pricing, investment, future-cycle binding and save/reload coverage. Not implemented here.
+Local Ore Luck 1→2 is now implemented by V1-GAME05 above.
 
 ## V1-GAME03 — First Playable Miner Local Ore Luck Upgrade
 
