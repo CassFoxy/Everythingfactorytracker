@@ -83,6 +83,68 @@ const server = http.createServer((req, res) => {
             await app.context.close();
             return before;
         }
+        // GAME06: complete progression through the real controls, funded by DEV01.
+        for(const [width,height,order] of [[1920,1080,'tiers'],[1366,768,'luck'],[390,844,'mixed']]) {
+            const app=await session(null),{page}=app;await page.setViewportSize({width,height});
+            await page.locator('.dev-tools summary').click();await page.locator('#devCashAmount').fill('450');await page.locator('#devAddCash').click();
+            await page.locator('.dev-tools summary').click();await page.locator('#buyMiningPower').click();await page.locator('#unlockMiner').click();await page.locator('#buyMiner').click();
+            await page.evaluate(()=>updateDevelopmentMiner());
+            const original=await page.evaluate(()=>JSON.parse(JSON.stringify(save.factory.miners[0])));
+            const steps=order==='tiers'?[...Array(24).fill('tier'),...Array(50).fill('oreLuck')]:order==='luck'?
+                [...Array(50).fill('oreLuck'),...Array(24).fill('tier')]:[...Array.from({length:24},()=>['oreLuck','tier']).flat(),...Array(26).fill('oreLuck')];
+            for(const kind of steps){
+                const quote=await page.evaluate(kind=>{
+                    const m=save.factory.miners[0],target=(kind==='tier'?m.tier:m.oreLuckLevel)+1;
+                    const price=kind==='tier'?MinerTierModel.getTierUpgradePrice(target,0):MinerOreLuckModel.getUpgradePrice(target,0);
+                    if(!addDeveloperCash(price))throw Error('Funding failed');return {target,price};
+                },kind);
+                const control=page.locator(kind==='tier'?'#upgradeMiner':'#upgradeMinerOreLuck');
+                assert.equal(await control.isDisabled(),false);
+                const fail=width===390&&kind==='tier'&&quote.target===25;
+                if(fail)await page.evaluate(()=>{window.realSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota');};});
+                await control.click();
+                if(fail){
+                    assert.equal(await page.evaluate(()=>save.factory.miners[0].tier),24);
+                    assert.equal(await page.evaluate(()=>save.cash),quote.price);
+                    const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);
+                    await page.evaluate(()=>{upgradeDevelopmentMiner('miner:1');upgradeDevelopmentMinerOreLuck('miner:1');updateDevelopmentMiner();Storage.prototype.setItem=realSetItem;});
+                    await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);
+                }
+                const state=await page.evaluate(()=>JSON.parse(JSON.stringify(save))),m=state.factory.miners[0];
+                assert.equal(state.cash,0);assert.equal(m[kind==='tier'?'tier':'oreLuckLevel'],quote.target);
+                assert.deepEqual(m.investment.entries.at(-1),{kind,targetLevel:quote.target,cashPaid:quote.price,basis:'actual'});
+                assert.equal(m.id,original.id);assert.equal(m.slot,1);assert.equal(m.nextCycleSequence,original.nextCycleSequence);assert.deepEqual(m.cycle,original.cycle);
+                if([6,20,25,50].includes(quote.target)){
+                    await page.reload();assert.deepEqual(await page.evaluate(()=>save.factory.miners[0]),m);
+                }
+            }
+            assert.equal(await page.locator('#upgradeMiner').isDisabled(),true);assert.equal(await page.locator('#upgradeMinerOreLuck').isDisabled(),true);
+            assert.match(await page.locator('#minerStatus').textContent(),/25 \/ 25/);
+            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/50 \/ 50 \(2.00×\)/);
+            assert.match(await page.locator('#upgradeMiner').textContent(),/Max Level/);
+            assert.equal(await page.evaluate(()=>upgradeDevelopmentMiner('miner:1')),false);assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:1')),false);
+            await page.evaluate(()=>{testNow+=2500;renderDevelopmentMiner();scrollTo(0,0);});
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game06-old-cycle-'+width+'.png'),fullPage:true});}
+            // Old Tier 1/Luck 0 resolves once; the following operation captures 25/50.
+            await page.evaluate(()=>{Math.random=()=>0;const c=save.factory.miners[0].cycle;testNow=Math.ceil(c.startedAtMs+c.durationMs);updateDevelopmentMiner();});
+            assert.equal(await page.evaluate(()=>save.inventory.stone),1);
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].cycle.effectContext.tier),25);
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].cycle.effectContext.localOreLuckLevel),50);
+            assert.equal(await page.evaluate(()=>save.factory.miners[0].cycle.durationMs),await page.evaluate(()=>MinerTierModel.getProductionInterval(25,0)*1000));
+            await page.reload();
+            const expectedId=await page.evaluate(()=>MinerOreLuckModel.selectOreId(4,0,50,0.4));
+            await page.evaluate(()=>{let calls=0;Math.random=()=>++calls%2?0.999:0.4;const c=save.factory.miners[0].cycle;testNow=Math.ceil(c.startedAtMs+c.durationMs);updateDevelopmentMiner();});
+            assert.equal(await page.evaluate(id=>save.inventory[id],expectedId),1);assert.equal(await page.evaluate(()=>save.tier4Ores),1);
+            await page.reload();assert.equal(await page.evaluate(id=>save.inventory[id],expectedId),1);
+            await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+3600000;updateDevelopmentMiner();});
+            const total=await page.evaluate(()=>save.totalOres);await page.evaluate(()=>{for(let i=0;i<10;i++)updateDevelopmentMiner();});assert.equal(await page.evaluate(()=>save.totalOres),total);
+            if(await page.locator('#discoveryPopup').isVisible())await page.locator('#discoveryPopup').getByRole('button',{name:'Awesome!',exact:true}).click();
+            await page.evaluate(()=>{renderDevelopmentMiner();scrollTo(0,0);});
+            const layout=await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return {overflow:document.documentElement.scrollWidth>innerWidth,duplicate:ids.length!==new Set(ids).size};});
+            assert.deepEqual(layout,{overflow:false,duplicate:false});assert.deepEqual(app.errors,[]);
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game06-max-'+width+'.png'),fullPage:true});
+            await app.context.close();console.log('PASS Chromium: GAME06 all tiers and Luck, active binding, T4 output, reload/retry and UI at '+width+'x'+height+'.');
+        }
         for(const [width,height] of [[1920,1080],[1366,768],[390,844]]) {
             const app=await session(null),{page}=app;await page.setViewportSize({width,height});
             await page.locator('.dev-tools summary').click();
@@ -366,7 +428,7 @@ const server = http.createServer((req, res) => {
             assert.deepEqual(after.factory.miners[0].investment.entries.at(-1),{kind:'oreLuck',targetLevel:1,cashPaid:1000,basis:'actual'});
             assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:1')),false);
             assert.equal(await page.locator('#upgradeMinerOreLuck').isDisabled(),true);
-            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/1.*2.*1.02×.*Current cycle: Level 0/);
+            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/1.*50.*1.02×.*Current cycle: Level 0/);
             await page.reload();
             assert.deepEqual(await page.evaluate(()=>save.factory.miners[0]),after.factory.miners[0]);
             await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+2000;renderDevelopmentMiner();scrollTo(0,0);});
@@ -458,7 +520,7 @@ const server = http.createServer((req, res) => {
             assert.deepEqual(after,expected);
             assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:1')),false);
             assert.equal(await page.locator('#upgradeMinerOreLuck').isDisabled(),true);
-            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/2 \/ 2 \(1.04×\).*Current cycle: Level 1/);
+            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/2 \/ 50 \(1.04×\).*Current cycle: Level 1/);
             await page.reload();assert.deepEqual(await page.evaluate(()=>save.factory.miners[0]),after.factory.miners[0]);
             await page.evaluate(()=>{testNow=save.factory.miners[0].cycle.startedAtMs+2000;renderDevelopmentMiner();scrollTo(0,0);});
             if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'luck2-old-cycle-'+width+'.png'),fullPage:true});}
@@ -486,8 +548,8 @@ const server = http.createServer((req, res) => {
             const total=await page.evaluate(()=>save.totalOres);
             await page.evaluate(()=>{for(let i=0;i<10;i++)testIntervals.find(t=>t.ms===100).callback();testNow+=2000;renderDevelopmentMiner();scrollTo(0,0);});
             assert.equal(await page.evaluate(()=>save.totalOres),total);
-            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/2 \/ 2 \(1.04×\)/);
-            assert.match(await page.locator('#upgradeMinerOreLuck').textContent(),/II purchased.*Max/);
+            assert.match(await page.locator('#minerOreLuckStatus').textContent(),/2 \/ 50 \(1.04×\)/);
+            assert.match(await page.locator('#upgradeMinerOreLuck').textContent(),/Upgrade Local Ore Luck 3/);
             const layout=await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return {overflow:document.documentElement.scrollWidth>innerWidth,duplicate:ids.length!==new Set(ids).size};});
             assert.deepEqual(layout,{overflow:false,duplicate:false});assert.deepEqual(app.errors,[]);
             if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'luck2-'+width+'.png'),fullPage:true});
@@ -542,7 +604,7 @@ const server = http.createServer((req, res) => {
             assert.equal(after.factory.miners[0].nextCycleSequence,before.factory.miners[0].nextCycleSequence);
             assert.deepEqual(after.factory.miners[0].investment.entries.at(-1),{kind:'tier',targetLevel:3,cashPaid:1600,basis:'actual'});
             assert.equal(await page.evaluate(()=>upgradeDevelopmentMiner('miner:1')),false);
-            assert.match(await page.locator('#upgradeMiner').textContent(),/Tier 3 purchased.*Max/);
+            assert.match(await page.locator('#upgradeMiner').textContent(),/Upgrade to Tier 4/);
             assert.equal(await page.locator('#upgradeMiner').isDisabled(),true);
             await page.reload();
             assert.deepEqual(await page.evaluate(()=>save.factory.miners[0]),after.factory.miners[0]);

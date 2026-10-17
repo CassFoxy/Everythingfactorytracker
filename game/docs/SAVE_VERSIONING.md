@@ -9,7 +9,7 @@ Required additional fields in this profile:
 - `shop:{miningPower:0|1,minerUnlocked:Boolean}`; unlocking requires Mining Power I.
 - `manual:{firstActionCompleted:Boolean,equippedPickaxeId:"pickaxe:default",pickaxes:[]}`. The first action is Stone; the flag and award save together. Later actions keep the existing Default tier access/selection. Mining Power uses 0.25 × (4 + 2 × level), with an independent fractional quantity roll. No material or duplication consumer is activated.
 - `identity:{nextEntitySequence,nextManualEquipSequence}`, positive safe counters; purchase consumes one entity sequence.
-- `factory:{minerSlots:[true,false,false,false,false],miners:[]}`, at most one canonical Tier 1, 2 or 3, local-Ore-Luck-0-through-2 Miner in slot 1. Its investment, operation counter, and nullable Cycle use the V2 field shapes. No other future factory groups are implied.
+- `factory:{minerSlots:[true,false,false,false,false],miners:[]}`, at most one canonical Tier 1–25, local-Ore-Luck-0-through-50 Miner in slot 1. Its investment, operation counter, and nullable Cycle use the V2 field shapes. No other future factory groups are implied.
 
 All existing baseline fields and inventory resource counters are required in a stored development profile. The new groups are validated, never defaulted into a damaged development record. Unknown baseline compatibility data is retained; the new narrow records reject extra fields. Unsupported development profiles, invalid ownership/counters/cycles/results, and missing profile fields stop startup. Original bytes remain available through recovery export, retry, and confirmation-required Start Fresh. Existing supported untagged V0/V1 saves still load in **labelled legacy mode**, preserving their Dropper and Furnace behavior; no Miner is reconstructed from them. To enter the new progression, export if desired and explicitly reset. No valid legacy save is silently deleted. Normal reloads retain the chosen profile.
 
@@ -22,6 +22,8 @@ A single existing 100ms gameplay callback services the Miner; UI progress never 
 A failed Miner/manual-development transaction write retains the exact serialized candidate, publishes none of it, and pauses conflicting gameplay behind a visible Retry control. Retry writes that candidate, including any already-rolled result; reload instead recovers the last durable snapshot. The private profile uses the same durable candidate boundary for manual Furnace sales. Existing legacy Furnace reservation formulas/timestamps remain unchanged. This is a single-page/single-writer assumption, not multi-tab or external-tampering protection, and not the general V1-050C2 coordinator.
 
 **Replaced only for private development:** complete legacy machine reconstruction/compensation, full migrated-machine consumer coverage and public V2 activation are not prerequisites to this fresh-profile slice. **Still mandatory:** validated state, explicit confirmed reset, no speculative Miner awards, exclusive cycle identity, original effect/timing binding, exactly-once delivery relative to successful whole-state writes, and visible failures. Public release still needs an explicit supported-save policy and complete validators/consumers for all included features. This reset exception does not certify public compatibility or complete V1-017/018. Tier 4–25 upgrades, local levels 3–50, extra slots, resale, grid placement, Rebirth and the other new machines remain unimplemented.
+
+Earlier GAME01–GAME05 sections below record their original bounded scopes; GAME06 supersedes their tier/local caps without changing supported save identity.
 
 ## V1-GAME02 — bounded Tier 2 upgrade
 
@@ -68,6 +70,16 @@ Developer Furnace is a reversible manual-sale mode, not a tier or purchase. Its 
 Switching requires no active Auto Furnace batch. Stop automatic processing and let any existing batch finish before enabling. While enabled, Auto Furnace is paused and clearly labelled; its saved preference is retained. Restoring normal mode restores ordinary manual capacity/value and normal automatic processing. A development save combining enabled testing mode with a reserved Auto Furnace batch is invalid; no reservation is silently discarded. Manual sale write failures retain their exact candidate and keep Retry accessible above the confirmation modal; successful retry clears the stale confirmation.
 
 These controls are private testing utilities, not authenticated access. They must be disabled or excluded before public release. They do not change Miner formulas, ordinary Furnace progression, legacy recovery, public migration gates or saveVersion.
+
+## V1-GAME06 — complete Slot 1 Miner upgrade progression
+
+The same schema-1 / miner-1 profile now supports Tier 1–25 and local Ore Luck 0–50. Supported older development saves load without reset. The original purchase must be first; tier payments then progress 2 through owned tier and local payments 1 through owned level, with either sequence freely interleaved. Every payment retains its actual basis and original model-quoted price at Discount 0. No ledger is sorted or reconstructed. Extra, missing, duplicate, out-of-order, forged or incorrectly priced payments reject.
+
+The existing active-cycle adapter and exact Cash debit remain authoritative. All upgrades affect only future reservations. Captured tiers/local levels at or below current ownership remain valid, including resolved results. New production uses all five model tier probabilities; T4 is inaccessible below captured Miner Tier 6 and eligible from 6. Result validation checks that captured distribution before accepting a stored ore. One base output, automated progression effects, Stone floor, manual mining rules and one-overdue-cycle recovery are unchanged.
+
+**Narrow arithmetic correction:** the rounded Tier 25 quote ($52,776,558,133,000,000 at Discount 0) is exactly representable, but the full integer payment ledger need not have a representable Number sum. InvestmentModel therefore accumulates integer Miner payments in transient BigInt, preserving every original Number payment and rejecting mathematical totals above the finite Number range. No BigInt, aggregate balance or extra field is serialized. Fractional historical ledgers retain exact Number checks; other machine ledgers are unchanged. Number-returning sumInvestment/calculateRefund still reject a total that cannot be returned exactly. Resale is not activated by this work. Cash additions/debits must themselves remain exactly representable; large balances do not authorize losing small payments or residual Cash. Future resale must explicitly handle its own exact payout boundary.
+
+The UI offers only the next model-priced tier and local level, with 25/50 maxima and exact-price tooltips. No permanent Discount, Rebirth effects, additional slots, resale, grid, other machine integration or public V2 release is activated.
 
 ## Current baseline and future contract — V1-016
 
