@@ -4901,3 +4901,144 @@ test('GAME06 high-price debits and exact ledger accumulation never discard payme
         assert.equal(x.run('upgradeDevelopmentMiner("miner:1")'),false);assert.deepEqual(x.state(),before);
     }
 });
+
+// GAME07: real development commands, shared scheduler and whole-save boundaries.
+function fiveDevelopmentMiners() {
+    const app = ownedDevelopmentMiner();
+    for (const slot of [5, 3, 2, 4]) {
+        assert.equal(app.run(`addDeveloperCash(MinerCandidateModel.getSlotPrice(${slot},0)); unlockDevelopmentMinerSlot(${slot})`), true);
+        assert.equal(app.run(`addDeveloperCash(100); buyDevelopmentMiner(${slot})`), true);
+    }
+    return app;
+}
+function upgradeMinerById(app, id, kind) {
+    return app.run(`(() => { const m=save.factory.miners.find(m=>m.id===${JSON.stringify(id)});
+        const price=${kind === 'tier' ? 'MinerTierModel.getTierUpgradePrice(m.tier+1,0)' : 'MinerOreLuckModel.getUpgradePrice(m.oreLuckLevel+1,0)'};
+        if(!addDeveloperCash(price)) throw Error('funding');
+        return upgradeDevelopmentMinerStat(m.id,${JSON.stringify(kind)}); })()`);
+}
+test('GAME07 all five slots have separate canonical nonsequential purchases and unique identities', () => {
+    const app=ownedDevelopmentMiner();app.run('updateDevelopmentMiner()');
+    const first=app.state().factory.miners[0];
+    for(const [slot,price] of [[5,1e12],[3,1e6],[2,1e4],[4,1e10]]) {
+        assert.equal(app.run(`MinerCandidateModel.getSlotPrice(${slot},0)`),price);
+        assert.equal(app.run(`unlockDevelopmentMinerSlot(${slot})`),false);
+        app.run(`addDeveloperCash(${price})`);const before=app.state();
+        assert.equal(app.run(`unlockDevelopmentMinerSlot(${slot})`),true);
+        assert.equal(app.state().cash,before.cash-price);
+        assert.equal(app.state().factory.miners.length,before.factory.miners.length);
+        assert.deepEqual(app.state().identity,before.identity);
+        assert.equal(app.run(`unlockDevelopmentMinerSlot(${slot})`),false);
+        app.run('addDeveloperCash(100)');assert.equal(app.run(`buyDevelopmentMiner(${slot})`),true);
+        const m=app.state().factory.miners.find(m=>m.slot===slot);
+        assert.equal(m.id,'miner:'+before.identity.nextEntitySequence);assert.equal(m.cycle,null);
+        assert.equal(m.tier,1);assert.equal(m.oreLuckLevel,0);assert.equal(m.nextCycleSequence,1);
+        assert.deepEqual(m.investment.entries,[{kind:'purchase',targetLevel:null,cashPaid:100,basis:'actual'}]);
+        assert.equal(app.run(`buyDevelopmentMiner(${slot})`),false);
+        assert.deepEqual(app.state().factory.miners[0],first);
+    }
+    assert.equal(app.state().identity.nextEntitySequence,6);
+    assert.equal(new Set(app.state().factory.miners.map(m=>m.id)).size,5);
+    for(const slot of [0,6,1.5,'2',null])assert.equal(app.run(`buyDevelopmentMiner(${JSON.stringify(slot)})`),false);
+    app.run("updateDevelopmentMiner()");assert.deepEqual(ready(app.stored()).state(),app.state());
+    const fresh=ready();fresh.run('addDeveloperCash(1000000);unlockDevelopmentMinerSlot(3)');
+    assert.equal(fresh.state().factory.minerSlots[2],true);
+    assert.equal(fresh.run('buyDevelopmentMiner(3)'),false); // separate system unlock still required
+});
+test('GAME07 ID-targeted full upgrades preserve all unrelated machines and active/resolved work', () => {
+    const app=fiveDevelopmentMiners();app.run('updateDevelopmentMiner();save.factory.miners.reverse();');
+    app.run('save.factory.miners.find(m=>m.id==="miner:2").cycle.phase="resolved";save.factory.miners.find(m=>m.id==="miner:2").cycle.result=minerResult("stone");');
+    const before=app.state(),target=before.factory.miners.find(m=>m.id==='miner:2');
+    for(let tier=2;tier<=25;tier++)assert.equal(upgradeMinerById(app,'miner:2','tier'),true);
+    for(let luck=1;luck<=50;luck++)assert.equal(upgradeMinerById(app,'miner:2','oreLuck'),true);
+    const after=app.state(),m=after.factory.miners.find(m=>m.id==='miner:2');
+    assert.equal(m.tier,25);assert.equal(m.oreLuckLevel,50);assert.deepEqual(m.cycle,target.cycle);
+    assert.equal(m.investment.entries.length,75);assert.equal(m.slot,target.slot);
+    assert.deepEqual(after.identity,before.identity);
+    assert.deepEqual(after.factory.miners.filter(m=>m.id!=='miner:2'),before.factory.miners.filter(m=>m.id!=='miner:2'));
+    assert.equal(app.run('upgradeDevelopmentMiner("miner:2")'),false);
+    assert.equal(app.run('upgradeDevelopmentMinerOreLuck("miner:2")'),false);
+    assert.equal(app.run('upgradeDevelopmentMiner("miner:999")'),false);
+    assert.equal(app.run('selectDevelopmentMiner("miner:2")'),true);
+    assert.equal(app.elements.get('upgradeMiner').dataset.minerId,'miner:2');
+    const writes=app.writes.length;app.run('selectDevelopmentMiner("miner:4")');
+    assert.equal(app.writes.length,writes);assert.deepEqual(app.state(),after);
+    const reloaded=ready(app.stored()).state();assert.equal(reloaded.inventory.stone,after.inventory.stone+1);
+    assert.deepEqual(reloaded.factory.miners.find(m=>m.id==='miner:2').investment,m.investment);
+});
+test('GAME07 five simultaneous cycles preserve independent timing, deterministic order and shared awards', () => {
+    const app=fiveDevelopmentMiners();
+    for(const [id,tier,luck] of [['miner:1',1,0],['miner:2',2,1],['miner:3',5,2],['miner:4',6,3],['miner:5',25,4]]) {
+        for(let t=2;t<=tier;t++)assert.equal(upgradeMinerById(app,id,'tier'),true);
+        for(let l=1;l<=luck;l++)assert.equal(upgradeMinerById(app,id,'oreLuck'),true);
+    }
+    app.run('save.factory.miners.reverse();updateDevelopmentMiner()');
+    const before=app.state();
+    for(const m of before.factory.miners){
+        assert.equal(m.cycle.effectContext.tier,m.tier);assert.equal(m.cycle.effectContext.localOreLuckLevel,m.oreLuckLevel);
+        assert.equal(m.cycle.durationMs,app.run(`MinerTierModel.getProductionInterval(${m.tier},0)*1000`));
+        assert.ok(app.run(`MinerTierModel.getTierProbabilities(${m.tier},1).stone`)>=0.25);
+    }
+    app.advance(5000);app.run('Math.random=()=>0;updateDevelopmentMiner()');
+    assert.equal(app.state().inventory.stone,before.inventory.stone+5);
+    assert.equal(app.state().factoryXP,before.factoryXP+5);
+    assert.equal(app.state().achievementStats.totalOresMined,before.achievementStats.totalOresMined);
+    const same=app.state();app.run('updateDevelopmentMiner()');assert.deepEqual(app.state(),same);
+    app.advance(5000);app.run('Math.random=()=>0.999999999;updateDevelopmentMiner()');
+    const after=app.state();assert.equal(after.tier4Ores-before.tier4Ores,2);
+    const resolvedWrites=app.writes.map(JSON.parse).filter(s=>s.factory.miners.some(m=>m.cycle?.phase==='resolved'));
+    const order=resolvedWrites.slice(-5).map(s=>s.factory.miners.find(m=>m.cycle?.phase==='resolved').id);
+    assert.deepEqual(order,['miner:1','miner:2','miner:3','miner:4','miner:5']);
+    assert.equal(after.totalOres-before.totalOres,10);
+});
+test('GAME07 reload handles one, two and five owners, mixed work and one overdue cycle per machine', () => {
+    const app=fiveDevelopmentMiners();app.run('updateDevelopmentMiner()');
+    const state=app.state();
+    for(const count of [1,2,5]) {
+        const fixture=structuredClone(state);fixture.factory.miners=fixture.factory.miners.slice(0,count);
+        for(const [i,m] of fixture.factory.miners.entries()) {
+            if(i===1) m.cycle.startedAtMs+=1100000; // legitimate future clock
+            else if(i===2){m.cycle.phase='resolved';m.cycle.result=JSON.parse(app.run('JSON.stringify(minerResult("stone"))'));}
+        }
+        const loaded=boot(JSON.stringify(fixture),'',{},app.now()+1000000);
+        // Set one future cycle relative to reopen, not its old deadline.
+        if(count>1)loaded.run('save.factory.miners[1].cycle.startedAtMs=Date.now()+100000');
+        loaded.run('Math.random=()=>0;updateDevelopmentMiner()');
+        assert.equal(loaded.state().inventory.stone,fixture.inventory.stone+count-(count>1?1:0));
+        const after=loaded.state();loaded.run('updateDevelopmentMiner()');assert.deepEqual(loaded.state(),after);
+        for(const m of after.factory.miners)assert.ok(m.cycle.startedAtMs>=loaded.now());
+        assert.equal(after.identity.nextEntitySequence,6);
+    }
+});
+test('GAME07 malformed multi-owner access, identities, payments and cycles reject without rewriting storage', () => {
+    const app=fiveDevelopmentMiners();app.run('updateDevelopmentMiner()');const base=app.state();
+    for(const change of [s=>s.factory.minerSlots.pop(),s=>s.factory.minerSlots[0]=false,s=>s.factory.minerSlots[1]=0,
+        s=>s.factory.minerSlots[4]=false,s=>s.factory.miners[1].id=s.factory.miners[0].id,
+        s=>s.factory.miners[1].slot=1,s=>s.identity.nextEntitySequence=5,
+        s=>s.factory.miners.push(structuredClone(s.factory.miners[0])),s=>s.factory.miners[1].tier=2,
+        s=>s.factory.miners[1].investment.entries[0].cashPaid=99,s=>s.factory.miners[1].cycle.id=s.factory.miners[0].cycle.id,
+        s=>s.factory.miners[1].cycle.effectContext.localOreLuckLevel=1,s=>s.factory.miners[1].nextCycleSequence++,
+        s=>s.factory.miners[1].cycle.durationMs++,s=>s.factory.miners[1].cycle.result={}]){
+        const bad=structuredClone(base);change(bad);const raw=JSON.stringify(bad),broken=boot(raw);
+        assert.equal(broken.run('recoveryState.active'),true);assert.equal(broken.stored(),raw);assert.equal(broken.writes.length,0);
+    }
+});
+test('GAME07 slot, purchase, upgrade and output failures retain exact full-state candidates for retry', () => {
+    for(const operation of ['slot','purchase','upgrade','commit']){
+        const app=ownedDevelopmentMiner();app.run('updateDevelopmentMiner()');
+        if(operation==='slot')app.run('addDeveloperCash(10000)');
+        else {app.run('addDeveloperCash(10100);unlockDevelopmentMinerSlot(2)');
+            if(operation!=='purchase')app.run('buyDevelopmentMiner(2);updateDevelopmentMiner()');}
+        if(operation==='upgrade')app.run('addDeveloperCash(400)');
+        if(operation==='commit')app.run('developmentCommand(next=>{const m=next.factory.miners.find(m=>m.slot===2);m.cycle.phase="resolved";m.cycle.result=minerResult("stone");})');
+        const before=app.state(),stored=app.stored();app.faults.write=true;
+        const call={slot:'unlockDevelopmentMinerSlot(2)',purchase:'buyDevelopmentMiner(2)',upgrade:'upgradeDevelopmentMiner("miner:2")',commit:'updateDevelopmentMiner()'}[operation];
+        app.run(call);assert.deepEqual(app.state(),before);assert.equal(app.stored(),stored);
+        const bytes=app.run('pendingDevelopmentWrite.serialized');
+        app.run('buyDevelopmentMiner(3);unlockDevelopmentMinerSlot(3);upgradeDevelopmentMiner("miner:1");updateDevelopmentMiner();mineDevelopmentOre()');
+        assert.equal(app.run('pendingDevelopmentWrite.serialized'),bytes);
+        app.faults.write=false;assert.equal(app.run('retryDevelopmentWrite()'),true);assert.equal(app.stored(),bytes);
+        const after=app.state();app.run('retryDevelopmentWrite()');assert.deepEqual(app.state(),after);
+        if(operation==='commit'){assert.equal(after.inventory.stone,before.inventory.stone+1);app.run('updateDevelopmentMiner()');assert.equal(app.state().inventory.stone,after.inventory.stone);}
+    }
+});

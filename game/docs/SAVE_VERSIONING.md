@@ -9,7 +9,7 @@ Required additional fields in this profile:
 - `shop:{miningPower:0|1,minerUnlocked:Boolean}`; unlocking requires Mining Power I.
 - `manual:{firstActionCompleted:Boolean,equippedPickaxeId:"pickaxe:default",pickaxes:[]}`. The first action is Stone; the flag and award save together. Later actions keep the existing Default tier access/selection. Mining Power uses 0.25 × (4 + 2 × level), with an independent fractional quantity roll. No material or duplication consumer is activated.
 - `identity:{nextEntitySequence,nextManualEquipSequence}`, positive safe counters; purchase consumes one entity sequence.
-- `factory:{minerSlots:[true,false,false,false,false],miners:[]}`, at most one canonical Tier 1–25, local-Ore-Luck-0-through-50 Miner in slot 1. Its investment, operation counter, and nullable Cycle use the V2 field shapes. No other future factory groups are implied.
+- `factory:{minerSlots:[true,false,false,false,false],miners:[]}` initially; GAME07 permits any five-Boolean access combination with Slot 1 true and zero through five independent canonical Tier 1–25, local-Ore-Luck-0-through-50 Miners, one per unlocked slot. Each investment, operation counter, and nullable Cycle uses the V2 field shapes. No other future factory groups are implied.
 
 All existing baseline fields and inventory resource counters are required in a stored development profile. The new groups are validated, never defaulted into a damaged development record. Unknown baseline compatibility data is retained; the new narrow records reject extra fields. Unsupported development profiles, invalid ownership/counters/cycles/results, and missing profile fields stop startup. Original bytes remain available through recovery export, retry, and confirmation-required Start Fresh. Existing supported untagged V0/V1 saves still load in **labelled legacy mode**, preserving their Dropper and Furnace behavior; no Miner is reconstructed from them. To enter the new progression, export if desired and explicitly reset. No valid legacy save is silently deleted. Normal reloads retain the chosen profile.
 
@@ -23,7 +23,7 @@ A failed Miner/manual-development transaction write retains the exact serialized
 
 **Replaced only for private development:** complete legacy machine reconstruction/compensation, full migrated-machine consumer coverage and public V2 activation are not prerequisites to this fresh-profile slice. **Still mandatory:** validated state, explicit confirmed reset, no speculative Miner awards, exclusive cycle identity, original effect/timing binding, exactly-once delivery relative to successful whole-state writes, and visible failures. Public release still needs an explicit supported-save policy and complete validators/consumers for all included features. This reset exception does not certify public compatibility or complete V1-017/018. Tier 4–25 upgrades, local levels 3–50, extra slots, resale, grid placement, Rebirth and the other new machines remain unimplemented.
 
-Earlier GAME01–GAME05 sections below record their original bounded scopes; GAME06 supersedes their tier/local caps without changing supported save identity.
+Earlier GAME01–GAME06 sections below record their original bounded scopes; GAME06 supersedes their tier/local caps and GAME07 supersedes the one-slot limit without changing supported save identity.
 
 ## V1-GAME02 — bounded Tier 2 upgrade
 
@@ -80,6 +80,18 @@ The existing active-cycle adapter and exact Cash debit remain authoritative. All
 **Narrow arithmetic correction:** the rounded Tier 25 quote ($52,776,558,133,000,000 at Discount 0) is exactly representable, but the full integer payment ledger need not have a representable Number sum. InvestmentModel therefore accumulates integer Miner payments in transient BigInt, preserving every original Number payment and rejecting mathematical totals above the finite Number range. No BigInt, aggregate balance or extra field is serialized. Fractional historical ledgers retain exact Number checks; other machine ledgers are unchanged. Number-returning sumInvestment/calculateRefund still reject a total that cannot be returned exactly. Resale is not activated by this work. Cash additions/debits must themselves remain exactly representable; large balances do not authorize losing small payments or residual Cash. Future resale must explicitly handle its own exact payout boundary.
 
 The UI offers only the next model-priced tier and local level, with 25/50 maxima and exact-price tooltips. No permanent Discount, Rebirth effects, additional slots, resale, grid, other machine integration or public V2 release is activated.
+
+## V1-GAME07 — five independent playable Miners
+
+Schema 1 / miner-1 now accepts zero through five Miners and exactly five slot-access Booleans; Slot 1 must remain true. Slots 2–5 cost $10,000 / $1,000,000 / $10,000,000,000 / $1,000,000,000,000 through MinerCandidateModel, without Discount or a sequential-slot prerequisite. Access and the separate $100 Miner purchase commit independently. Purchase requires the Miner system unlock and an empty unlocked slot. Discount/Preservation remain 0. Slot access has no machine investment entry.
+
+The validator checks unique canonical entity IDs and occupied slots, access, global counter strictly above every allocated identity, each original purchase and complete chronological tier/local payments, and each machine's active cycle/context/result. Older one-Miner saves remain valid without completion/reset. No legacy Dropper conversion or new saved fields are introduced. The five Booleans are access authority; this profile does not add speculative slot-payment receipts or claim tamper resistance.
+
+All operations identify existing machines by immutable ID. Full active validation precedes the idle-only candidate projection for every machine. Slot unlock composes only Cash/access; purchase composes Cash/new identity/new entity; upgrades compose Cash/target ownership/target ledger. Every existing cycle and all unrelated fields survive unchanged. The full candidate validates and persists before publication. Exact pending candidate bytes block conflicting operations on failure; Retry does not reallocate, redebit or reroll.
+
+One 100ms scheduler services numeric entity-ID order independently of array/slot/UI order. Each individual reservation, resolution and result commit reads the latest published full snapshot, so simultaneous awards accumulate. One existing overdue cycle per machine may finish; next reservations start at the current clock, never overdue deadlines. A failed transition stops the pass; retry resumes from the exact durable state. Each machine keeps its own sequence, interval and captured effects. UI selection is ephemeral and cannot restart work or change ownership.
+
+Ownership starts automatic production only under this approved private-development exception. Physical grid placement, coordinates, conveyors, resale, Rebirth, other machine consumers and public V2 migration/activation remain outstanding. No placed flag, per-Miner interval or new storage service is introduced. DEV01 and legacy mode remain separate and unchanged.
 
 ## Current baseline and future contract — V1-016
 
