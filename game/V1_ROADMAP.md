@@ -1,5 +1,15 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME06 — Complete Miner Tier and Local Ore Luck Progression
+
+**Status: ✅ COMPLETE — Slot 1 upgrade progression in the private miner-1 profile.** The shared live adapter purchases every sequential Tier 2–25 and local Ore Luck 1–50 upgrade through the existing Factory controls. Canonical quotes, the Tier 6 raw ×7.5 exception, no local Discount, chronological interleaved payments and exact Cash debits remain authoritative. Local Level 50 reaches 2.00× at Rebirth level 0.
+
+Production uses captured tier/local effects, full model intervals and all five output tiers. T4 remains locked before captured Tier 6. Reserved/resolved work survives upgrades and reload; no extra output or offline chains are introduced. Supported earlier schema-1 / miner-1 saves remain valid without reset. A narrow InvestmentModel correction validates large integer Miner ledgers with an internal exact accumulator; Number-valued totals/refunds still reject precision loss. No new saved fields or currency representation are introduced.
+
+Consolidated verification covers every purchase, all 1,275 tier/local combinations, interleaved history, high-tier Cash, T4 gates, active/resolved effects, failed-write retry, reload, complete browser progression and responsive controls. See SAVE_VERSIONING.md for the precise arithmetic and compatibility boundary.
+
+Additional Miners/slots, resale, grid, Rebirth, Polisher/Refiner/Furnace integration, complete statistics/challenges and public migration/activation remain outstanding. This completes upgrades for one playable Miner, not the whole Miner system. Next bounded playable feature: a second independent Miner and its canonical slot purchase; not implemented here.
+
 ## V1-DEV01 — Expanded Developer Tools and Testing Furnace
 
 **Status: ✅ COMPLETE — bounded private development utility.** The earthy Dev tools panel provides exact Cash presets/custom additions, export/reset, and a reversible manual Developer Furnace. Testing mode accepts the eligible owned quantity without ordinary capacity limits and multiplies only normal sale Cash by 1,000. Ordinary XP/statistics, Furnace ownership and Miner gameplay remain unchanged. Auto Furnace pauses in testing mode; switching cannot discard an active batch.
@@ -8,7 +18,7 @@ Schema 1 / miner-1 retains optional validated `developerTools.furnaceEnabled`; a
 
 Verification: 402 Node regressions, 33 browser scenarios, syntax checks, and desktop/laptop/mobile panel and manual-sale checks. Durable Cash, settings, full-inventory sales, failure/retry, malformed settings, legacy behavior and existing GAME01–GAME05 flows are covered.
 
-**V1-GAME06 — playable Miner Tier 4–5 progression remains outstanding.** Additional local Luck, slots, resale, grid, Rebirth, other machines, complete statistics/challenges and public migration/activation remain incomplete. None is implemented by this utility ticket.
+The proposed Tier 4–5 follow-up was superseded by consolidated V1-GAME06 above. Additional local Luck, slots, resale, grid, Rebirth, other machines, complete statistics/challenges and public migration/activation remain incomplete. None is implemented by this utility ticket.
 
 ## V1-GAME05 — Playable Miner Local Ore Luck II
 

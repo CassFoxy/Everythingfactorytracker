@@ -710,12 +710,26 @@ const InvestmentModel = (() => {
         const seen = new Set();
         let purchases = 0;
         let total = 0;
+        // GAME06: a full Miner ledger can exceed Number's integer precision even
+        // when every payment is exact. Keep its integer sum exact internally;
+        // BigInt is never serialized or substituted for Cash/payment fields.
+        let exactTotal = context.machineType === "miner" ? 0n : null;
         for(const payment of investment.entries){
             validatePayment(payment, context.machineType);
             const key = payment.kind + ":" + payment.targetLevel;
             if(seen.has(key)) invalid("entries", "contains duplicate " + key);
             seen.add(key);
             if(payment.kind === "purchase") purchases++;
+            if(exactTotal !== null && Number.isInteger(payment.cashPaid)){
+                exactTotal += BigInt(payment.cashPaid);
+                if(exactTotal > BigInt(Number.MAX_VALUE)) invalid("total", "must remain finite");
+                continue;
+            }
+            if(exactTotal !== null){
+                total = Number(exactTotal);
+                if(BigInt(total) !== exactTotal) invalid("total", "cannot represent fractional ledger basis");
+                exactTotal = null;
+            }
             const next = total + payment.cashPaid;
             if(!Number.isFinite(next)) invalid("total", "must remain finite");
             // No arbitrary Cash cap/epsilon. Reject non-reversible additions rather
@@ -725,7 +739,7 @@ const InvestmentModel = (() => {
             total = next;
         }
         if(context.owned && purchases !== 1) invalid("owned investment", "must have exactly one purchase");
-        return total;
+        return exactTotal === null ? total : exactTotal;
     }
 
     function validateInvestment(investment, context){
@@ -742,7 +756,11 @@ const InvestmentModel = (() => {
     }
 
     function sumInvestment(investment, context){
-        return inspectInvestment(investment, context);
+        const total = inspectInvestment(investment, context);
+        if(typeof total !== "bigint") return total;
+        const number = Number(total);
+        if(BigInt(number) !== total) invalid("total", "cannot return a Number without precision loss");
+        return number;
     }
 
     function calculateRefund(investment, context){
