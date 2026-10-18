@@ -1,5 +1,18 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME07 — Complete Five-Miner Factory Integration
+
+**Status: ✅ COMPLETE — bounded private miner-1 integration.** Five fixed slot entries share one ID-targeted management panel. Slots 2–5 use their canonical independent access prices; each unlocked empty slot separately purchases a $100 Miner. Each entity retains its own Tier 1–25, local Ore Luck 0–50, investment and cycle sequence. No sequential slot gate or array-position identity is introduced.
+
+Full-state validation and idle calculation adapters preserve all active work. One central scheduler processes numeric entity-ID order through individual persist-before-publish transitions, preserving shared awards, exact retry and one overdue operation per machine. Earlier one-Miner schema-1 development saves remain supported. DEV01, manual/Furnace and legacy mode remain unchanged. UI selection is display-only; private ownership-driven production does not implement placement or conveyors.
+
+Verification: four syntax checks, 413 Node tests and 41 browser scenarios passed. New coverage includes nonsequential slot purchases, ID-targeted independent upgrades, five simultaneous outputs, mixed reload phases, corrupted ownership and exact failed-write retry. Screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844; no horizontal overflow, duplicate IDs or console errors.
+
+Resale, grid placement, Rebirth, Polishers/Refiner, broader statistics/challenges and public V2 compatibility/activation remain outstanding. The complete Miner system is not finished. Next consolidated playable feature: safe individual Miner resale and replacement with retained slot access, after resolving exact high-value refund representation. Not implemented here.
+
+
+Earlier GAME01–GAME06 completion notes below describe their original scopes. GAME07 supersedes their outstanding additional-slot work.
+
 ## V1-GAME06 — Complete Miner Tier and Local Ore Luck Progression
 
 **Status: ✅ COMPLETE — Slot 1 upgrade progression in the private miner-1 profile.** The shared live adapter purchases every sequential Tier 2–25 and local Ore Luck 1–50 upgrade through the existing Factory controls. Canonical quotes, the Tier 6 raw ×7.5 exception, no local Discount, chronological interleaved payments and exact Cash debits remain authoritative. Local Level 50 reaches 2.00× at Rebirth level 0.
