@@ -2710,6 +2710,16 @@ function startGameplay(){
  document.getElementById("buyMiningPower").onclick = buyMiningPower;
  document.getElementById("unlockMiner").onclick = unlockDevelopmentMiner;
  // Slot actions are bound by renderDevelopmentMinerSlots.
+ document.getElementById("sellMiner").onclick = () => prepareDevelopmentMinerSale(document.getElementById("sellMiner").dataset.minerId);
+ document.getElementById("confirmMinerSale").onclick = confirmDevelopmentMinerSale;
+ document.getElementById("cancelMinerSale").onclick = closeDevelopmentMinerSale;
+ document.getElementById("minerSaleModal").onkeydown = event => {
+     if(event.key === "Escape"){ event.preventDefault(); closeDevelopmentMinerSale(); }
+     if(event.key === "Tab"){
+         event.preventDefault();
+         document.getElementById(event.target === document.getElementById("cancelMinerSale") ? "confirmMinerSale" : "cancelMinerSale").focus();
+     }
+ };
  document.getElementById("upgradeMiner").onclick = () => upgradeDevelopmentMiner(document.getElementById("upgradeMiner").dataset.minerId);
  document.getElementById("upgradeMinerOreLuck").onclick = () => upgradeDevelopmentMinerOreLuck(document.getElementById("upgradeMinerOreLuck").dataset.minerId);
 document.getElementById("mineButton")
@@ -4332,6 +4342,7 @@ function retryDevelopmentWrite(){
     publishDevelopmentState(next);
     if(feedback){
         document.getElementById("devFeedback").textContent = feedback.message;
+        if(feedback.minerSale) document.getElementById("minerFeedback").textContent = feedback.message;
         if(feedback.smelt){ pendingSmelt = {}; closeSmeltConfirm(); buildFurnaceMenu(); }
     }
     return true;
@@ -4513,6 +4524,93 @@ function upgradeDevelopmentMinerStat(minerId, kind){
         // remains untouched. developmentCommand validates and writes atomically.
     });
 }
+// GAME08: an ephemeral confirmation is intent, not a saved receipt or payout.
+let pendingMinerSale = null;
+function minerSaleSignature(miner){
+    return JSON.stringify({ id: miner.id, slot: miner.slot, tier: miner.tier,
+        oreLuckLevel: miner.oreLuckLevel, investment: miner.investment });
+}
+function developmentMinerSaleQuote(miner, cash){
+    const refund = InvestmentModel.calculateMinerRefund(miner.investment);
+    let cashAfter;
+    try{
+        cashAfter = exactDevelopmentAdd(cash, refund);
+        if(Number.isInteger(cash) && BigInt(cashAfter) !== BigInt(cash) + BigInt(refund)) throw Error("precision");
+    }catch(error){ throw Error("Sale unavailable: the Cash balance cannot receive this refund exactly. No Miner or Cash was changed."); }
+    return { refund, cashAfter };
+}
+function closeDevelopmentMinerSale(){
+    pendingMinerSale = null;
+    document.getElementById("minerSaleModal").style.display = "none";
+    document.getElementById("sellMiner").focus();
+}
+function settleDevelopmentMinerBeforeSale(miner){
+    // Only an ALREADY resolved result commits here. Never resolve due reserved
+    // work or start another cycle as part of a sale command.
+    const committed = advanceDevelopmentMiner(miner.id, Date.now());
+    document.getElementById("minerFeedback").textContent = committed ?
+        "Pending output delivered once. Review the Miner and confirm its sale again." :
+        "Pending output could not be saved. The Miner has not been sold; retry the pending write first.";
+    return false;
+}
+function prepareDevelopmentMinerSale(minerId){
+    if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    closeDevelopmentMinerSale();
+    try{
+        validateSaveData(save); validateDevelopmentSave(save);
+        const miner = save.factory.miners.find(item => item.id === minerId);
+        if(!miner || minerId !== selectedDevelopmentMinerId) throw Error("Unknown or stale Miner selection. Select the Miner again.");
+        if(miner.cycle?.phase === "resolved") return settleDevelopmentMinerBeforeSale(miner);
+        const quote = developmentMinerSaleQuote(miner, save.cash);
+        pendingMinerSale = { minerId, signature: minerSaleSignature(miner), refund: quote.refund };
+        document.getElementById("minerSaleTitle").textContent = "Sell Slot " + miner.slot + " Miner?";
+        document.getElementById("minerSaleIdentity").textContent = miner.id + " · Tier " + miner.tier + " · Local Ore Luck " + miner.oreLuckLevel;
+        document.getElementById("minerSaleRefund").textContent = "$" + quote.refund.toLocaleString("en-US");
+        document.getElementById("minerSaleWarning").textContent = "The Miner and its individual upgrades will be permanently removed. Reserved work gives no production award. Slot " + miner.slot + " remains unlocked, allowing a new Miner to be purchased for $100.";
+        document.getElementById("minerSaleModal").style.display = "block";
+        document.getElementById("cancelMinerSale").focus();
+        return true;
+    }catch(error){ document.getElementById("minerFeedback").textContent = error.message; return false; }
+}
+function confirmDevelopmentMinerSale(){
+    const intent = pendingMinerSale;
+    closeDevelopmentMinerSale(); // recovery must remain accessible if this write fails
+    if(!intent || !isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    try{
+        validateSaveData(save); validateDevelopmentSave(save);
+        const miner = save.factory.miners.find(item => item.id === intent.minerId);
+        if(!miner || selectedDevelopmentMinerId !== intent.minerId || minerSaleSignature(miner) !== intent.signature)
+            throw Error("Sale confirmation is stale. Select the Miner and review a new quote.");
+        if(miner.cycle?.phase === "resolved") return settleDevelopmentMinerBeforeSale(miner);
+        return developmentCommand(next => {
+            const target = next.factory.miners.find(item => item.id === intent.minerId);
+            if(!target || minerSaleSignature(target) !== intent.signature || target.cycle?.phase === "resolved")
+                throw Error("Miner changed before sale. Confirm again.");
+            const quote = developmentMinerSaleQuote(target, next.cash);
+            if(quote.refund !== intent.refund) throw Error("Refund changed. Confirm again.");
+            next.cash = quote.cashAfter;
+            next.factory.miners = next.factory.miners.filter(item => item.id !== target.id);
+            // Access flags and both global counters survive. Removed IDs and their
+            // operations cannot be revived by the central ID-targeted scheduler.
+        }, { minerSale: true, message: "Miner sold for $" + intent.refund.toLocaleString("en-US") + ". Slot access retained." });
+    }catch(error){ document.getElementById("minerFeedback").textContent = error.message; return false; }
+}
+function renderDevelopmentMinerResale(miner){
+    const button = document.getElementById("sellMiner"), status = document.getElementById("minerResaleStatus");
+    button.dataset.minerId = miner?.id || "";
+    button.disabled = !miner;
+    document.getElementById("minerResaleControls").hidden = !miner;
+    if(!miner) return;
+    let totalText;
+    try{ totalText = "$" + InvestmentModel.sumInvestment(miner.investment, { machineType: "miner", owned: true }).toLocaleString("en-US"); }
+    catch(error){ totalText = "beyond exact Number display (recorded payments retained)"; }
+    try{
+        const quote = developmentMinerSaleQuote(miner, save.cash);
+        status.textContent = "Recorded investment: " + totalText + " · Refund: $" + quote.refund.toLocaleString("en-US") +
+            (miner.cycle?.phase === "resolved" ? " · Pending output must save first; then confirm again." : " · Slot access stays unlocked.");
+        button.disabled = !!pendingDevelopmentWrite || recoveryState.active;
+    }catch(error){ status.textContent = "Recorded investment: " + totalText + " · " + error.message; button.disabled = true; }
+}
 function mineDevelopmentOre(){
     return developmentCommand(next => {
         const tier = next.manual.firstActionCompleted ? rollManualTier() : 0;
@@ -4617,6 +4715,7 @@ function renderDevelopmentMiner(){
     selectedDevelopmentMinerId = miner?.id || null;
     const unlocked = save.shop.minerUnlocked;
     renderDevelopmentMinerSlots(selectedDevelopmentMinerId);
+    renderDevelopmentMinerResale(miner);
     document.getElementById("minerDetailTitle").textContent = miner ? "Slot " + miner.slot + " · " + miner.id : "Miner management";
     document.getElementById("manualPowerLink").textContent = save.shop.miningPower ? "Mining Power I owned · 50% chance of +1 resource" : "Mining Power I · available in the Shop";
     document.getElementById("buyMiningPower").disabled = save.shop.miningPower === 1 || save.cash < 250;

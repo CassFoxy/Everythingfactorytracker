@@ -767,8 +767,21 @@ const InvestmentModel = (() => {
         return Math.floor(0.50 * sumInvestment(investment, context));
     }
 
+    // GAME08: only the final floored Miner refund must be representable. Do not
+    // convert a potentially lossy integer sum to Number before dividing by two.
+    // Existing sumInvestment/calculateRefund guarantees remain unchanged.
+    function calculateMinerRefund(investment){
+        const total = inspectInvestment(investment, { machineType: "miner", owned: true });
+        if(typeof total !== "bigint") return Math.floor(0.50 * total); // existing fractional-history policy
+        const exact = total / 2n;
+        const refund = Number(exact);
+        if(!Number.isFinite(refund) || BigInt(refund) !== exact)
+            invalid("refund", "cannot be represented exactly by Number Cash; Miner sale is unavailable");
+        return refund;
+    }
+
     return Object.freeze({ validatePayment, createActualPayment, createInvestment,
-        validateInvestment, appendActualPayment, sumInvestment, calculateRefund });
+        validateInvestment, appendActualPayment, sumInvestment, calculateRefund, calculateMinerRefund });
 })();
 
 // V1-071A1: non-writing, idle-only candidate projection; never a save validator.

@@ -5042,3 +5042,127 @@ test('GAME07 slot, purchase, upgrade and output failures retain exact full-state
         if(operation==='commit'){assert.equal(after.inventory.stone,before.inventory.stone+1);app.run('updateDevelopmentMiner()');assert.equal(app.state().inventory.stone,after.inventory.stone);}
     }
 });
+
+function requestMinerSale(app,id){app.run(`selectDevelopmentMiner(${JSON.stringify(id)})`);return app.run(`prepareDevelopmentMinerSale(${JSON.stringify(id)})`);}
+function sellMinerForTest(app,id){assert.equal(requestMinerSale(app,id),true);return app.run('confirmDevelopmentMinerSale()');}
+function exactLedgerRefund(miner){return miner.investment.entries.reduce((total,p)=>total+BigInt(p.cashPaid),0n)/2n;}
+
+test('GAME08 exact Miner refund floors integer ledgers before Number conversion and retains historical safeguards',()=>{
+    for(const [amount,expected] of [[0,0],[101,50],[137.5,68],[115.25,57],[2**55,2**54]]){
+        const ledger={entries:[paymentFixture({cashPaid:amount})]};
+        assert.equal(investmentModel.calculateMinerRefund(ledger),expected);
+    }
+    const odd={entries:[paymentFixture({cashPaid:2**54}),paymentFixture({kind:'tier',targetLevel:2,cashPaid:1})]};
+    assert.throws(()=>investmentModel.sumInvestment(odd,investmentContext()),/precision/);
+    assert.throws(()=>investmentModel.calculateRefund(odd,investmentContext()),/precision/);
+    assert.equal(BigInt(investmentModel.calculateMinerRefund(odd)),(2n**54n+1n)/2n);
+    const lossy={entries:[paymentFixture({cashPaid:2**55}),paymentFixture({kind:'tier',targetLevel:2,cashPaid:4})]};
+    assert.throws(()=>investmentModel.calculateMinerRefund(lossy),/refund.*exactly/);
+    for(const ledger of [null,{entries:[]},{entries:[paymentFixture(),paymentFixture()]},
+        {entries:[paymentFixture({cashPaid:-1})]},{entries:[paymentFixture({basis:'invented'})]},
+        {entries:[paymentFixture({kind:'slot'})]},{entries:[paymentFixture({cashPaid:Infinity})]},
+        {entries:[paymentFixture({cashPaid:0.1}),paymentFixture({kind:'tier',targetLevel:2,cashPaid:0.2})]}])
+        assert.throws(()=>investmentModel.calculateMinerRefund(ledger));
+});
+test('GAME08 canonical refunds use only the selected recorded ledger, including exact and blocked high values',()=>{
+    for(const [tier,luck] of [[1,0],[3,0],[1,50],[3,2],[20,0],[24,50],[25,0],[25,7],[25,50]]){
+        const app=ownedDevelopmentMiner();advanceMinerTo(app,tier,luck);
+        const before=app.state(),miner=before.factory.miners[0],exact=exactLedgerRefund(miner);
+        const representable=BigInt(Number(exact))===exact;
+        if(tier===25&&luck===0)assert.equal(exact,35184372088773050n); // independent exact integer sum of current quoted payments
+        // The documented sum is 70,368,744,177,546,100; half is 35,184,372,088,773,050.
+        // Never use a rounded Number literal as the expected high-value refund.
+        if(representable){
+            assert.equal(sellMinerForTest(app,miner.id),true);
+            assert.equal(BigInt(app.state().cash),exact);assert.equal(app.state().factory.miners.length,0);
+            assert.deepEqual(app.state().identity,before.identity);assert.deepEqual(app.state().inventory,before.inventory);
+            assert.equal(app.run('confirmDevelopmentMinerSale()'),false);
+        }else{
+            assert.equal(requestMinerSale(app,miner.id),false);assert.deepEqual(app.state(),before);
+            assert.equal(app.elements.get('sellMiner').disabled,true);
+            assert.match(app.elements.get('minerResaleStatus').textContent,/cannot be represented exactly/);
+        }
+    }
+});
+test('GAME08 every slot sells idle, reserved and due work independently with no production payout',()=>{
+    for(const slot of [1,2,3,4,5])for(const phase of ['idle','reserved','due']){
+        const app=fiveDevelopmentMiners();if(phase!=='idle')app.run('updateDevelopmentMiner()');
+        if(phase==='due')app.advance(5000);
+        const before=app.state(),target=before.factory.miners.find(m=>m.slot===slot);
+        assert.equal(sellMinerForTest(app,target.id),true);
+        const after=app.state();assert.equal(after.cash,before.cash+50);
+        assert.deepEqual(after.factory.miners,before.factory.miners.filter(m=>m.id!==target.id));
+        assert.deepEqual(after.factory.minerSlots,before.factory.minerSlots);assert.deepEqual(after.identity,before.identity);
+        assert.deepEqual(after.inventory,before.inventory);assert.equal(after.factoryXP,before.factoryXP);
+        assert.equal(app.run(`advanceDevelopmentMiner('${target.id}',Date.now())`),false);
+        assert.equal(requestMinerSale(app,target.id),false);
+        app.run('Math.random=()=>0;updateDevelopmentMiner()');
+        assert.equal(app.state().totalOres,before.totalOres+(phase==='due'?4:0));
+    }
+});
+test('GAME08 resolved output commits once before a fresh confirmation, including work resolved while dialog is open',()=>{
+    for(const atConfirm of [false,true]){
+        const app=fiveDevelopmentMiners();app.run('updateDevelopmentMiner()');
+        if(atConfirm)assert.equal(requestMinerSale(app,'miner:3'),true);
+        app.run('developmentCommand(next=>{const m=next.factory.miners.find(m=>m.id==="miner:3");m.cycle.phase="resolved";m.cycle.result=minerResult("amber");})');
+        const before=app.state();app.run('Math.random=()=>{throw Error("must not reroll")}');
+        assert.equal(atConfirm?app.run('confirmDevelopmentMinerSale()'):requestMinerSale(app,'miner:3'),false);
+        assert.equal(app.state().factory.miners.length,5);assert.equal(app.state().cash,before.cash);
+        assert.equal(app.state().inventory.amber,before.inventory.amber+1);
+        assert.equal(app.state().factory.miners.find(m=>m.id==='miner:3').cycle,null);
+        assert.equal(sellMinerForTest(app,'miner:3'),true);assert.equal(app.state().cash,before.cash+50);
+        assert.equal(app.state().inventory.amber,before.inventory.amber+1);
+        assert.deepEqual(app.state().factory.miners,before.factory.miners.filter(m=>m.id!=='miner:3'));
+    }
+});
+test('GAME08 stale confirmations, upgraded ledgers, invalid histories and Cash precision reject without removal',()=>{
+    for(const change of ['selection','upgrade','cash','corrupt','duplicate']){
+        const app=fiveDevelopmentMiners();assert.equal(requestMinerSale(app,'miner:2'),true);
+        if(change==='selection')app.run('selectDevelopmentMiner("miner:3")');
+        if(change==='upgrade')assert.equal(upgradeMinerById(app,'miner:2','tier'),true);
+        if(change==='cash')app.run('save.cash=2**60');
+        if(change==='corrupt')app.run('save.factory.miners.find(m=>m.id==="miner:2").investment.entries[0].cashPaid=101');
+        if(change==='duplicate')app.run('const bad=save.factory.miners.find(m=>m.id==="miner:2");bad.investment.entries.push({...bad.investment.entries[0]})');
+        const before=app.state();assert.equal(app.run('confirmDevelopmentMinerSale()'),false);assert.deepEqual(app.state(),before);
+    }
+    const app=ownedDevelopmentMiner();assert.equal(requestMinerSale(app,'miner:1'),true);app.run('closeDevelopmentMinerSale()');
+    assert.equal(app.run('confirmDevelopmentMinerSale()'),false);assert.equal(app.state().cash,0);
+});
+test('GAME08 replacements retain access, allocate fresh identities and survive zero/mixed owner reloads',()=>{
+    const app=fiveDevelopmentMiners();app.run('updateDevelopmentMiner()');
+    for(const slot of [5,1,5]){
+        const before=app.state(),old=before.factory.miners.find(m=>m.slot===slot);
+        assert.equal(sellMinerForTest(app,old.id),true);
+        const sold=app.state();assert.equal(ready(app.stored()).state().factory.miners.some(m=>m.id===old.id),false);
+        app.run('addDeveloperCash(100)');const cash=app.state().cash;
+        assert.equal(app.run(`buyDevelopmentMiner(${slot})`),true);
+        const m=app.state().factory.miners.find(m=>m.slot===slot);
+        assert.equal(m.id,'miner:'+before.identity.nextEntitySequence);assert.notEqual(m.id,old.id);
+        assert.equal(m.tier,1);assert.equal(m.oreLuckLevel,0);assert.equal(m.nextCycleSequence,1);assert.equal(m.cycle,null);
+        assert.equal(m.investment.entries.length,1);assert.equal(app.state().cash,cash-100);
+        assert.deepEqual(app.state().factory.miners.filter(x=>x.id!==m.id),sold.factory.miners);
+        assert.equal(requestMinerSale(app,old.id),false);app.run('updateDevelopmentMiner()');
+        assert.deepEqual(ready(app.stored()).state(),app.state());
+    }
+    app.advance(5000);app.run('Math.random=()=>0;updateDevelopmentMiner()');assert.equal(app.state().totalOres,5);
+    for(const m of app.state().factory.miners)assert.equal(sellMinerForTest(app,m.id),true);
+    const empty=ready(app.stored());assert.equal(empty.state().factory.miners.length,0);
+    assert.deepEqual(empty.state().factory.minerSlots,[true,true,true,true,true]);assert.equal(empty.state().identity.nextEntitySequence,9);
+    empty.run('updateDevelopmentMiner()');assert.equal(empty.state().totalOres,5);
+});
+test('GAME08 sale and pending-result write failures retain exact bytes and never auto-sell on retry',()=>{
+    for(const resolved of [false,true]){
+        const app=fiveDevelopmentMiners();app.run('updateDevelopmentMiner()');
+        if(resolved)app.run('developmentCommand(next=>{const m=next.factory.miners.find(m=>m.id==="miner:2");m.cycle.phase="resolved";m.cycle.result=minerResult("stone");})');
+        if(!resolved)assert.equal(requestMinerSale(app,'miner:2'),true);
+        const before=app.state(),raw=app.stored();app.faults.write=true;
+        assert.equal(resolved?requestMinerSale(app,'miner:2'):app.run('confirmDevelopmentMinerSale()'),false);
+        const bytes=app.run('pendingDevelopmentWrite.serialized');assert.deepEqual(app.state(),before);assert.equal(app.stored(),raw);
+        app.run('confirmDevelopmentMinerSale();prepareDevelopmentMinerSale("miner:1");buyDevelopmentMiner(5);updateDevelopmentMiner();addDeveloperCash(1000)');
+        assert.equal(app.run('pendingDevelopmentWrite.serialized'),bytes);app.faults.write=false;
+        assert.equal(app.run('retryDevelopmentWrite()'),true);assert.equal(app.stored(),bytes);
+        if(resolved){assert.equal(app.state().factory.miners.length,5);assert.equal(app.state().inventory.stone,before.inventory.stone+1);assert.equal(sellMinerForTest(app,'miner:2'),true);}
+        assert.equal(app.state().factory.miners.length,4);assert.equal(app.state().cash,before.cash+50);
+        const after=app.state();assert.equal(app.run('retryDevelopmentWrite()'),false);assert.equal(app.run('confirmDevelopmentMinerSale()'),false);assert.deepEqual(app.state(),after);
+    }
+});

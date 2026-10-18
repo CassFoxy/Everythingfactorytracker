@@ -83,6 +83,81 @@ const server = http.createServer((req, res) => {
             await app.context.close();
             return before;
         }
+        // GAME08: actual selected-Miner resale confirmation and replacement.
+        for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
+            const app=await session(null),{page}=app;await page.setViewportSize({width,height});
+            await page.evaluate(()=>{
+                addDeveloperCash(450);buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner();
+                for(const slot of [2,3,4,5]){addDeveloperCash(MinerCandidateModel.getSlotPrice(slot,0));unlockDevelopmentMinerSlot(slot);addDeveloperCash(100);buyDevelopmentMiner(slot);}
+                updateDevelopmentMiner();addDeveloperCash(400);upgradeDevelopmentMiner('miner:3');addDeveloperCash(1000);upgradeDevelopmentMinerOreLuck('miner:3');
+            });
+            await page.locator('#minerSlotAction3').click();
+            const before=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+            assert.match(await page.locator('#minerResaleStatus').textContent(),/Refund: \$750/);
+            await page.locator('#sellMiner').click();assert.equal(await page.locator('#minerSaleModal').isVisible(),true);
+            assert.match(await page.locator('#minerSaleIdentity').textContent(),/miner:3/);
+            assert.equal(await page.locator('#minerSaleRefund').textContent(),'$750');
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game08-confirm-${width}.png`)});}
+            await page.locator('#cancelMinerSale').click();assert.deepEqual(await page.evaluate(()=>JSON.parse(JSON.stringify(save))),before);
+            await page.locator('#sellMiner').click();await page.keyboard.press('Escape');assert.equal(await page.locator('#minerSaleModal').isVisible(),false);
+            // Due but still reserved: clicking Confirm does not force an outcome.
+            await page.evaluate(()=>{testNow+=5000;});await page.locator('#sellMiner').click();await page.locator('#confirmMinerSale').click();
+            const sold=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+            assert.equal(sold.cash,before.cash+750);assert.deepEqual(sold.inventory,before.inventory);
+            assert.deepEqual(sold.factory.miners,before.factory.miners.filter(m=>m.id!=='miner:3'));
+            assert.deepEqual(sold.factory.minerSlots,before.factory.minerSlots);assert.deepEqual(sold.identity,before.identity);
+            assert.match(await page.locator('#minerSlotStatus3').textContent(),/Vacant/);
+            await page.locator('#minerSlotAction3').click();const replacement=await page.evaluate(()=>JSON.parse(JSON.stringify(save.factory.miners.find(m=>m.slot===3))));
+            assert.equal(replacement.id,'miner:6');assert.equal(replacement.tier,1);assert.equal(replacement.oreLuckLevel,0);assert.equal(replacement.cycle,null);assert.equal(replacement.investment.entries.length,1);
+            await page.locator('#minerSlotAction3').click();assert.equal(await page.locator('#upgradeMiner').getAttribute('data-miner-id'),'miner:6');
+            await page.locator('#upgradeMiner').click();assert.equal(await page.evaluate(()=>save.factory.miners.find(m=>m.id==='miner:6').tier),2);
+            await page.evaluate(()=>{Math.random=()=>0;updateDevelopmentMiner();});
+            assert.equal(await page.evaluate(()=>save.totalOres),before.totalOres+4); // removed due work never paid
+            const raw=await page.evaluate(()=>localStorage.getItem('ef_incremental'));await page.reload();assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),raw);
+            assert.equal(await page.evaluate(()=>save.factory.miners.find(m=>m.slot===3).id),'miner:6');
+            await page.locator('#minerSlotAction3').click();
+            if(process.env.TEFI_UI_SCREENSHOTS){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game08-replacement-${width}.png`),fullPage:true});}
+            // A saved resolved result must commit before a fresh confirmation.
+            await page.evaluate(()=>developmentCommand(next=>{const m=next.factory.miners.find(m=>m.id==='miner:2');m.cycle.phase='resolved';m.cycle.result=minerResult('stone');}));
+            const stone=await page.evaluate(()=>save.inventory.stone);await page.locator('#minerSlotAction2').click();await page.locator('#sellMiner').click();
+            assert.equal(await page.locator('#minerSaleModal').isVisible(),false);assert.equal(await page.evaluate(()=>save.inventory.stone),stone+1);
+            assert.equal(await page.evaluate(()=>save.factory.miners.some(m=>m.id==='miner:2')),true);
+            await page.locator('#sellMiner').click();await page.locator('#confirmMinerSale').click();assert.equal(await page.evaluate(()=>save.inventory.stone),stone+1);
+            assert.equal(await page.evaluate(()=>new Set([...document.querySelectorAll('[id]')].map(e=>e.id)).size===document.querySelectorAll('[id]').length),true);
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log(`PASS Chromium: GAME08 confirmed resale, reserved/resolved disposition and replacement ${width}x${height}.`);
+        }
+        {
+            const app=await session(null),{page}=app;
+            await page.evaluate(()=>{addDeveloperCash(450);buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner();updateDevelopmentMiner();});
+            for(const resolved of [true,false]){
+                if(resolved)await page.evaluate(()=>developmentCommand(next=>{const m=next.factory.miners[0];m.cycle.phase='resolved';m.cycle.result=minerResult('stone');}));
+                else await page.locator('#sellMiner').click();
+                const before=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+                await page.evaluate(()=>{window.realWrite=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('quota');};});
+                await page.locator(resolved?'#sellMiner':'#confirmMinerSale').click();
+                assert.equal(await page.locator('#developmentWriteRecovery').isVisible(),true);assert.deepEqual(await page.evaluate(()=>JSON.parse(JSON.stringify(save))),before);
+                const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);
+                await page.evaluate(()=>{confirmDevelopmentMinerSale();buyDevelopmentMiner();updateDevelopmentMiner();Storage.prototype.setItem=realWrite;});
+                await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);
+                assert.equal(await page.evaluate(()=>save.factory.miners.length),resolved?1:0);
+            }
+            await page.reload();assert.equal(await page.evaluate(()=>save.factory.miners.length),0);
+            await page.evaluate(()=>{addDeveloperCash(50);buyDevelopmentMiner();});
+            // Upgrade the replacement with exact quotes, then verify the known Number boundary.
+            await page.evaluate(()=>{while(save.factory.miners[0].tier<25){const m=save.factory.miners[0];if(!addDeveloperCash(MinerTierModel.getTierUpgradePrice(m.tier+1,0))||!upgradeDevelopmentMiner(m.id))throw Error('upgrade');}});
+            assert.equal(await page.locator('#sellMiner').isDisabled(),true);assert.match(await page.locator('#minerResaleStatus').textContent(),/cannot be represented exactly/);
+            const blocked=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));assert.equal(await page.evaluate(()=>prepareDevelopmentMinerSale(save.factory.miners[0].id)),false);
+            assert.deepEqual(await page.evaluate(()=>JSON.parse(JSON.stringify(save))),blocked);
+            // Local level 7 makes this particular ledger refund exactly representable.
+            await page.evaluate(()=>{while(save.factory.miners[0].oreLuckLevel<7){const m=save.factory.miners[0];addDeveloperCash(MinerOreLuckModel.getUpgradePrice(m.oreLuckLevel+1,0));upgradeDevelopmentMinerOreLuck(m.id);}});
+            const expected=await page.evaluate(()=>String(save.factory.miners[0].investment.entries.reduce((s,p)=>s+BigInt(p.cashPaid),0n)/2n));
+            assert.equal(await page.locator('#sellMiner').isDisabled(),false);await page.locator('#sellMiner').click();await page.locator('#confirmMinerSale').click();
+            assert.equal(await page.evaluate(()=>String(BigInt(save.cash))),expected);assert.equal(await page.evaluate(()=>save.factory.miners.length),0);
+            await page.reload();assert.equal(await page.evaluate(()=>save.factory.miners.length),0);assert.deepEqual(app.errors,[]);
+            await app.context.close();console.log('PASS Chromium: GAME08 result/sale write retry, zero-owner reload and exact high-value refund boundaries.');
+        }
+
         // GAME07: the actual five-slot interface and one shared production writer.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]) {
             const app=await session(null),{page}=app;await page.setViewportSize({width,height});
