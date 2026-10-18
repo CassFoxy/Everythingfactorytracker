@@ -1,5 +1,16 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME08 — Consolidated Miner Resale and Replacement
+
+**Status: COMPLETE — bounded private-development scope.** One confirmed, ID-targeted sale pathway covers all five Miners. Refunds use floor(50% of recorded qualifying purchase/tier/local payments); slot access and unrelated investment are excluded. Exact integer refund calculation precedes Number conversion and exact Cash credit. Unrepresentable refunds/balances reject without losing ownership; full Tier 25 / Luck 0 and Luck 50 remain blocked by the documented Cash representation limit.
+
+Reserved work (even overdue) is removed without payout. Already-resolved output commits normally, then sale requires a fresh confirmation. Cash/removal persist together; failed writes retain exact candidates for retry. Unlocked slots and global identity counters survive; replacements use new IDs, fresh Tier 1 / Luck 0 and a new $100 purchase ledger. Existing schema-1 / miner-1 saves, DEV01 and legacy mode remain supported. The earthy selected-Miner panel shows investment, exact payable refund, confirmation and clear precision errors.
+
+Verification: four JavaScript syntax checks, 420 Node regressions and 46 browser scenarios pass. Confirmation and replacement screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844, with overflow, duplicate-ID and console-error assertions. GitHub-hosted CI is reported on the PR. Other machine resale, Rebirth, grid/conveyors, Polisher/Refiner integration, broader statistics/challenges and public V2 migration remain outstanding. Full high-value resale coverage awaits an owner-approved currency representation decision; no approximation or partial payment is implemented. Next consolidated playable feature: first Polisher processing integration (purchase, raw-input processing and polished-output sale through the existing Furnace), with its full-state event/statistics boundary. Not started here.
+
+Earlier completion notes describe their original scopes; GAME08 supersedes their outstanding private Miner resale/replacement work, subject to the exact-payability limit.
+
+
 ## V1-GAME07 — Complete Five-Miner Factory Integration
 
 **Status: ✅ COMPLETE — bounded private miner-1 integration.** Five fixed slot entries share one ID-targeted management panel. Slots 2–5 use their canonical independent access prices; each unlocked empty slot separately purchases a $100 Miner. Each entity retains its own Tier 1–25, local Ore Luck 0–50, investment and cycle sequence. No sequential slot gate or array-position identity is introduced.
