@@ -1,5 +1,7 @@
 # V1-070E5 — Full-State Polisher Commit Boundary
 
+**GAME09 private-development exception:** The miner-1 profile now activates three canonical Polishers, Tier 1–10, raw/queue reservations, resolution and an atomic processed-inventory plus lifetime/current-Rebirth statistics commit. See [the bounded activation and known-absence policy](SAVE_VERSIONING.md#v1-game09--private-playable-polisher-activation). Earlier pure-only/public-blocked wording below remains the historical/public contract; it does not prohibit this approved private consumer. Active challenges, processed sales, Polisher resale and full public V2 remain unsupported.
+
 **Status: documentation contract complete; production integration blocked by the field/consumer dependencies below. Production saveVersion remains 1.**
 
 This contract follows [AGENTS](../AGENTS.md), [Bible Reference C](GAME_BIBLE.md#reference-c-polisher-behavior), [the consolidated specification](TEFI_Consolidated_Development_Specification.md), [V2 sections 2 and 5–9](V2_STATE_CONTRACT.md), [lifecycle sections 5–7a](V1_MACHINE_LIFECYCLE_CONTRACT.md), [approved T1 decisions](T1_TIMING_DECISION_SHEET.md), and [save compatibility](SAVE_VERSIONING.md). PR #33 was verified merged before this work. No runtime guarantees are implemented here.

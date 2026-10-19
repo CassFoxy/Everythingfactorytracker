@@ -201,7 +201,8 @@ test("Polisher commit candidates do not change production saves or activate rewa
         commitFixtureResult(commitFixture());
         assert.deepEqual(app.state(), before); assert.equal(app.writes.length, writes);
         assert.equal(saveAndReload(app).state().saveVersion, 1);
-        assert.equal(Object.hasOwn(app.state(), "processedInventory"), false);
+        // GAME09 activates empty processed stock only in the private fresh profile.
+        assert.equal(Object.hasOwn(app.state(), "processedInventory"), raw === null);
     }
 });
 
@@ -5166,3 +5167,92 @@ test('GAME08 sale and pending-result write failures retain exact bytes and never
         const after=app.state();assert.equal(app.run('retryDevelopmentWrite()'),false);assert.equal(app.run('confirmDevelopmentMinerSale()'),false);assert.deepEqual(app.state(),after);
     }
 });
+
+function ownedPolisher(slot=1){const a=ready();a.run(`addDeveloperCash(PolisherCandidateModel.getPurchasePrice(${slot},0));`);assert.equal(a.run(`buyDevelopmentPolisher(${slot})`),true);return a;}
+function finishPolisher(a,id='polisher:1'){const c=a.state().factory.polishers.find(m=>m.id===id).cycle;const due=c.startedAtMs+c.durationMs;assert.equal(a.run(`advanceDevelopmentPolisher('${id}',${Math.ceil(due)})`),true);assert.equal(a.run(`advanceDevelopmentPolisher('${id}',${Math.ceil(due)})`),true);}
+test('GAME09 all slots and tier prices, inter-machine identity and active-safe upgrades',()=>{
+ const a=ownedDevelopmentMiner(); const original=a.state().factory.miners;
+ for(let slot=1;slot<=3;slot++){
+  a.run(`addDeveloperCash(PolisherCandidateModel.getPurchasePrice(${slot},0));`);assert.equal(a.run(`buyDevelopmentPolisher(${slot})`),true);assert.equal(a.run(`buyDevelopmentPolisher(${slot})`),false);
+  const id=a.state().factory.polishers[slot-1].id;
+  for(let tier=2;tier<=10;tier++){const price=a.run(`PolisherModel.getTierUpgradePrice(${tier},0)`);a.run(`addDeveloperCash(${price})`);const cash=a.state().cash;assert.equal(a.run(`upgradeDevelopmentPolisher('${id}')`),true);assert.equal(a.state().cash,cash-price);assert.deepEqual(a.state().factory.polishers[slot-1].investment.entries.at(-1),{kind:'tier',targetLevel:tier,cashPaid:price,basis:'actual'});}
+  assert.equal(a.run(`upgradeDevelopmentPolisher('${id}')`),false);
+ }
+ assert.deepEqual(a.state().factory.miners,original);assert.equal(a.state().identity.nextEntitySequence,5);
+ assert.equal(a.run('buyDevelopmentPolisher(4)'),false);assert.equal(a.run('buyDevelopmentMiner(1)'),false);
+ const loaded=ready(a.stored());assert.deepEqual(loaded.state().factory.polishers,a.state().factory.polishers);
+});
+test('GAME09 every ore and tier converts conserved partial batches with atomic quantity statistics only',()=>{
+ const a=ownedPolisher();const ids=Array.from(a.run('ORE_KEYS'));
+ for(let i=0;i<ids.length;i++){
+  const ore=ids[i],tier=Math.min(10,1+Math.floor(i/2));
+  while(a.state().factory.polishers[0].tier<tier)a.run(`addDeveloperCash(PolisherModel.getTierUpgradePrice(save.factory.polishers[0].tier+1,0));upgradeDevelopmentPolisher('polisher:1')`);
+  a.run(`developmentCommand(n=>{n.inventory.${ore}=3});setDevelopmentPolisherOre('polisher:1','${ore}');`);
+  const before=a.state(),cap=a.run(`PolisherModel.getBatchSize(${tier})`),amount=Math.min(cap,3);
+  assert.equal(a.run("advanceDevelopmentPolisher('polisher:1',Date.now())"),true);
+  const cycle=a.state().factory.polishers[0].cycle;assert.equal(cycle.durationMs,a.run(`PolisherModel.getCycleTime(${tier})*1000`));assert.equal(a.state().inventory[ore],3-amount);
+  assert.equal(a.state().statistics.lifetime.polishedOutput[ore],0);finishPolisher(a);
+  const after=a.state(),lot=after.processedInventory.polished.find(l=>l.resourceId===ore);
+  assert.equal(lot.amount,amount);assert.equal(lot.polishedValue,a.run(`ORES.${ore}.value*1.5`));
+  for(const scope of ['lifetime','thisRebirth'])assert.equal(after.statistics[scope].polishedOutput[ore],amount);
+  for(const key of ['cash','factoryXP','totalOres','achievementStats','oreCollection','achievements','factoryMilestones'])assert.deepEqual(after[key],before[key]);
+ }
+ assert.equal(a.run("setDevelopmentPolisherOre('polisher:1','stone')"),false);assert.equal(a.run("setDevelopmentPolisherOre('polisher:1','wood')"),false);
+ a.run("setDevelopmentPolisherOre('polisher:1',null)");assert.equal(a.run("advanceDevelopmentPolisher('polisher:1',Date.now())"),false);
+});
+test('GAME09 queue insertion, explicit partial transfer, old bound effects and historical cohorts survive',()=>{
+ const a=ownedPolisher();a.run("developmentCommand(n=>{n.inventory.ruby=8});setDevelopmentPolisherOre('polisher:1','ruby')");
+ assert.equal(a.run("queueDevelopmentPolisher('polisher:1',5)"),true);const queued=a.state().factory.polishers[0].queue[0];assert.equal(a.state().inventory.ruby,3);
+ assert.equal(a.run("advanceDevelopmentPolisher('polisher:1',Date.now())"),false);
+ assert.equal(a.run(`reserveDevelopmentPolisher('polisher:1',{kind:'queue',queueId:'${queued.id}'},Date.now())`),true);
+ const cycle=a.state().factory.polishers[0].cycle;assert.equal(a.state().factory.polishers[0].queue[0].lot.amount,4);assert.equal(a.state().factory.polishers[0].queue[0].id,queued.id);
+ a.run("addDeveloperCash(50000);upgradeDevelopmentPolisher('polisher:1');setDevelopmentPolisherOre('polisher:1','amber')");assert.deepEqual(a.state().factory.polishers[0].cycle,cycle);
+ const reload=ready(a.stored());assert.deepEqual(reload.state().factory.polishers[0].cycle,cycle);finishPolisher(reload);
+ assert.equal(reload.state().inventory.ruby,3);assert.equal(reload.state().processedInventory.polished[0].amount,1);assert.equal(reload.state().statistics.lifetime.polishedOutput.ruby,1);
+ for(const amount of [0,-1,.5,Infinity,NaN,100])assert.equal(a.run(`queueDevelopmentPolisher('polisher:1',${amount})`),false);
+});
+test('GAME09 known-absence completion preserves old saves; partial namespaces, challenges and forged state reject',()=>{
+ const a=ownedDevelopmentMiner();a.run('updateDevelopmentMiner()');const old=a.state();delete old.factory.polishers;delete old.statistics;delete old.processedInventory;
+ const upgraded=ready(JSON.stringify(old));assert.deepEqual(upgraded.state().factory.miners,old.factory.miners);assert.equal(upgraded.state().statistics.lifetime.polishedOutput.ruby,0);
+ for(const alter of [s=>s.statistics={legacy:1},s=>s.challenges={active:true},s=>s.processedInventory={polished:[],refined:[]}]){const bad=structuredClone(old);alter(bad);assert.ok(boot(JSON.stringify(bad)).error);}
+ const p=ownedPolisher().state();for(const alter of [s=>s.factory.polishers[0].tier=2,s=>s.factory.polishers[0].slot=4,s=>s.factory.polishers.push(structuredClone(s.factory.polishers[0])),s=>s.statistics.lifetime.polishedOutput.ruby=-1,s=>s.factory.polishers[0].queue=[{id:'polisher:1/queue:1',lot:{}}]]){const bad=structuredClone(p);alter(bad);assert.ok(boot(JSON.stringify(bad)).error);}
+});
+test('GAME09 every write boundary retries exact bytes without partial output or statistics',()=>{
+ for(const phase of ['purchase','upgrade','queue','reserve','resolve','commit']){
+  const a=phase==='purchase'?ready():ownedPolisher();a.run("addDeveloperCash(100000);developmentCommand(n=>{n.inventory.ruby=5})");
+  if(phase!=='purchase')a.run("setDevelopmentPolisherOre('polisher:1','ruby')");
+  if(['resolve','commit'].includes(phase))a.run("advanceDevelopmentPolisher('polisher:1',Date.now())");
+  if(phase==='commit')a.run("advanceDevelopmentPolisher('polisher:1',Date.now()+7500)");
+  const before=a.state(),stored=a.stored();a.faults.write=true;
+  const command={purchase:'buyDevelopmentPolisher(1)',upgrade:"upgradeDevelopmentPolisher('polisher:1')",queue:"queueDevelopmentPolisher('polisher:1',3)",reserve:"advanceDevelopmentPolisher('polisher:1',Date.now())",resolve:"advanceDevelopmentPolisher('polisher:1',Date.now()+7500)",commit:"advanceDevelopmentPolisher('polisher:1',Date.now()+7500)"}[phase];
+  assert.equal(a.run(command),false);const bytes=a.run('pendingDevelopmentWrite.serialized');assert.deepEqual(a.state(),before);assert.equal(a.stored(),stored);assert.equal(a.run('retryDevelopmentWrite()'),false);assert.equal(a.run('addDeveloperCash(1)'),false);
+  a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.run('retryDevelopmentWrite()'),false);
+  if(phase==='commit'){assert.equal(a.state().processedInventory.polished[0].amount,1);assert.equal(a.state().statistics.lifetime.polishedOutput.ruby,1);assert.equal(a.state().factory.polishers[0].cycle,null);}
+ }
+});
+test('GAME09 simultaneous Miners and Polishers recover once and preserve pending result integrity',()=>{
+ const a=ownedDevelopmentMiner();for(let slot=1;slot<=3;slot++){a.run(`addDeveloperCash(PolisherCandidateModel.getPurchasePrice(${slot},0));buyDevelopmentPolisher(${slot})`);}
+ a.run("developmentCommand(n=>{n.inventory.ruby=30});for(const p of save.factory.polishers)setDevelopmentPolisherOre(p.id,'ruby');updateDevelopmentMiner()");
+ a.advance(7500);a.run('updateDevelopmentMiner()');assert.equal(a.state().processedInventory.polished[0].amount,3);assert.equal(a.state().statistics.thisRebirth.polishedOutput.ruby,3);assert.equal(a.state().totalOres,1);
+ a.advance(86400000);a.run('updateDevelopmentMiner()');assert.equal(a.state().processedInventory.polished[0].amount,6);assert.equal(a.state().totalOres,2);
+ const saved=a.state(),bad=structuredClone(saved);bad.factory.polishers[0].cycle.effectContext.tier=10;assert.ok(boot(JSON.stringify(bad)).error);
+ const b=ownedPolisher();b.run("developmentCommand(n=>{n.inventory.ruby=2});setDevelopmentPolisherOre('polisher:1','ruby');advanceDevelopmentPolisher('polisher:1',Date.now());advanceDevelopmentPolisher('polisher:1',Date.now()+7500)");
+ const resolved=b.state().factory.polishers[0].cycle;b.run("addDeveloperCash(50000);upgradeDevelopmentPolisher('polisher:1')");assert.deepEqual(b.state().factory.polishers[0].cycle,resolved);
+ const corrupt=b.state();corrupt.factory.polishers[0].cycle.result.events[0].amount=2;assert.ok(boot(JSON.stringify(corrupt)).error);
+ const overflow=b.state();overflow.statistics.lifetime.polishedOutput.ruby=2**53;const c=ready(JSON.stringify(overflow));const before=c.state();assert.equal(c.run("advanceDevelopmentPolisher('polisher:1',Date.now())"),false);assert.deepEqual(c.state(),before);
+});
+
+test('GAME09 full batches, distinct value cohorts and refined stock persist without repricing or replay',()=>{
+ const a=ownedPolisher();a.run("developmentCommand(n=>{n.inventory.ruby=250;n.processedInventory.refined.push(InventoryModel.createLot({resourceId:'ruby',stage:'refined',refineCount:1,amount:2,polishedValue:null,preRefinerValue:50,refineBonus:.5}))});setDevelopmentPolisherOre('polisher:1','ruby')");
+ for(let tier=2;tier<=10;tier++)a.run(`addDeveloperCash(PolisherModel.getTierUpgradePrice(${tier},0));upgradeDevelopmentPolisher('polisher:1')`);
+ const refined=a.state().processedInventory.refined;
+ a.run("advanceDevelopmentPolisher('polisher:1',Date.now())");const first=a.state().factory.polishers[0].cycle;
+ assert.equal(first.inputs[0].amount,a.run('PolisherModel.getBatchSize(10)'));
+ a.run("developmentCommand(n=>{n.permanentBonuses.oreValue=1})");finishPolisher(a);
+ a.run("advanceDevelopmentPolisher('polisher:1',Date.now())");finishPolisher(a);
+ assert.equal(a.state().processedInventory.polished.length,2);assert.equal(a.state().processedInventory.polished[1].polishedValue,2*a.state().processedInventory.polished[0].polishedValue);
+ assert.deepEqual(a.state().processedInventory.refined,refined);assert.equal(a.state().statistics.lifetime.polishedOutput.ruby,200);
+ const snapshot=a.state();snapshot.factory.polishers[0].selectedOreId=null;const b=ready(JSON.stringify(snapshot));assert.deepEqual(b.state().processedInventory,snapshot.processedInventory);assert.equal(b.state().statistics.lifetime.polishedOutput.ruby,200);
+ assert.equal(b.run("advanceDevelopmentPolisher('polisher:1',Date.now())"),false);
+});
+

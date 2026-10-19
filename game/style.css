@@ -121,3 +121,11 @@ h1 { font-size:20px; line-height:1.25; } h1 span { display:block; color:var(--te
 #minerResaleStatus { color:var(--text-secondary); font-size:12px; overflow-wrap:anywhere; margin-bottom:8px; }
 #sellMiner { font-size:13px; } .miner-sale-dialog { max-width:520px; }
 .miner-sale-dialog p { margin:14px 0; overflow-wrap:anywhere; } #minerSaleRefund { color:var(--text-primary); }
+
+/* GAME09: compact independent Polisher management. */
+.polisher-slots { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:12px 0; }
+#polisherPanel select,#polisherPanel input { max-width:100%; min-width:0; background:var(--bg-main); color:var(--text-primary); border:1px solid var(--border); padding:10px; }
+#polisherPanel p,#processedInventorySection p { font-size:13px; overflow-wrap:anywhere; margin:10px 0; }
+#polisherQueue>div { border-top:1px solid var(--border); padding:8px 0; overflow-wrap:anywhere; }
+#polisherQueueAmount { width:110px; } #polisherPanel details { margin-top:12px; }
+@media(max-width:600px){ .polisher-slots { grid-template-columns:repeat(2,minmax(0,1fr)); } }
