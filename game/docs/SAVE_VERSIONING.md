@@ -1,5 +1,18 @@
 # Save schema version 1 — accepted persistence foundation
 
+
+## V1-GAME10 — private manual Polished-cohort Furnace sales
+
+GAME10 extends only the existing manual Furnace in schema 1 / developmentProfile "miner-1". It adds no saved fields or migration. Valid GAME01–GAME09 saves retain the GAME09 known-absence policy, recovery/export and confirmed reset. Untagged legacy saves remain separate.
+
+The inherited three-tier Furnace retains capacities 10/50/100 and its existing raw prices. It has no applicable normal ore sale multiplier. A Polished sale therefore uses the Lot's stored polishedValue directly, multiplied exactly once by 1,000 only in DEV01 mode, then by quantity. Do not reapply current Ore Value, Polisher effects, or the future FurnaceModel twenty-tier multipliers. Historical fractional values are not rounded for sale; existing exact product/addition checks reject unrepresentable arithmetic before consumption. Developer mode bypasses only capacity, never ownership; restoring normal mode preserves the normal tier and capacity.
+
+Transient selections carry the complete canonical Lot metadata (resource, polished stage, refineCount 0, captured value, null Refiner metadata), never an array index. Compatible records are grouped with InventoryModel; unlike historical cohorts remain separate. Percentage quantities use exact integer floor for 25/50/100%, then the ordinary capacity cap where applicable. Zero batches reject. Confirmation revalidates the full state, matching cohort, available quantity, captured basis, mode, tier/capacity and quoted value/total. Any changed selected quantity or quote requires review; reordering unrelated Lots does not retarget the sale. A matching newly committed Polisher output changes availability and invalidates the old preview.
+
+One developmentCommand candidate removes only the chosen quantity, adds Cash, increments existing achievementStats.oresSmelted and Factory XP by one per sold item, and applies existing progression checks. It preserves raw/refined stock, other cohorts, machine work, identity, Collection and both historical Polished-output maps. No acquisition/discovery or second polished event is generated; broader stage-specific sales statistics remain unimplemented. The existing full-state write precedes publication. Failed writes retain the exact candidate/bytes, block conflicts and retry once without requoting or consuming again. Successful commit clears the transient confirmation; reload sees only the last durable state.
+
+An active Auto Furnace batch blocks manual Polished sales both at preview and confirmation. Auto Furnace still selects raw inventory only; DEV01 continues pausing it. Queued/reserved Polisher input and unapplied results are never available sale stock. No new timer, receipt, selection index or payout cache is persisted. This bounded manual extension does not activate automatic processed selection, Refined sales, canonical Furnace tiers 1–20, challenges or public V2.
+
 ## V1-GAME01 — approved private development activation (2026-10-13)
 
 The owner authorizes development save resets for this private, unreleased prototype. Fresh games now use **saveVersion 1 plus developmentProfile: "miner-1"**, a deliberately bounded profile, **not the complete V2 schema**. No V1→V2 migration is activated. The existing storage key and whole-object JSON write remain.

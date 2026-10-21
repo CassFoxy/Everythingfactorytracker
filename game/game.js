@@ -3535,6 +3535,8 @@ const amount = Math.min(
     if(amount <= 0)
         return;
 
+    document.getElementById("confirmCohort").textContent = "";
+    document.getElementById("confirmFurnaceMode").textContent = "Normal Furnace";
     pendingSmelt.key =
         key;
 
@@ -3579,6 +3581,7 @@ document.getElementById(
 }
 
 function confirmSmelt(){
+    if(isMinerDevelopment() && pendingSmelt.kind === "polished") return confirmDevelopmentPolishedSmelt();
     if(isMinerDevelopment()){
         if(autoFurnaceState.processing || pendingDevelopmentWrite) return false;
         const success = developmentCommand(next => {
@@ -3652,6 +3655,8 @@ updateFactoryLevel();
         );
 
     container.innerHTML = "";
+    document.getElementById("polishedFurnaceSection").hidden = !isMinerDevelopment();
+    buildPolishedFurnaceMenu();
               
 addFurnaceItem(
     "🪨 Stone",
@@ -4429,6 +4434,8 @@ function developmentSmeltQuote(state, key, amount){
     return { value, total };
 }
 function prepareDevelopmentSmelt(key, percent){
+    document.getElementById("confirmCohort").textContent = "";
+    document.getElementById("confirmFurnaceMode").textContent = developerFurnaceEnabled() ? "Developer Furnace · testing ×1,000" : "Normal Furnace";
     if(pendingDevelopmentWrite || recoveryState.active || autoFurnaceState.processing) return false;
     try{
         validateSaveData(save); validateDevelopmentSave(save); developmentOre(key);
@@ -4452,6 +4459,120 @@ function prepareDevelopmentSmelt(key, percent){
         return false;
     }
 }
+// GAME10: identity is the complete canonical Lot metadata, never an array index.
+// This private three-tier Furnace has no normal ore sale multiplier. Do not
+// activate FurnaceModel's twenty-tier multipliers or reapply Ore Value here.
+function polishedSaleCohort(state, selection){
+    InventoryModel.validateLot(selection);
+    if(selection.stage !== "polished") throw Error("Select a Polished ore cohort.");
+    InventoryModel.validateProcessedInventory(state.processedInventory);
+    let cohort = null;
+    for(const lot of state.processedInventory.polished){
+        if(InventoryModel.lotsCompatible(lot, selection))
+            cohort = cohort ? InventoryModel.mergeLots(cohort, lot) : InventoryModel.createLot(lot);
+    }
+    if(!cohort) throw Error("This Polished cohort is no longer available. Select it again.");
+    return cohort;
+}
+function polishedSaleQuantity(available, percent, capacity){
+    if(![0.25, 0.5, 1].includes(percent)) throw Error("Invalid Furnace percentage.");
+    // Exact floor of the chosen fraction, including representable large Counts.
+    const requested = BigInt(available) / BigInt(1 / percent);
+    const amount = Number(requested);
+    if(!Number.isFinite(amount) || BigInt(amount) !== requested) throw Error("Batch quantity cannot be represented exactly.");
+    const limited = capacity === null ? amount : Math.min(amount, capacity);
+    if(limited <= 0) throw Error("This percentage selects zero items. Choose a larger batch.");
+    return limited;
+}
+function developmentPolishedSmeltQuote(state, selection, amount){
+    const cohort = polishedSaleCohort(state, selection);
+    if(typeof amount !== "number" || !Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0 || amount > cohort.amount ||
+        (!developerFurnaceEnabled(state) && amount > FURNACES[state.furnaceTier].capacity))
+        throw Error("Invalid or unavailable Polished Furnace quantity. Select the batch again.");
+    InventoryModel.splitLot(cohort, amount); // Validate exact conservation before quoting.
+    const value = exactDevelopmentProduct(cohort.polishedValue, developerFurnaceEnabled(state) ? 1000 : 1);
+    const total = exactDevelopmentProduct(value, amount);
+    exactDevelopmentAdd(state.cash, total);
+    return { available: cohort.amount, value, total, developerMode: developerFurnaceEnabled(state), furnaceTier: state.furnaceTier };
+}
+function polishedCashText(value){ return value.toLocaleString(undefined, { maximumSignificantDigits: 21 }); }
+function prepareDevelopmentPolishedSmelt(selection, percent){
+    if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    try{
+        if(autoFurnaceState.processing || save.autoFurnaceBatch.length) throw Error("Wait for the active Auto Furnace batch to finish.");
+        validateSaveData(save); validateDevelopmentSave(save);
+        const cohort = polishedSaleCohort(save, selection);
+        const amount = polishedSaleQuantity(cohort.amount, percent, developerFurnaceEnabled() ? null : FURNACES[save.furnaceTier].capacity);
+        const quote = developmentPolishedSmeltQuote(save, cohort, amount);
+        pendingSmelt = { kind: "polished", cohort: { ...cohort, amount: 1 }, amount, quote };
+        document.getElementById("smeltFeedback").textContent = "";
+        document.getElementById("furnaceFeedback").textContent = "";
+        document.getElementById("confirmOre").textContent = "Polished " + developmentOre(cohort.resourceId).name;
+        document.getElementById("confirmCohort").textContent = "Captured cohort value: $" + polishedCashText(cohort.polishedValue);
+        document.getElementById("confirmFurnaceMode").textContent = quote.developerMode ? "Developer Furnace · testing ×1,000" : "Normal Furnace";
+        document.getElementById("confirmAmount").textContent = amount.toLocaleString();
+        document.getElementById("confirmValue").textContent = polishedCashText(quote.value);
+        document.getElementById("confirmTotal").textContent = polishedCashText(quote.total);
+        document.getElementById("smeltConfirmModal").style.display = "block";
+        return true;
+    }catch(error){ document.getElementById("furnaceFeedback").textContent = error.message; return false; }
+}
+function confirmDevelopmentPolishedSmelt(){
+    return developmentCommand(next => {
+        if(autoFurnaceState.processing || next.autoFurnaceBatch.length) throw Error("Wait for the active Auto Furnace batch to finish, then review the sale.");
+        const { cohort, amount, quote: preview } = pendingSmelt;
+        const quote = developmentPolishedSmeltQuote(next, cohort, amount);
+        if(!preview || Object.keys(quote).some(key => quote[key] !== preview[key]))
+            throw Error("Cohort quantity or Furnace quote changed. Select the batch again to review it.");
+        let remaining = amount;
+        next.processedInventory.polished = next.processedInventory.polished.flatMap(lot => {
+            if(remaining === 0 || !InventoryModel.lotsCompatible(lot, cohort)) return [lot];
+            const take = Math.min(remaining, lot.amount), split = InventoryModel.splitLot(lot, take);
+            remaining = developmentDebit(remaining, take);
+            return split.remaining ? [split.remaining] : [];
+        });
+        if(remaining !== 0) throw Error("Polished input ownership changed.");
+        next.cash = exactDevelopmentAdd(next.cash, quote.total);
+        // Same existing private Furnace effects as raw sales; no new Polisher event.
+        next.achievementStats.oresSmelted = exactDevelopmentAdd(next.achievementStats.oresSmelted, amount);
+        next.factoryXP = exactDevelopmentAdd(next.factoryXP, amount);
+        prepareDevelopmentProgress(next);
+    }, { message: "Polished Furnace sale saved.", smelt: true });
+}
+function buildPolishedFurnaceMenu(){
+    const container = document.getElementById("polishedFurnaceItems");
+    container.innerHTML = "";
+    if(!isMinerDevelopment()) return;
+    try{
+        // Group compatible records using InventoryModel, without rewriting saved stock.
+        let grouped = InventoryModel.createProcessedInventory();
+        for(const lot of save.processedInventory.polished) grouped = InventoryModel.addProcessedLot(grouped, lot);
+        for(const cohort of grouped.polished){
+            const row = document.createElement("section"); row.className = "furnace-cohort";
+            const label = document.createElement("strong"); label.textContent = "✦ Polished " + developmentOre(cohort.resourceId).name;
+            const details = document.createElement("p"); details.textContent = "Available: " + cohort.amount.toLocaleString() + " · Captured unit value: $" + polishedCashText(cohort.polishedValue);
+            const estimate = document.createElement("p");
+            try{
+                const amount = polishedSaleQuantity(cohort.amount, 1, developerFurnaceEnabled() ? null : FURNACES[save.furnaceTier].capacity);
+                const quote = developmentPolishedSmeltQuote(save, cohort, amount);
+                estimate.textContent = "Current batch: " + amount.toLocaleString() + " · Estimated Cash: $" + polishedCashText(quote.total);
+            }catch(error){ estimate.textContent = error.message; }
+            const actions = document.createElement("div"); actions.className = "furnace-cohort-actions";
+            const select = document.createElement("button"); select.textContent = "Select";
+            select.onclick = () => {
+                actions.replaceChildren();
+                for(const percent of [0.25, 0.5, 1]){
+                    const button = document.createElement("button"); button.textContent = percent * 100 + "%";
+                    button.onclick = () => prepareDevelopmentPolishedSmelt(cohort, percent);
+                    actions.appendChild(button);
+                }
+            };
+            actions.appendChild(select); row.appendChild(label); row.appendChild(details); row.appendChild(estimate); row.appendChild(actions); container.appendChild(row);
+        }
+        if(!grouped.polished.length) container.textContent = "No completed Polished stock available. Queued and processing inputs cannot be sold.";
+    }catch(error){ container.textContent = error.message; }
+}
+
 function renderDeveloperTools(){
     const supported = isMinerDevelopment(), enabled = developerFurnaceEnabled();
     document.getElementById("devCashControls").hidden = !supported;

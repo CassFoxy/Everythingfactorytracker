@@ -1,5 +1,14 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+
+## V1-GAME10 — Complete Polished-Cohort Furnace Sales
+
+**Status: COMPLETE — bounded private manual Polished sales.** All twenty Polished ores use one historical-cohort manual sale path with partial/full consumption, inherited normal capacity and DEV01 unlimited/×1,000 sales. Complete metadata identifies stock; preview changes reject at confirmation. Cash, inventory and existing per-item smelting/XP effects share one persist-before-publish candidate and exact retry. Polished production totals, unrelated cohorts and machine cycles are preserved; schema 1 / miner-1 has no new saved fields.
+
+Verification: four JavaScript syntax checks, 435 Node regressions and 56 browser scenarios passed. Furnace cohort/confirmation screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844; tested flows assert no duplicate IDs, horizontal overflow or browser errors. GitHub-hosted CI results are reported on the PR. Ordinary raw/Auto Furnace behavior remains separate; the twenty-tier canonical Furnace is not activated. Remaining work: automatic processed sales, Refined sales/Refiner, Polisher resale, Rebirth, challenges, grid/conveyors and public V2 migration. Next consolidated playable feature: Polisher resale/replacement with queue return and resolved-result commit before removal; not started here.
+
+Earlier GAME09 notes describe that ticket's scope; GAME10 supersedes only its outstanding private manual Polished-sale boundary.
+
 ## V1-GAME09 — Complete Playable Polisher Processing Integration
 
 **Status: COMPLETE — bounded private-development integration.** Three independent slot purchases, all Tier 1–10 upgrades, all twenty raw ores, selected-input automatic processing, explicit queue transfers/partial batches, canonical historical Polished Lots and atomic lifetime/current-Rebirth output statistics are connected to the existing private full-state writer and central scheduler. No mining/discovery/XP/Cash/Dust awards occur during polishing. UI separates available raw, queued, processing and completed Polished stock.

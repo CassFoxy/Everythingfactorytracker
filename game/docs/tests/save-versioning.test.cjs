@@ -5256,3 +5256,69 @@ test('GAME09 full batches, distinct value cohorts and refined stock persist with
  assert.equal(b.run("advanceDevelopmentPolisher('polisher:1',Date.now())"),false);
 });
 
+
+function polishedSaleFixture(resourceId='ruby',amount=40,value=15){
+ const a=ready();a.run(`developmentCommand(n=>{n.processedInventory.polished=[InventoryModel.createLot({resourceId:'${resourceId}',stage:'polished',refineCount:0,amount:${amount},polishedValue:${value},preRefinerValue:null,refineBonus:null})]});`);return a;
+}
+function preparePolishedSale(a,percent=1,index=0){return a.run(`prepareDevelopmentPolishedSmelt(save.processedInventory.polished[${index}],${percent})`);}
+test('GAME10 all twenty Polished ores use captured values, ordinary capacity and unchanged production history',()=>{
+ for(const ore of Array.from(ready().run('ORE_KEYS'))){
+  const a=polishedSaleFixture(ore);a.run('developmentCommand(n=>{n.permanentBonuses.oreValue=3;n.inventory.ruby=7;n.statistics.lifetime.polishedOutput.ruby=90;n.statistics.thisRebirth.polishedOutput.ruby=20})');
+  const before=a.state();assert.equal(preparePolishedSale(a),true);assert.equal(a.run('pendingSmelt.amount'),10);assert.equal(a.run('pendingSmelt.quote.total'),150);
+  assert.equal(a.run('confirmSmelt()'),true);const after=a.state();assert.equal(after.cash,150);assert.equal(after.processedInventory.polished[0].amount,30);assert.equal(after.processedInventory.polished[0].polishedValue,15);
+  assert.equal(after.factoryXP,before.factoryXP+10);assert.equal(after.achievementStats.oresSmelted,before.achievementStats.oresSmelted+10);
+  for(const key of ['inventory','statistics','oreCollection','totalOres','factory','identity','developerTools'])assert.deepEqual(after[key],before[key]);
+  assert.equal(after.achievementStats.totalOresMined,before.achievementStats.totalOresMined);assert.equal(after.achievementStats.oresDiscovered,before.achievementStats.oresDiscovered);
+  assert.equal(a.run('confirmSmelt()'),false);assert.deepEqual(ready(a.stored()).state(),after);
+ }
+});
+test('GAME10 metadata identity survives reordering and separates historical cohorts while conserving partial/full sales',()=>{
+ const a=polishedSaleFixture('ruby',15,30);a.run("developmentCommand(n=>{n.processedInventory.polished.push({...n.processedInventory.polished[0],amount:8,polishedValue:33},{...n.processedInventory.polished[0],resourceId:'amber',amount:9});n.processedInventory.refined=[InventoryModel.createLot({resourceId:'ruby',stage:'refined',refineCount:1,amount:2,polishedValue:null,preRefinerValue:22,refineBonus:.2})]})");
+ const other=a.state().processedInventory;assert.equal(preparePolishedSale(a,.5),true);a.run('developmentCommand(n=>n.processedInventory.polished.reverse())');
+ assert.equal(a.run('confirmSmelt()'),true);assert.equal(a.state().cash,210);
+ const lots=a.state().processedInventory.polished;assert.equal(lots.find(l=>l.resourceId==='ruby'&&l.polishedValue===30).amount,8);assert.deepEqual(lots.find(l=>l.polishedValue===33),other.polished[1]);assert.deepEqual(lots.find(l=>l.resourceId==='amber'),other.polished[2]);assert.deepEqual(a.state().processedInventory.refined,other.refined);
+ assert.equal(preparePolishedSale(a,1,2),true);assert.equal(a.run('confirmSmelt()'),true);assert.equal(a.state().processedInventory.polished.length,2);assert.equal(a.state().cash,450);assert.deepEqual(ready(a.stored()).state().processedInventory,a.state().processedInventory);
+ // Supported compatible records are grouped through InventoryModel, not mistaken for separate identities.
+ const b=polishedSaleFixture('ruby',3,7);b.run('developmentCommand(n=>n.processedInventory.polished.push({...n.processedInventory.polished[0],amount:4}))');assert.equal(preparePolishedSale(b),true);assert.equal(b.run('pendingSmelt.amount'),7);assert.equal(b.run('confirmSmelt()'),true);assert.deepEqual(b.state().processedInventory.polished,[]);assert.equal(b.state().cash,49);
+});
+test('GAME10 Developer Furnace multiplies once, preserves normal tier and restores normal limits',()=>{
+ const a=polishedSaleFixture('amber',1000,15);a.run('setDeveloperFurnace(true)');const tier=a.state().furnaceTier;
+ assert.equal(preparePolishedSale(a,.5),true);assert.equal(a.run('pendingSmelt.amount'),500);assert.equal(a.run('pendingSmelt.quote.value'),15000);assert.equal(a.run('pendingSmelt.quote.total'),7500000);assert.equal(a.run('confirmSmelt()'),true);
+ assert.equal(a.state().cash,7500000);assert.equal(a.state().factoryXP,500);assert.equal(a.state().achievementStats.oresSmelted,500);assert.equal(a.state().furnaceTier,tier);
+ const b=ready(a.stored());assert.equal(b.run('developerFurnaceEnabled()'),true);b.run('setDeveloperFurnace(false)');assert.equal(preparePolishedSale(b),true);assert.equal(b.run('pendingSmelt.amount'),10);assert.equal(b.run('pendingSmelt.quote.total'),150);assert.equal(b.run('confirmSmelt()'),true);assert.equal(b.state().processedInventory.polished[0].amount,490);
+});
+test('GAME10 stale amount/value/mode previews reject without consuming a different cohort',()=>{
+ for(const change of ['save.processedInventory.polished[0].amount++','save.processedInventory.polished[0].amount--','save.processedInventory.polished[0].polishedValue=33','save.processedInventory.polished=[]','save.developerTools.furnaceEnabled=true','save.furnaceTier=1','pendingSmelt.amount=2','pendingSmelt.amount=0','pendingSmelt.amount=-1','pendingSmelt.amount=.5','pendingSmelt.amount=100','pendingSmelt.quote.total=1']){
+  const a=polishedSaleFixture();assert.equal(preparePolishedSale(a),true);a.run(change);const before=a.state(),bytes=a.stored();assert.equal(a.run('confirmSmelt()'),false,change);assert.deepEqual(a.state(),before);assert.equal(a.stored(),bytes);
+ }
+ const a=polishedSaleFixture();preparePolishedSale(a);a.run('setDeveloperFurnace(true)');assert.equal(a.run('confirmSmelt()'),false);
+ for(const percent of [0,.1,-1,2,NaN,Infinity])assert.equal(preparePolishedSale(a,percent),false);
+ const tiny=polishedSaleFixture('ruby',1);assert.equal(preparePolishedSale(tiny,.25),false);assert.match(tiny.elements.get('furnaceFeedback').textContent,/zero/);
+ for(const selection of ["{...save.processedInventory.polished[0],resourceId:'stone'}","{...save.processedInventory.polished[0],extra:1}","{...save.processedInventory.polished[0],stage:'raw',polishedValue:null}"]){assert.equal(a.run(`prepareDevelopmentPolishedSmelt(${selection},1)`),false);}
+});
+test('GAME10 fractional and large Cash follow exact arithmetic; unsafe credit/product/split rejects',()=>{
+ for(const [value,qty,expected] of [[.125,8,1],[15.25,4,61],[2**48,4,2**50],[0,1,0]]){const a=polishedSaleFixture('ruby',qty,value);assert.equal(preparePolishedSale(a),true);assert.equal(a.run('confirmSmelt()'),true);assert.equal(a.state().cash,expected);}
+ for(const [value,qty,cash,dev] of [[1,1,2**60,false],[Number.MAX_VALUE,2,0,false],[Number.MAX_SAFE_INTEGER,3,0,true],[1,2**55,0,false]]){
+  const a=polishedSaleFixture('ruby',qty,value);a.run(`save.cash=${cash};save.developerTools.furnaceEnabled=${dev}`);const before=a.state();assert.equal(preparePolishedSale(a),false);assert.deepEqual(a.state(),before);
+ }
+ const a=polishedSaleFixture();assert.throws(()=>a.run('polishedSaleQuantity(2**54+4,.5,null);developmentPolishedSmeltQuote(save,save.processedInventory.polished[0],Infinity)'));
+});
+test('GAME10 Polisher pending stock is not sellable; new committed stock invalidates the open cohort quote',()=>{
+ const a=ownedPolisher();a.run("developmentCommand(n=>{n.inventory.ruby=5});setDevelopmentPolisherOre('polisher:1','ruby');queueDevelopmentPolisher('polisher:1',3);reserveDevelopmentPolisher('polisher:1',{kind:'queue',queueId:'polisher:1/queue:1'},Date.now())");
+ const cycle=a.state().factory.polishers[0].cycle;const due=Math.ceil(cycle.startedAtMs+cycle.durationMs);a.run(`advanceDevelopmentPolisher('polisher:1',${due})`);
+ assert.equal(a.run("prepareDevelopmentPolishedSmelt(save.factory.polishers[0].cycle.result.outputs[0],1)"),false);a.run(`advanceDevelopmentPolisher('polisher:1',${due})`);
+ assert.equal(preparePolishedSale(a),true);a.run(`reserveDevelopmentPolisher('polisher:1',{kind:'queue',queueId:'polisher:1/queue:1'},${due})`);finishPolisher(a);const before=a.state();assert.equal(a.run('confirmSmelt()'),false);assert.deepEqual(a.state(),before);
+ assert.equal(preparePolishedSale(a),true);assert.equal(a.run('confirmSmelt()'),true);assert.equal(a.state().statistics.lifetime.polishedOutput.ruby,2);assert.equal(a.state().inventory.ruby,2);assert.equal(a.state().factory.polishers[0].queue[0].lot.amount,1);
+});
+test('GAME10 active Auto Furnace blocks Polished sales and raw automatic selection never consumes processed stock',()=>{
+ const a=polishedSaleFixture();a.run('save.furnaceTier=2;save.inventory.stone=10;saveGame()');preparePolishedSale(a);a.tick(100);const before=a.state();assert.equal(a.run('autoFurnaceState.processing'),true);assert.equal(a.run('confirmSmelt()'),false);assert.equal(preparePolishedSale(a),false);assert.deepEqual(a.state(),before);
+ a.advance(10000);a.tick(100);assert.equal(a.state().cash,10);assert.deepEqual(a.state().processedInventory,before.processedInventory);a.tick(100);assert.equal(a.state().autoFurnaceBatch.length,0);
+});
+test('GAME10 full sale candidate retries exact bytes once without speculative stock Cash XP or statistics',()=>{
+ const a=polishedSaleFixture();a.run('setDeveloperFurnace(true)');assert.equal(preparePolishedSale(a),true);const before=a.state(),raw=a.stored();a.faults.write=true;
+ assert.equal(a.run('confirmSmelt()'),false);const bytes=a.run('pendingDevelopmentWrite.serialized');assert.deepEqual(a.state(),before);assert.equal(a.stored(),raw);
+ assert.equal(a.run('retryDevelopmentWrite()'),false);a.run('confirmSmelt();setDeveloperFurnace(false);addDeveloperCash(1000);updateDevelopmentMiner()');assert.equal(a.run('pendingDevelopmentWrite.serialized'),bytes);
+ a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.state().cash,600000);assert.equal(a.state().factoryXP,40);assert.equal(a.state().achievementStats.oresSmelted,40);assert.deepEqual(a.state().statistics,before.statistics);assert.deepEqual(a.state().processedInventory.polished,[]);assert.equal(a.run('confirmSmelt()'),false);assert.equal(a.run('retryDevelopmentWrite()'),false);assert.deepEqual(ready(a.stored()).state(),a.state());
+ const corrupt=structuredClone(before);corrupt.processedInventory.polished[0].refineCount=1;const bad=boot(JSON.stringify(corrupt));assert.equal(bad.run('recoveryState.active'),true);assert.equal(bad.stored(),JSON.stringify(corrupt));
+});
+
