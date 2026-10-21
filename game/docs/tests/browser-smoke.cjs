@@ -83,6 +83,43 @@ const server = http.createServer((req, res) => {
             await app.context.close();
             return before;
         }
+        // GAME10: real manual ore -> Polisher -> selected historical cohort -> Furnace -> reload.
+        for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
+            const app=await session(null),{page}=app;await page.setViewportSize({width,height});
+            await page.evaluate(()=>{Math.random=()=>0;addDeveloperCash(5000)});
+            for(let i=0;i<8;i++){await page.locator('#mineButton').click();if(await page.locator('#discoveryPopup').isVisible())await page.locator('#discoveryPopup button').click();}
+            const ore=await page.evaluate(()=>ORE_KEYS.find(id=>save.inventory[id]>0));await page.locator('#polisherAction1').click();await page.locator('#polisherOre').selectOption(ore);
+            await page.evaluate(()=>{updateDevelopmentMiner();for(let i=0;i<3;i++){testNow+=7500;updateDevelopmentMiner();}});
+            const before=await page.evaluate(()=>JSON.parse(JSON.stringify(save))),lot=before.processedInventory.polished[0];assert.equal(lot.amount,3);
+            await page.getByRole('button',{name:'🔥 Open Furnace',exact:true}).click();
+            const row=page.locator('#polishedFurnaceItems .furnace-cohort');assert.equal(await row.count(),1);assert.match(await row.textContent(),/Captured unit value/);
+            await row.getByRole('button',{name:'Select',exact:true}).click();await row.getByRole('button',{name:'50%',exact:true}).click();
+            assert.equal(await page.locator('#confirmAmount').textContent(),'1');assert.equal(await page.evaluate(()=>pendingSmelt.quote.total),lot.polishedValue);assert.match(await page.locator('#confirmOre').textContent(),/Polished/);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.waitForTimeout(7200);await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game10-confirm-'+width+'.png')});}
+            await page.getByRole('button',{name:'Confirm',exact:true}).click();
+            const after=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));assert.equal(after.cash,before.cash+lot.polishedValue);assert.equal(after.processedInventory.polished[0].amount,2);assert.deepEqual(after.statistics,before.statistics);assert.deepEqual(after.inventory,before.inventory);assert.equal(after.factoryXP,before.factoryXP+1);
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game10-cohorts-'+width+'.png')});
+            await page.reload();assert.equal(await page.evaluate(()=>save.cash),after.cash);assert.deepEqual(await page.evaluate(()=>save.processedInventory),after.processedInventory);
+            await page.getByRole('button',{name:'🔥 Open Furnace',exact:true}).click();await page.locator('#polishedFurnaceItems').getByRole('button',{name:'Select',exact:true}).click();await page.locator('#polishedFurnaceItems').getByRole('button',{name:'100%',exact:true}).click();await page.getByRole('button',{name:'Confirm',exact:true}).click();
+            assert.equal(await page.evaluate(()=>save.processedInventory.polished.length),0);assert.equal(await page.evaluate(()=>save.cash),before.cash+3*lot.polishedValue);assert.equal(await page.evaluate(()=>confirmSmelt()),false);
+            await page.reload();assert.equal(await page.evaluate(()=>save.processedInventory.polished.length),0);
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return ids.length!==new Set(ids).size}),false);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS Chromium: GAME10 Polisher-to-Furnace player flow, partial/full sale and reload '+width+'x'+height+'.');
+        }
+        {
+            const app=await session(null),{page}=app;
+            await page.evaluate(()=>developmentCommand(n=>{n.processedInventory.polished=[30,33].map(polishedValue=>InventoryModel.createLot({resourceId:'ruby',stage:'polished',refineCount:0,amount:100,polishedValue,preRefinerValue:null,refineBonus:null}))}));
+            await page.locator('summary').filter({hasText:'Dev tools'}).click();await page.locator('#enableDeveloperFurnace').click();await page.getByRole('button',{name:'🔥 Open Furnace',exact:true}).click();
+            const rows=page.locator('#polishedFurnaceItems .furnace-cohort');assert.equal(await rows.count(),2);await rows.nth(1).getByRole('button',{name:'Select',exact:true}).click();await rows.nth(1).getByRole('button',{name:'100%',exact:true}).click();assert.equal(await page.locator('#confirmTotal').textContent(),'3,300,000');
+            await page.evaluate(()=>developmentCommand(n=>{n.processedInventory.polished.reverse()}));
+            await page.evaluate(()=>{window.originalWrite=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('quota')};});await page.getByRole('button',{name:'Confirm',exact:true}).click();
+            const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);assert.equal(await page.evaluate(()=>save.cash),0);assert.equal(await page.evaluate(()=>save.processedInventory.polished.length),2);await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>save.cash),0);
+            await page.evaluate(()=>{Storage.prototype.setItem=originalWrite});await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);assert.equal(await page.evaluate(()=>save.cash),3300000);assert.equal(await page.evaluate(()=>save.processedInventory.polished[0].polishedValue),30);
+            await page.evaluate(()=>{closeFurnace();setDeveloperFurnace(false);openFurnace()});await rows.getByRole('button',{name:'Select',exact:true}).click();await rows.getByRole('button',{name:'100%',exact:true}).click();assert.equal(await page.locator('#confirmAmount').textContent(),'10');assert.equal(await page.locator('#confirmTotal').textContent(),'300');
+            await page.evaluate(()=>developmentCommand(n=>{n.processedInventory.polished[0].amount++}));await page.getByRole('button',{name:'Confirm',exact:true}).click();assert.match(await page.locator('#smeltFeedback').textContent(),/changed/);assert.equal(await page.evaluate(()=>save.cash),3300000);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS Chromium: GAME10 distinct cohorts, Developer Furnace, authoritative stale rejection and exact sale retry.');
+        }
+
         // GAME09: actual manual ore -> three independent Polishers -> atomic stock/statistics -> reload.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null),{page}=app;await page.setViewportSize({width,height});
