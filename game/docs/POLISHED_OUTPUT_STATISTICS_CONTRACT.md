@@ -1,5 +1,7 @@
 # V1-152A1 — Polished-output statistics fields
 
+**GAME09 private-development exception:** The miner-1 profile now activates three canonical Polishers, Tier 1–10, raw/queue reservations, resolution and an atomic processed-inventory plus lifetime/current-Rebirth statistics commit. See [the bounded activation and known-absence policy](SAVE_VERSIONING.md#v1-game09--private-playable-polisher-activation). Earlier pure-only/public-blocked wording below remains the historical/public contract; it does not prohibit this approved private consumer. Active challenges, processed sales, Polisher resale and full public V2 remain unsupported.
+
 **Future technical contract; pure candidates only. Production saveVersion remains 1.**
 
 Authority: [Bible Decision 30 / Reference H](GAME_BIBLE.md#reference-h--statistics-catalogue), [consolidated specification](TEFI_Consolidated_Development_Specification.md), [full-state Polisher commit](POLISHER_FULL_STATE_COMMIT_CONTRACT.md), [V2 state](V2_STATE_CONTRACT.md), [lifecycle](V1_MACHINE_LIFECYCLE_CONTRACT.md) and [save compatibility](SAVE_VERSIONING.md). T1 decisions remain approved. This contract adds no gameplay reward.

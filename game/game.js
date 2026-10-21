@@ -626,6 +626,7 @@ function readVersionedSave(serializedSave){
     }
     try{
         validateSaveData(migrated);
+        completeDevelopmentPolisherFields(migrated);
         validateDevelopmentSave(migrated);
     }catch(error){
         throw error?.code ? error : saveLoadError("VALIDATION_ERROR", "Save validation failed. Stored data was not changed.", error);
@@ -2407,6 +2408,7 @@ document.getElementById(
 
 function updateUI(){
     renderDevelopmentMiner();
+    renderDevelopmentPolishers();
 
     // Presentation only: reuse existing ownership/costs, without parallel state.
     document.getElementById("dropperProduction").textContent =
@@ -4160,7 +4162,9 @@ function createMinerDevelopmentSave(){
         developerTools: { furnaceEnabled: false },
         shop: { miningPower: 0, minerUnlocked: false },
         manual: { firstActionCompleted: false, equippedPickaxeId: "pickaxe:default", pickaxes: [] },
-        factory: { minerSlots: MinerCandidateModel.createSlotAccess(), miners: [] },
+        factory: { minerSlots: MinerCandidateModel.createSlotAccess(), miners: [], polishers: [] },
+        processedInventory: { polished: [], refined: [] },
+        statistics: PolishedOutputStatisticsCandidateModel.createStatistics(),
         identity: { nextEntitySequence: 1, nextManualEquipSequence: 1 }
     });
 }
@@ -4173,7 +4177,7 @@ function developmentRecord(value, keys){
 }
 function minerProjection(state){
     return { cash: state.cash, shop: { minerUnlocked: state.shop.minerUnlocked },
-        factory: state.factory, identity: state.identity };
+        factory: { minerSlots: state.factory.minerSlots, miners: state.factory.miners }, identity: state.identity };
 }
 function developmentOre(id){
     if(id === "stone") return { key: "stone", name: "Stone", emoji: "🪨", value: 1, xp: 1, tier: 0 };
@@ -4275,7 +4279,8 @@ function validateDevelopmentSave(state){
                 validateDevelopmentResult(cycle.result, expected);
             }else throw Error("Invalid cycle phase");
         }
-        MinerCandidateModel.validateCandidate(projection, []);
+        validateDevelopmentPolishers(state);
+        MinerCandidateModel.validateCandidate(projection, state.factory.polishers.map(m => m.id));
     }catch(error){
         throw saveLoadError("DEVELOPMENT_INCOMPATIBLE", "Incompatible development save: " + error.message, error);
     }
@@ -4483,14 +4488,14 @@ function idleDevelopmentMinerProjection(state){
 }
 function unlockDevelopmentMinerSlot(slot){
     return developmentCommand(next => {
-        const result = MinerCandidateModel.prepareSlotUnlock(idleDevelopmentMinerProjection(next), slot, 0, []);
+        const result = MinerCandidateModel.prepareSlotUnlock(idleDevelopmentMinerProjection(next), slot, 0, next.factory.polishers.map(m => m.id));
         next.cash = result.cash;
         next.factory.minerSlots = result.factory.minerSlots;
     });
 }
 function buyDevelopmentMiner(slot = 1){
     return developmentCommand(next => {
-        const result = MinerCandidateModel.preparePurchase(idleDevelopmentMinerProjection(next), slot, { discountLevel: 0, preservationLevel: 0 }, []);
+        const result = MinerCandidateModel.preparePurchase(idleDevelopmentMinerProjection(next), slot, { discountLevel: 0, preservationLevel: 0 }, next.factory.polishers.map(m => m.id));
         const purchased = result.factory.miners.find(miner => miner.slot === slot);
         next.cash = result.cash; next.identity = result.identity;
         next.factory.miners.push(purchased);
@@ -4515,7 +4520,7 @@ function upgradeDevelopmentMinerStat(minerId, kind){
             throw Error(kind === "tier" ? "Tier " + DEVELOPMENT_MINER_MAX_TIER + " is the maximum for this build" : "Local Ore Luck " + DEVELOPMENT_MINER_MAX_ORE_LUCK + " is the maximum");
         const projection = idleDevelopmentMinerProjection(next);
         const prepare = kind === "tier" ? MinerUpgradeCandidateModel.prepareTierUpgrade : MinerUpgradeCandidateModel.prepareOreLuckUpgrade;
-        const result = prepare(projection, minerId, 0, []);
+        const result = prepare(projection, minerId, 0, next.factory.polishers.map(m => m.id));
         const upgraded = result.factory.miners.find(item => item.id === minerId);
         next.cash = result.cash;
         miner[field] = upgraded[field];
@@ -4623,22 +4628,19 @@ function mineDevelopmentOre(){
 function updateDevelopmentMiner(){
     if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return;
     const now = Date.now();
-    // Stable numeric identity order, never array/DOM order. Each transition reads
-    // the latest successfully published snapshot, so shared awards cannot overwrite.
-    const ids = save.factory.miners.map(miner => miner.id)
-        .sort((a, b) => Number(a.slice(6)) - Number(b.slice(6)));
+    const ids = [...save.factory.miners, ...save.factory.polishers].map(m => m.id)
+        .sort((a,b) => Number(a.split(":")[1]) - Number(b.split(":")[1]));
     for(const id of ids){
-        // At most resolve -> commit -> reserve NOW for the existing operation.
-        // No repeated offline chains and no independent per-machine intervals.
-        for(let step = 0; step < 3; step++){
+        const isPolisher = id.startsWith("polisher:");
+        for(let step=0;step<3;step++){
             if(pendingDevelopmentWrite || recoveryState.active) return;
-            const before = save.factory.miners.find(miner => miner.id === id)?.cycle;
+            const before = (isPolisher ? save.factory.polishers : save.factory.miners).find(m => m.id === id)?.cycle;
             if(before?.phase === "reserved" && now < before.startedAtMs + before.durationMs) break;
-            if(!advanceDevelopmentMiner(id, now)) return;
-            if(before === null) break;
+            if(!(isPolisher ? advanceDevelopmentPolisher(id,now) : advanceDevelopmentMiner(id,now))) break;
+            if(before === null) break; // Never complete newly reserved work in this tick.
         }
     }
-    renderDevelopmentMiner();
+    renderDevelopmentMiner(); renderDevelopmentPolishers();
 }
 function advanceDevelopmentMiner(minerId, now){
     const miner = save.factory.miners.find(item => item.id === minerId);
@@ -4751,4 +4753,164 @@ function renderDevelopmentMiner(){
 }
 
 document.getElementById("retryDevelopmentWrite").onclick = retryDevelopmentWrite;
+
+// GAME09 private-profile extension. No public migration or challenge consumer.
+function completeDevelopmentPolisherFields(state){
+    if(!isMinerDevelopment(state)) return;
+    const present = [Object.hasOwn(state.factory || {}, "polishers"), Object.hasOwn(state,"processedInventory"), Object.hasOwn(state,"statistics")];
+    if(present.every(v => !v)){
+        // Only pre-Polisher miner-1 states have this known absence. Never derive history from stock.
+        state.factory.polishers = [];
+        state.processedInventory = { polished: [], refined: [] };
+        state.statistics = PolishedOutputStatisticsCandidateModel.createStatistics();
+    }else if(!present.every(Boolean)) throw Error("Incomplete Polisher development fields; recovery required");
+}
+function polisherProjection(state){
+    return {cash:state.cash, identity:{...state.identity}, factory:{polishers:state.factory.polishers.map(m => ({...m,queue:[],cycle:null}))}};
+}
+function validateDevelopmentPolishers(state){
+    developmentRecord(state.factory,["minerSlots","miners","polishers"]);
+    for(const key of ["challenges","activeChallenges","challengeState"])
+        if(Object.hasOwn(state,key)) throw Error("Active challenge state is unsupported in this private profile");
+    developmentRecord(state.processedInventory,["polished","refined"]);
+    InventoryModel.validateProcessedInventory(state.processedInventory);
+    PolishedOutputStatisticsCandidateModel.validateStatistics(state.statistics);
+    PolisherCandidateModel.validateCandidate(polisherProjection(state),state.factory.miners.map(m=>m.id));
+    for(const m of state.factory.polishers){
+        const expected=[{kind:"purchase",targetLevel:null,cashPaid:PolisherCandidateModel.getPurchasePrice(m.slot,0),basis:"actual"}];
+        for(let tier=2;tier<=m.tier;tier++) expected.push({kind:"tier",targetLevel:tier,cashPaid:PolisherModel.getTierUpgradePrice(tier,0),basis:"actual"});
+        validateDevelopmentResult(m.investment,{entries:expected});
+        const projection={polisher:m,inventory:state.inventory};
+        if(m.cycle===null) PolisherReservationCandidateModel.validateCandidate(projection);
+        else {
+            if(m.cycle.phase==="reserved") PolisherResolutionCandidateModel.validateReservedCandidate(projection);
+            else PolisherResolutionCandidateModel.validateResolvedCandidate(projection);
+            if(m.cycle.effectContext.tier>m.tier || m.cycle.effectContext.valueLevel!==0) throw Error("Unsupported bound Polisher effects");
+        }
+    }
+}
+function polisherCommand(prepare){
+    const result=developmentCommand(prepare);
+    document.getElementById("polisherFeedback").textContent=result ? "Saved." : document.getElementById("minerFeedback").textContent;
+    return result;
+}
+function buyDevelopmentPolisher(slot){
+    return polisherCommand(next=>{
+        const result=PolisherCandidateModel.preparePurchase(polisherProjection(next),slot,{discountLevel:0,preservationLevel:0},next.factory.miners.map(m=>m.id));
+        next.cash=result.cash;next.identity=result.identity;
+        next.factory.polishers.push(result.factory.polishers.find(m=>m.slot===slot));
+    });
+}
+function upgradeDevelopmentPolisher(id){
+    return polisherCommand(next=>{
+        const result=PolisherCandidateModel.prepareTierUpgrade(polisherProjection(next),id,0,next.factory.miners.map(m=>m.id));
+        const target=next.factory.polishers.find(m=>m.id===id), upgraded=result.factory.polishers.find(m=>m.id===id);
+        next.cash=result.cash;target.tier=upgraded.tier;target.investment=upgraded.investment;
+    });
+}
+function setDevelopmentPolisherOre(id,oreId){
+    return polisherCommand(next=>{
+        const m=next.factory.polishers.find(m=>m.id===id);
+        if(!m || oreId!==null && !ORE_KEYS.includes(oreId)) throw Error("Select an eligible raw ore");
+        m.selectedOreId=oreId; // Preference only; existing queue/input/context unchanged.
+    });
+}
+function queueDevelopmentPolisher(id,amount){
+    return polisherCommand(next=>{
+        const m=next.factory.polishers.find(m=>m.id===id);
+        if(!m || !ORE_KEYS.includes(m.selectedOreId) || !Number.isFinite(amount) || !Number.isInteger(amount) || amount<=0)
+            throw Error("Queue requires selected raw ore and a positive whole quantity");
+        const before=next.inventory[m.selectedOreId];
+        if(amount>before || m.nextCycleSequence>=Number.MAX_SAFE_INTEGER) throw Error("Insufficient raw ore or exhausted sequence");
+        const remaining=before-amount;
+        if(remaining+amount!==before || before-remaining!==amount) throw Error("Input quantity precision exhausted");
+        const lot=InventoryModel.createLot({resourceId:m.selectedOreId,stage:"raw",refineCount:0,amount,polishedValue:null,preRefinerValue:null,refineBonus:null});
+        next.inventory[m.selectedOreId]=remaining;
+        m.queue.push({id:m.id+"/queue:"+m.nextCycleSequence++,lot});
+    });
+}
+function reserveDevelopmentPolisher(id,source,now){
+    return polisherCommand(next=>{
+        const m=next.factory.polishers.find(m=>m.id===id);
+        if(!m) throw Error("Unknown Polisher");
+        // Existing profile Ore Value helper, once, at reservation. No Furnace/Developer multiplier.
+        const currentOreValue=developmentOre(m.selectedOreId).value*getOreValueMultiplier();
+        const result=PolisherReservationCandidateModel.prepareReservation({polisher:m,inventory:next.inventory},id,source,
+            {currentOreValue,valueLevel:0,startedAtMs:now});
+        next.inventory=result.inventory;next.factory.polishers[next.factory.polishers.findIndex(m=>m.id===id)]=result.polisher;
+    });
+}
+function advanceDevelopmentPolisher(id,now){
+    const m=save.factory.polishers.find(m=>m.id===id);
+    if(!m) return false;
+    if(m.cycle===null){
+        // Queue entries are explicit player-selected sources; never invent queue priority or mix owners.
+        if(m.queue.length || !m.selectedOreId || !save.inventory[m.selectedOreId]) return false;
+        return reserveDevelopmentPolisher(id,{kind:"inventory"},now);
+    }
+    if(m.cycle.phase==="reserved"){
+        if(now<m.cycle.startedAtMs+m.cycle.durationMs) return false;
+        return polisherCommand(next=>{
+            const target=next.factory.polishers.find(m=>m.id===id);
+            const result=PolisherResolutionCandidateModel.prepareResolution({polisher:target,inventory:next.inventory},id,m.cycle.id,now);
+            next.factory.polishers[next.factory.polishers.findIndex(m=>m.id===id)]=result.polisher;
+        });
+    }
+    return polisherCommand(next=>{
+        const target=next.factory.polishers.find(m=>m.id===id), event=target.cycle.result.events[0];
+        const result=PolisherCommitCandidateModel.prepareCommit({polisher:target,inventory:next.inventory,processedInventory:next.processedInventory},id,m.cycle.id);
+        const statistics=PolishedOutputStatisticsCandidateModel.prepareIncrement(next.statistics,event);
+        // One full candidate/write: no inventory/statistics split and no mining/event callbacks.
+        next.processedInventory=result.processedInventory;next.statistics=statistics;
+        next.factory.polishers[next.factory.polishers.findIndex(m=>m.id===id)]=result.polisher;
+    });
+}
+let selectedDevelopmentPolisherId=null;
+function selectDevelopmentPolisher(id){
+    if(!isMinerDevelopment() || !save.factory.polishers.some(m=>m.id===id)) return false;
+    selectedDevelopmentPolisherId=id;renderDevelopmentPolishers();return true;
+}
+function renderDevelopmentPolishers(){
+    const panel=document.getElementById("polisherPanel");panel.hidden=!isMinerDevelopment();
+    document.getElementById("processedInventorySection").hidden=!isMinerDevelopment();
+    if(!isMinerDevelopment()) return;
+    const all=save.factory.polishers;
+    const m=all.find(m=>m.id===selectedDevelopmentPolisherId)||all[0];selectedDevelopmentPolisherId=m?.id||null;
+    for(let slot=1;slot<=3;slot++){
+        const p=all.find(m=>m.slot===slot),button=document.getElementById("polisherAction"+slot),status=document.getElementById("polisherSlotStatus"+slot);
+        status.textContent=p ? "Tier "+p.tier+" · "+(p.selectedOreId||"Unselected")+" · "+(p.cycle?.phase||"Idle") : "Empty · $"+PolisherCandidateModel.getPurchasePrice(slot,0).toLocaleString();
+        button.textContent=p ? p.id===m?.id ? "Selected" : "Manage" : "Buy Polisher";
+        button.disabled=p ? p.id===m?.id : save.cash<PolisherCandidateModel.getPurchasePrice(slot,0);
+        button.onclick=()=>p ? selectDevelopmentPolisher(p.id) : buyDevelopmentPolisher(slot);
+        const progress=document.getElementById("polisherSlotProgress"+slot);
+        progress.value=p?.cycle ? Math.max(0,Math.min(100,100*(Date.now()-p.cycle.startedAtMs)/p.cycle.durationMs)) : 0;
+    }
+    document.getElementById("polisherDetail").hidden=!m;
+    if(m){
+        document.getElementById("polisherDetailTitle").textContent="Slot "+m.slot+" · "+m.id+" · Tier "+m.tier+" / 10";
+        const select=document.getElementById("polisherOre");
+        if(!select.children.length){
+            for(const id of ["",...ORE_KEYS]){const option=document.createElement("option");option.value=id;option.textContent=id ? developmentOre(id).name : "No ore selected";select.appendChild(option);}
+        }
+        select.value=m.selectedOreId||"";select.onchange=()=>setDevelopmentPolisherOre(m.id,select.value||null);
+        const c=m.cycle;
+        document.getElementById("polisherStatus").textContent="Available raw: "+(save.inventory[m.selectedOreId]||0)+" · Batch "+PolisherModel.getBatchSize(m.tier)+" · "+PolisherModel.getCycleTime(m.tier).toFixed(3)+"s. "+
+            (c ? "Processing "+c.inputs[0].amount+" "+c.inputs[0].resourceId+" · captured Tier "+c.effectContext.tier+" · basis $"+c.effectContext.currentOreValue+" · "+c.phase : "Idle. Selected available ore processes automatically when the queue is empty.");
+        const upgrade=document.getElementById("upgradePolisher"),price=m.tier<10 ? PolisherModel.getTierUpgradePrice(m.tier+1,0) : null;
+        upgrade.textContent=price===null ? "Max Level" : "Upgrade Tier "+(m.tier+1)+" · $"+price.toLocaleString();upgrade.disabled=price===null||save.cash<price;upgrade.onclick=()=>upgradeDevelopmentPolisher(m.id);
+        document.getElementById("queuePolisher").onclick=()=>queueDevelopmentPolisher(m.id,Number(document.getElementById("polisherQueueAmount").value));
+        const queue=document.getElementById("polisherQueue"), signature=JSON.stringify([m.id,m.selectedOreId,!!c,m.queue]);
+        // Keep live controls stable between 100ms progress refreshes.
+        if(queue.dataset.signature!==signature){
+            queue.dataset.signature=signature;queue.innerHTML="";
+            for(const entry of m.queue){const row=document.createElement("div"),button=document.createElement("button");row.textContent=entry.lot.amount+" "+entry.lot.resourceId+" · "+entry.id+" ";button.textContent="Process batch";button.disabled=!!c||entry.lot.resourceId!==m.selectedOreId;button.onclick=()=>reserveDevelopmentPolisher(m.id,{kind:"queue",queueId:entry.id},Date.now());row.appendChild(button);queue.appendChild(row);}
+        }
+    }
+    const inventory=document.getElementById("polishedInventoryList");inventory.innerHTML="";
+    for(const lot of save.processedInventory.polished){const row=document.createElement("p");row.textContent=developmentOre(lot.resourceId).name+" · Polished ×"+lot.amount+" · captured value $"+lot.polishedValue;inventory.appendChild(row);}
+    if(!save.processedInventory.polished.length) inventory.textContent="No Polished stock yet. Raw and processing inputs are separate.";
+    const stats=document.getElementById("polishedStatistics");stats.innerHTML="";
+    for(const id of ORE_KEYS){const count=save.statistics.lifetime.polishedOutput[id];if(count){const row=document.createElement("p");row.textContent=developmentOre(id).name+" · lifetime "+count+" · this Rebirth "+save.statistics.thisRebirth.polishedOutput[id];stats.appendChild(row);}}
+}
+
 attemptSaveLoad();

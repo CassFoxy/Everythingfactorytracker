@@ -83,6 +83,43 @@ const server = http.createServer((req, res) => {
             await app.context.close();
             return before;
         }
+        // GAME09: actual manual ore -> three independent Polishers -> atomic stock/statistics -> reload.
+        for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
+            const app=await session(null),{page}=app;await page.setViewportSize({width,height});
+            await page.evaluate(()=>{Math.random=()=>0;addDeveloperCash(2105000);});
+            for(let i=0;i<8;i++){await page.locator('#mineButton').click();if(await page.locator('#discoveryPopup').isVisible())await page.locator('#discoveryPopup button').click();}
+            const ore=await page.evaluate(()=>ORE_KEYS.find(id=>save.inventory[id]>0));assert.ok(ore);
+            for(let slot=1;slot<=3;slot++){await page.locator('#polisherAction'+slot).click();if(slot>1)await page.locator('#polisherAction'+slot).click();await page.locator('#polisherOre').selectOption(ore);}
+            const before=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));assert.equal(before.factory.polishers.length,3);
+            await page.evaluate(()=>updateDevelopmentMiner());
+            const reserved=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));assert.equal(reserved.inventory[ore],before.inventory[ore]-3);
+            assert.equal(reserved.statistics.lifetime.polishedOutput[ore],0);
+            await page.evaluate(()=>{testNow+=7500;updateDevelopmentMiner();});
+            const after=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));assert.equal(after.processedInventory.polished[0].amount,3);assert.equal(after.statistics.lifetime.polishedOutput[ore],3);assert.equal(after.statistics.thisRebirth.polishedOutput[ore],3);
+            for(const key of ['factoryXP','totalOres','achievementStats','oreCollection','cash'])assert.deepEqual(after[key],before[key]);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.waitForTimeout(7200);await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game09-factory-${width}.png`),fullPage:true});}
+            await page.getByRole('button',{name:/Inventory/,exact:false}).first().click();assert.match(await page.locator('#polishedInventoryList').textContent(),/Polished ×3/);
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game09-inventory-${width}.png`)});
+            await page.reload();assert.equal(await page.evaluate(()=>save.processedInventory.polished[0].amount),3);
+            await page.evaluate(()=>addDeveloperCash(50000));await page.locator('#upgradePolisher').click();assert.equal(await page.evaluate(()=>save.factory.polishers[0].tier),2);assert.equal(await page.evaluate(()=>save.factory.polishers[0].cycle.effectContext.tier),1);
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+            assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return new Set(ids).size!==ids.length;}),false);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log(`PASS Chromium: GAME09 three Polisher player flow, atomic statistics, historical effects and reload ${width}x${height}.`);
+        }
+        {
+            const app=await session(null),{page}=app;
+            await page.evaluate(()=>{addDeveloperCash(5000);buyDevelopmentPolisher(1);developmentCommand(n=>{n.inventory.ruby=10});setDevelopmentPolisherOre('polisher:1','ruby');queueDevelopmentPolisher('polisher:1',5);});
+            await page.getByText('Queue owned raw input',{exact:true}).click();await page.getByRole('button',{name:'Process batch',exact:true}).click();
+            assert.equal(await page.evaluate(()=>save.inventory.ruby),5);assert.equal(await page.evaluate(()=>save.factory.polishers[0].queue[0].lot.amount),4);
+            await page.evaluate(()=>{testNow+=7500;advanceDevelopmentPolisher('polisher:1',testNow);});
+            const resolved=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));await page.evaluate(()=>{window.realWrite=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('quota')};advanceDevelopmentPolisher('polisher:1',testNow);});
+            assert.deepEqual(await page.evaluate(()=>JSON.parse(JSON.stringify(save))),resolved);const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);
+            await page.locator('#retryDevelopmentWrite').click();assert.deepEqual(await page.evaluate(()=>JSON.parse(JSON.stringify(save))),resolved);
+            await page.evaluate(()=>{Storage.prototype.setItem=realWrite;});await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);
+            await page.reload();assert.equal(await page.evaluate(()=>save.processedInventory.polished[0].amount),1);assert.equal(await page.evaluate(()=>save.statistics.lifetime.polishedOutput.ruby),1);assert.equal(await page.evaluate(()=>save.factory.polishers[0].queue[0].lot.amount),4);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS Chromium: GAME09 queue partial transfer and exact atomic output/statistics retry.');
+        }
+
         // GAME08: actual selected-Miner resale confirmation and replacement.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null),{page}=app;await page.setViewportSize({width,height});

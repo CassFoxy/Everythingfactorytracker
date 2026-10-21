@@ -1,5 +1,14 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME09 — Complete Playable Polisher Processing Integration
+
+**Status: COMPLETE — bounded private-development integration.** Three independent slot purchases, all Tier 1–10 upgrades, all twenty raw ores, selected-input automatic processing, explicit queue transfers/partial batches, canonical historical Polished Lots and atomic lifetime/current-Rebirth output statistics are connected to the existing private full-state writer and central scheduler. No mining/discovery/XP/Cash/Dust awards occur during polishing. UI separates available raw, queued, processing and completed Polished stock.
+
+Verification: four syntax checks, 427 Node tests and 51 browser scenarios pass. Factory and Polished inventory screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844; browser checks cover duplicate IDs, overflow and console errors. GitHub Actions results are recorded on the PR.
+
+Known-absence completion supports prior miner-1 saves without resetting progress; conflicting/partial namespaces reject. Failed writes retain exact candidates. Earlier pure-only notes are superseded only for this private playable scope. Active challenges are explicitly unsupported. Polisher resale, Polished Furnace sales, Refiner, Rebirth, grid, public migration/activation and broader consumer work remain outstanding. Next consolidated playable feature: canonical Polished-cohort Furnace selling, including historical value snapshots and atomic sale/statistics effects. Not implemented here.
+
+
 ## V1-GAME08 — Consolidated Miner Resale and Replacement
 
 **Status: COMPLETE — bounded private-development scope.** One confirmed, ID-targeted sale pathway covers all five Miners. Refunds use floor(50% of recorded qualifying purchase/tier/local payments); slot access and unrelated investment are excluded. Exact integer refund calculation precedes Number conversion and exact Cash credit. Unrepresentable refunds/balances reject without losing ownership; full Tier 25 / Luck 0 and Luck 50 remain blocked by the documented Cash representation limit.
