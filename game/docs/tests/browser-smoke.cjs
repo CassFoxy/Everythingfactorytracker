@@ -83,6 +83,42 @@ const server = http.createServer((req, res) => {
             await app.context.close();
             return before;
         }
+        // GAME11: all three slots, explicit queue ownership, completed stock and replacement.
+        for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
+            const app=await session(null),{page}=app;await page.setViewportSize({width,height});
+            await page.evaluate(()=>{addDeveloperCash(2105000);developmentCommand(n=>{n.inventory.ruby=30})});
+            for(let slot=1;slot<=3;slot++){
+                await page.locator('#polisherAction'+slot).click();if(slot>1)await page.locator('#polisherAction'+slot).click();await page.locator('#polisherOre').selectOption('ruby');
+                if(!await page.locator('#polisherQueueAmount').isVisible())await page.getByText('Queue owned raw input',{exact:true}).click();
+                await page.locator('#polisherQueueAmount').fill('5');await page.locator('#queuePolisher').click();await page.locator('#polisherQueue').getByRole('button',{name:'Process batch',exact:true}).click();
+            }
+            await page.evaluate(()=>{testNow+=7500;updateDevelopmentMiner()});
+            assert.equal(await page.evaluate(()=>save.statistics.lifetime.polishedOutput.ruby),3);const before=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));
+            await page.locator('#polisherAction2').click();await page.locator('#sellPolisher').click();
+            assert.equal(await page.locator('#polisherSaleTitle').textContent(),'Sell Slot 2 Polisher?');assert.equal(await page.locator('#polisherSaleRefund').textContent(),'$50,000');assert.equal(await page.locator('#polisherSaleQueued').textContent(),'4 Ruby');assert.equal(await page.locator('#polisherSaleReserved').textContent(),'None');
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game11-confirm-'+width+'.png')});}
+            await page.locator('#cancelPolisherSale').click();assert.equal(await page.evaluate(()=>save.factory.polishers.length),3);await page.locator('#sellPolisher').click();await page.locator('#confirmPolisherSale').click();
+            const after=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));assert.equal(after.factory.polishers.length,2);assert.equal(after.cash,before.cash+50000);assert.equal(after.inventory.ruby,before.inventory.ruby+4);assert.deepEqual(after.processedInventory,before.processedInventory);assert.deepEqual(after.statistics,before.statistics);assert.match(await page.locator('#polisherSlotStatus2').textContent(),/Empty/);assert.match(await page.locator('#polisherDetailTitle').textContent(),/polisher:1/);
+            await page.reload();assert.equal(await page.evaluate(()=>save.factory.polishers.length),2);await page.evaluate(()=>addDeveloperCash(50000));await page.locator('#polisherAction2').click();await page.locator('#polisherAction2').click();
+            assert.equal(await page.evaluate(()=>save.factory.polishers.find(p=>p.slot===2).id),'polisher:4');assert.equal(await page.locator('#polisherOre').inputValue(),'');await page.locator('#polisherOre').selectOption('ruby');await page.evaluate(()=>updateDevelopmentMiner());
+            assert.equal(await page.evaluate(()=>save.factory.polishers.find(p=>p.slot===2).cycle.id),'polisher:4/cycle:1');
+            if(process.env.TEFI_UI_SCREENSHOTS){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game11-replacement-'+width+'.png'),fullPage:true});}
+            await page.reload();assert.equal(await page.evaluate(()=>save.factory.polishers.find(p=>p.slot===2).cycle.id),'polisher:4/cycle:1');
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return ids.length!==new Set(ids).size}),false);assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS Chromium: GAME11 three-slot queued resale, retained output, replacement and reload '+width+'x'+height+'.');
+        }
+        {
+            const app=await session(null),{page}=app;await page.evaluate(()=>{addDeveloperCash(5000);buyDevelopmentPolisher(1);developmentCommand(n=>{n.inventory.ruby=5});setDevelopmentPolisherOre('polisher:1','ruby');queueDevelopmentPolisher('polisher:1',5);reserveDevelopmentPolisher('polisher:1',{kind:'queue',queueId:'polisher:1/queue:1'},testNow);testNow+=7500;});
+            // A due reservation returns raw without resolving, even on exact failed-write retry.
+            await page.locator('#sellPolisher').click();assert.equal(await page.locator('#polisherSaleReserved').textContent(),'1 Ruby');
+            await page.evaluate(()=>{window.realWrite=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('quota')};});await page.locator('#confirmPolisherSale').click();const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);assert.equal(await page.evaluate(()=>save.inventory.ruby),0);assert.equal(await page.evaluate(()=>save.cash),0);await page.locator('#retryDevelopmentWrite').click();
+            await page.evaluate(()=>{Storage.prototype.setItem=realWrite});await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);assert.equal(await page.evaluate(()=>save.inventory.ruby),5);assert.equal(await page.evaluate(()=>save.statistics.lifetime.polishedOutput.ruby),0);
+            await page.evaluate(()=>{addDeveloperCash(2500);buyDevelopmentPolisher(1);setDevelopmentPolisherOre('polisher:2','ruby');advanceDevelopmentPolisher('polisher:2',testNow);testNow+=7500;advanceDevelopmentPolisher('polisher:2',testNow);});
+            const resolved=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('quota')};});await page.locator('#sellPolisher').click();assert.deepEqual(await page.evaluate(()=>JSON.parse(JSON.stringify(save))),resolved);assert.equal(await page.locator('#polisherSaleModal').isVisible(),false);
+            await page.evaluate(()=>{Storage.prototype.setItem=realWrite});await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>save.factory.polishers.length),1);assert.equal(await page.evaluate(()=>save.statistics.lifetime.polishedOutput.ruby),1);assert.match(await page.locator('#polisherFeedback').textContent(),/delivered/);
+            await page.locator('#sellPolisher').click();await page.locator('#confirmPolisherSale').click();assert.equal(await page.evaluate(()=>save.inventory.ruby),4);assert.equal(await page.evaluate(()=>save.processedInventory.polished[0].amount),1);assert.equal(await page.evaluate(()=>save.cash),2500);
+            await page.reload();assert.equal(await page.evaluate(()=>save.factory.polishers.length),0);assert.equal(await page.evaluate(()=>save.statistics.lifetime.polishedOutput.ruby),1);assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS Chromium: GAME11 due-reserved return, resolved commit-before-sale and exact failed-write recovery.');
+        }
+
         // GAME10: real manual ore -> Polisher -> selected historical cohort -> Furnace -> reload.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null),{page}=app;await page.setViewportSize({width,height});
@@ -955,7 +991,7 @@ const server = http.createServer((req, res) => {
             assert.equal(await page.evaluate(() => save.droppers), 1);
             page.once('dialog', dialog => dialog.accept());
             await page.getByRole('button', { name:'⚠ Reset Save', exact:true }).click();
-            await page.waitForFunction(() => save.cash === 0);
+            await page.waitForFunction(() => typeof save !== 'undefined' && save.cash === 0);
             assert.equal(await page.locator('#buyDropper').isDisabled(), true);
             assert.deepEqual(app.errors, []);
             await app.context.close();

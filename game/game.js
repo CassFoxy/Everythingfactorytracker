@@ -2713,6 +2713,9 @@ function startGameplay(){
  document.getElementById("unlockMiner").onclick = unlockDevelopmentMiner;
  // Slot actions are bound by renderDevelopmentMinerSlots.
  document.getElementById("sellMiner").onclick = () => prepareDevelopmentMinerSale(document.getElementById("sellMiner").dataset.minerId);
+ document.getElementById("confirmPolisherSale").onclick=confirmDevelopmentPolisherSale;
+ document.getElementById("cancelPolisherSale").onclick=closeDevelopmentPolisherSale;
+ document.getElementById("polisherSaleModal").onkeydown=event=>{if(event.key==="Escape"){event.preventDefault();closeDevelopmentPolisherSale();}};
  document.getElementById("confirmMinerSale").onclick = confirmDevelopmentMinerSale;
  document.getElementById("cancelMinerSale").onclick = closeDevelopmentMinerSale;
  document.getElementById("minerSaleModal").onkeydown = event => {
@@ -4353,6 +4356,7 @@ function retryDevelopmentWrite(){
     if(feedback){
         document.getElementById("devFeedback").textContent = feedback.message;
         if(feedback.minerSale) document.getElementById("minerFeedback").textContent = feedback.message;
+        if(feedback.polisherSale) document.getElementById("polisherFeedback").textContent = feedback.message;
         if(feedback.smelt){ pendingSmelt = {}; closeSmeltConfirm(); buildFurnaceMenu(); }
     }
     return true;
@@ -4371,6 +4375,7 @@ function developmentCommand(prepare, feedback = null){
         document.getElementById("minerFeedback").textContent = error.message;
         if(feedback) document.getElementById("devFeedback").textContent = error.message;
         if(feedback?.smelt) document.getElementById("smeltFeedback").textContent = error.message;
+        if(feedback?.polisherSale) document.getElementById("polisherFeedback").textContent = error.message;
         return false;
     }
 }
@@ -4986,6 +4991,117 @@ function advanceDevelopmentPolisher(id,now){
         next.factory.polishers[next.factory.polishers.findIndex(m=>m.id===id)]=result.polisher;
     });
 }
+// GAME11: transient intent binds the full machine, including queues and work.
+let pendingPolisherSale = null;
+function polisherSaleSignature(machine){ return JSON.stringify(machine); }
+function polisherReturnAdd(before, amount){
+    const after = exactDevelopmentAdd(before, amount);
+    if(BigInt(after) !== BigInt(before) + BigInt(amount)) throw Error("Raw ore return cannot be represented exactly.");
+    return after;
+}
+function developmentPolisherSaleQuote(machine, state){
+    if(machine.cycle?.phase === "resolved") throw Error("Pending Polished output must be delivered before resale.");
+    const context = { machineType: "polisher", owned: true };
+    const total = InvestmentModel.sumInvestment(machine.investment, context);
+    const refund = InvestmentModel.calculateRefund(machine.investment, context);
+    // All canonical profile tier/slot totals fit exactly. Keep the model's
+    // fractional-history behavior; never coerce payments or bypass validation.
+    if(machine.investment.entries.every(p => Number.isInteger(p.cashPaid))){
+        const exact = machine.investment.entries.reduce((sum,p) => sum + BigInt(p.cashPaid),0n);
+        if(BigInt(total) !== exact || BigInt(refund) !== exact / 2n) throw Error("Investment refund cannot be represented exactly.");
+    }
+    let cashAfter;
+    try{
+        cashAfter = exactDevelopmentAdd(state.cash, refund);
+        if(Number.isInteger(state.cash) && BigInt(cashAfter) !== BigInt(state.cash) + BigInt(refund)) throw Error("precision");
+    }catch(error){ throw Error("Sale unavailable: Cash cannot receive the refund exactly. No stock or ownership was changed."); }
+    const queued = {}, reserved = {}, returns = {}, inventoryAfter = {};
+    const add = (map, lot) => {
+        InventoryModel.validateLot(lot);
+        if(lot.stage !== "raw" || !ORE_KEYS.includes(lot.resourceId)) throw Error("Only owned raw ore can be returned.");
+        map[lot.resourceId] = polisherReturnAdd(map[lot.resourceId] || 0, lot.amount);
+        returns[lot.resourceId] = polisherReturnAdd(returns[lot.resourceId] || 0, lot.amount);
+    };
+    for(const entry of machine.queue) add(queued, entry.lot);
+    if(machine.cycle) for(const lot of machine.cycle.inputs) add(reserved, lot);
+    for(const id of ORE_KEYS) if(returns[id]) inventoryAfter[id] = polisherReturnAdd(state.inventory[id], returns[id]);
+    return { total, refund, cashAfter, queued, reserved, returns, inventoryAfter };
+}
+function polisherReturnText(amounts){
+    return ORE_KEYS.filter(id=>amounts[id]).map(id=>amounts[id].toLocaleString()+" "+developmentOre(id).name).join(", ") || "None";
+}
+function closeDevelopmentPolisherSale(){
+    pendingPolisherSale = null;
+    document.getElementById("polisherSaleModal").style.display = "none";
+    document.getElementById("sellPolisher").focus();
+}
+function settleDevelopmentPolisherBeforeSale(machine){
+    // This entry is used only for an already-resolved result. Never advance a
+    // merely overdue reservation, and never chain a sale or new reservation.
+    const committed = advanceDevelopmentPolisher(machine.id, Date.now());
+    if(!committed && pendingDevelopmentWrite) pendingDevelopmentWrite.feedback = { polisherSale: true, message: "Pending Polished output delivered once. Review the Polisher and confirm a new sale." };
+    document.getElementById("polisherFeedback").textContent = committed ?
+        "Pending Polished output delivered once. Review the Polisher and confirm a new sale." :
+        "Pending output could not be saved. The Polisher has not been sold; retry the pending write first.";
+    return false;
+}
+function prepareDevelopmentPolisherSale(id){
+    if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    closeDevelopmentPolisherSale();
+    try{
+        validateSaveData(save); validateDevelopmentSave(save);
+        const m = save.factory.polishers.find(m=>m.id===id);
+        if(!m || selectedDevelopmentPolisherId !== id) throw Error("Unknown or stale Polisher selection. Select it again.");
+        if(m.cycle?.phase === "resolved") return settleDevelopmentPolisherBeforeSale(m);
+        const q = developmentPolisherSaleQuote(m, save);
+        pendingPolisherSale = { id, signature: polisherSaleSignature(m), refund: q.refund, returns: q.returns };
+        document.getElementById("polisherSaleTitle").textContent = "Sell Slot "+m.slot+" Polisher?";
+        document.getElementById("polisherSaleIdentity").textContent = m.id+" · Tier "+m.tier;
+        document.getElementById("polisherSaleInvestment").textContent = "$"+polishedCashText(q.total);
+        document.getElementById("polisherSaleRefund").textContent = "$"+polishedCashText(q.refund);
+        document.getElementById("polisherSaleQueued").textContent = polisherReturnText(q.queued);
+        document.getElementById("polisherSaleReserved").textContent = polisherReturnText(q.reserved);
+        document.getElementById("polisherSaleReplacement").textContent = "$"+PolisherCandidateModel.getPurchasePrice(m.slot,0).toLocaleString();
+        document.getElementById("polisherSaleModal").style.display = "block";
+        document.getElementById("cancelPolisherSale").focus();
+        return true;
+    }catch(error){ document.getElementById("polisherFeedback").textContent = error.message; return false; }
+}
+function confirmDevelopmentPolisherSale(){
+    const intent = pendingPolisherSale;
+    closeDevelopmentPolisherSale(); // Keep failed-write recovery above all dialogs.
+    if(!intent || !isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    try{
+        validateSaveData(save); validateDevelopmentSave(save);
+        const m = save.factory.polishers.find(m=>m.id===intent.id);
+        if(!m || selectedDevelopmentPolisherId !== intent.id) throw Error("Sale confirmation is stale. Select the Polisher again.");
+        if(m.cycle?.phase === "resolved") return settleDevelopmentPolisherBeforeSale(m);
+        if(polisherSaleSignature(m) !== intent.signature) throw Error("Polisher changed. Review a new sale confirmation.");
+        return developmentCommand(next=>{
+            const target = next.factory.polishers.find(m=>m.id===intent.id);
+            if(!target || polisherSaleSignature(target)!==intent.signature) throw Error("Polisher changed before sale.");
+            const q = developmentPolisherSaleQuote(target,next);
+            if(q.refund!==intent.refund || JSON.stringify(q.returns)!==JSON.stringify(intent.returns)) throw Error("Sale quote changed. Confirm again.");
+            Object.assign(next.inventory,q.inventoryAfter);
+            next.cash=q.cashAfter;
+            next.factory.polishers=next.factory.polishers.filter(m=>m.id!==target.id);
+        },{polisherSale:true,message:"Polisher sold for $"+polishedCashText(intent.refund)+". Unprocessed raw ore returned; completed Polished stock retained."});
+    }catch(error){ document.getElementById("polisherFeedback").textContent=error.message; return false; }
+}
+function renderDevelopmentPolisherResale(machine){
+    const button=document.getElementById("sellPolisher"),status=document.getElementById("polisherResaleStatus");
+    button.onclick=()=>prepareDevelopmentPolisherSale(machine.id);
+    try{
+        if(machine.cycle?.phase==="resolved"){
+            status.textContent="Pending Polished output must save first; then review a fresh sale confirmation.";
+        }else{
+            const q=developmentPolisherSaleQuote(machine,save);
+            status.textContent="Investment: $"+polishedCashText(q.total)+" · Refund: $"+polishedCashText(q.refund)+" · Raw return: "+polisherReturnText(q.returns);
+        }
+        button.disabled=!!pendingDevelopmentWrite||recoveryState.active;
+    }catch(error){status.textContent=error.message;button.disabled=true;}
+}
+
 let selectedDevelopmentPolisherId=null;
 function selectDevelopmentPolisher(id){
     if(!isMinerDevelopment() || !save.factory.polishers.some(m=>m.id===id)) return false;
@@ -5008,6 +5124,7 @@ function renderDevelopmentPolishers(){
     }
     document.getElementById("polisherDetail").hidden=!m;
     if(m){
+        renderDevelopmentPolisherResale(m);
         document.getElementById("polisherDetailTitle").textContent="Slot "+m.slot+" · "+m.id+" · Tier "+m.tier+" / 10";
         const select=document.getElementById("polisherOre");
         if(!select.children.length){
