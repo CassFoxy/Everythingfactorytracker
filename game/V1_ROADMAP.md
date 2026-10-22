@@ -1,6 +1,17 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
 
+## V1-GAME11 — Polisher Resale and Replacement
+
+**Status: COMPLETE — bounded private Polisher resale and replacement.** All three slots share confirmed ID-targeted resale. The saved ledger supplies the exact 50% floored refund. Queued/reserved unprocessed inputs return once with Cash and entity removal in one full-state write, including due-but-reserved work without payout. Already-resolved output/statistics commit normally, retain the machine and require a fresh confirmation. Full-machine signatures reject stale intent; failed writes retain exact retry candidates.
+
+Replacement uses the original slot price, a fresh global ID and Tier 1 / empty work/selection with new investment and operation sequence. Completed Polished cohorts/statistics and other machines remain owned. Existing schema-1 / miner-1 saves and GAME10 Furnace sales stay supported; no new saved fields or public V2 activation.
+
+Verification: four JavaScript syntax checks, 443 Node regressions and 61 browser scenarios passed. Confirmation screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844; browser checks cover duplicate IDs, overflow and console errors. GitHub-hosted CI results are reported on the PR. Remaining: Refiner, canonical Furnace progression, automatic processed sales, Rebirth, challenges, grid/conveyors and public V2 compatibility. Next consolidated playable feature: Refiner purchase, full Tier 1–10 upgrades and the approved independent per-item processing/value/Dust rules, subject to its consumer contract readiness. Refiner active resale remains blocked by R1. Not started here.
+
+Earlier ticket notes describe their original scopes; GAME11 supersedes their outstanding private Polisher resale/replacement work only.
+
+
 ## V1-GAME10 — Complete Polished-Cohort Furnace Sales
 
 **Status: COMPLETE — bounded private manual Polished sales.** All twenty Polished ores use one historical-cohort manual sale path with partial/full consumption, inherited normal capacity and DEV01 unlimited/×1,000 sales. Complete metadata identifies stock; preview changes reject at confirmation. Cash, inventory and existing per-item smelting/XP effects share one persist-before-publish candidate and exact retry. Polished production totals, unrelated cohorts and machine cycles are preserved; schema 1 / miner-1 has no new saved fields.

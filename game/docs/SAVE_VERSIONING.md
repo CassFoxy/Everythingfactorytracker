@@ -1,6 +1,21 @@
 # Save schema version 1 — accepted persistence foundation
 
 
+## V1-GAME11 — private Polisher resale and replacement
+
+All three fixed Polisher slots now support confirmed ID-targeted resale in schema 1 / miner-1. No new saved field, migration, receipt, sold flag or retained deleted entity is introduced. Existing zero/one/two/three-Polisher saves, vacant slots, global identity counters, GAME09 completion and GAME10 cohort sales remain supported; legacy mode stays separate.
+
+The full profile validator checks each authoritative owner, chronological canonical purchase/tier ledger, queue IDs/raw Lots, operation sequence, captured context and result before a quote or removal. InvestmentModel.calculateRefund with {machineType:"polisher",owned:true} supplies floor(50% of recorded qualifying payments). All current Tier 1–10 / slot 1–3 totals fit the model's exact Number range; integer totals/refunds are additionally checked using internal BigInt arithmetic. No BigInt is saved. The public model's fractional historical-payment behavior is unchanged; this private profile still accepts only its actual canonical paid history, never fabricated fractional or reconstructed tiers. An exact Cash credit is mandatory, even with a finite refund.
+
+Queue entries and reserved cycle inputs are separately validated and aggregated by ore ID. Exact additions are checked for each aggregate and available-inventory restitution before publication. Reserved work, including overdue-but-still-reserved work, returns raw input without resolving, producing Polished stock or awarding progress. Cash refund, all raw returns and target removal share one independent complete candidate/write. Other machines, available processed cohorts, historical Polished-output counters and identities remain unchanged. Quantity/Cash precision failure changes nothing.
+
+An already-resolved cycle commits its stored output and matching statistics through GAME09, without returning its completed inputs as raw. The Polisher remains owned and a fresh confirmation is required. A failed output write blocks resale; exact retry delivers only that pending output candidate. A failed sale write retains its original refund/return/removal candidate and serialized bytes, with conflicting operations blocked. No speculative refunds, restitution or notifications are published.
+
+The transient intent contains canonical ID, a serialized full-machine signature (including selection, queue, cycle, investments and operation sequence), refund and raw-return summary. Confirmation revalidates the current full state and exact target; changed machine state rejects. Resolved work encountered at confirmation is delivered before a new sale is offered. No slot or array-index redirection is allowed. Global identity counters never rewind. The existing central scheduler finds no removed entity for stale callbacks.
+
+Replacement uses the existing PolisherCandidateModel purchase path and the original slot's $5,000 / $100,000 / $2,000,000 quote at Discount 0. It gets a new global ID, Tier 1 at Preservation 0, fresh actual purchase ledger, null selector/cycle, empty queue and nextCycleSequence 1. Previous completed Polished stock remains sellable through GAME10. Rebirth, Refiner, grid, automatic processed sales, twenty-tier Furnace activation and public V2 remain outstanding.
+
+
 ## V1-GAME10 — private manual Polished-cohort Furnace sales
 
 GAME10 extends only the existing manual Furnace in schema 1 / developmentProfile "miner-1". It adds no saved fields or migration. Valid GAME01–GAME09 saves retain the GAME09 known-absence policy, recovery/export and confirmed reset. Untagged legacy saves remain separate.
