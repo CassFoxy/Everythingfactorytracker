@@ -1,6 +1,17 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
 
+## V1-GAME12 — Complete Playable Refiner and Refined-Ore Economy
+
+**Status: COMPLETE — bounded private Refiner and manual Refined economy.** Singleton purchase and sequential Tier 1–10 upgrades use canonical models. Direct historical-cohort reservations process Counts 0–14 with independent per-item Dust/destruction outcomes; Count 15 is terminal. The approved Refiner-only itemOutcomes extension validates saved results without rerolling. Survivors and Gem Dust commit with cycle clearing in one durable candidate. Manual Refined Furnace sales reuse GAME10 with historical values, normal capacity and DEV01 ×1,000 mode.
+
+Schema 1 / miner-1 remains private. Strict paired known-absence defaults preserve pre-Refiner development saves; no legacy conversion. The shared scheduler preserves old bound effects, one overdue cycle and exact failed-write retry. Existing Miner/Polisher progression and resale stay supported.
+
+Verification: four syntax checks, 455 Node tests and 66 browser scenarios passed; the five GAME12 scenarios also passed after the mobile spacing adjustment. Screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844. GitHub-hosted CI results are reported on the PR. Remaining: Refiner resale (R1), full Furnace progression, automatic processed sales, Rebirth, challenges, grid/conveyors and public V2. Next consolidated playable feature: canonical Furnace Tier 1–20 progression with an explicit private-profile conversion of the inherited three-tier Furnace, preserving historical processed values. Not started here.
+
+Earlier tickets retain their historical scope; GAME12 supersedes only their outstanding private Refiner and manual Refined-sale integration.
+
+
 ## V1-GAME11 — Polisher Resale and Replacement
 
 **Status: COMPLETE — bounded private Polisher resale and replacement.** All three slots share confirmed ID-targeted resale. The saved ledger supplies the exact 50% floored refund. Queued/reserved unprocessed inputs return once with Cash and entity removal in one full-state write, including due-but-reserved work without payout. Already-resolved output/statistics commit normally, retain the machine and require a fresh confirmation. Full-machine signatures reject stale intent; failed writes retain exact retry candidates.
