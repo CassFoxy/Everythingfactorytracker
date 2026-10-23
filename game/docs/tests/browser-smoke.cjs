@@ -83,6 +83,36 @@ const server = http.createServer((req, res) => {
             await app.context.close();
             return before;
         }
+        // GAME12: playable manual ore -> Polisher -> Refiner -> Furnace, using real controls.
+        for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
+            const app=await session(null),{page}=app;await page.setViewportSize({width,height});
+            await page.evaluate(()=>{Math.random=()=>0;addDeveloperCash(30000)});
+            for(let i=0;i<8;i++){await page.locator('#mineButton').click();if(await page.locator('#discoveryPopup').isVisible())await page.locator('#discoveryPopup button').click();}
+            const ore=await page.evaluate(()=>ORE_KEYS.find(id=>save.inventory[id]>0));await page.locator('#polisherAction1').click();await page.locator('#polisherOre').selectOption(ore);
+            await page.evaluate(()=>{updateDevelopmentMiner();testNow+=7500;updateDevelopmentMiner()});await page.locator('#buyRefiner').click();
+            const selection=await page.evaluate(()=>JSON.stringify(processedSelection(save.processedInventory.polished[0])));await page.locator('#refinerSelection').selectOption(selection);await page.evaluate(()=>updateDevelopmentMiner());
+            const cycle=await page.evaluate(()=>JSON.parse(JSON.stringify(save.factory.refiner.cycle)));assert.equal(cycle.inputs[0].amount,1);assert.equal(cycle.durationMs,15000);
+            await page.reload();assert.equal(await page.evaluate(()=>save.factory.refiner.cycle.id),cycle.id);
+            await page.evaluate(()=>{testNow=save.factory.refiner.cycle.startedAtMs+15000;window.refineRoll=0;Math.random=()=>[0,0.5,0.99][refineRoll++%3];updateDevelopmentMiner()});
+            const output=await page.evaluate(()=>JSON.parse(JSON.stringify(save.processedInventory.refined[0])));assert.equal(output.refineCount,1);assert.equal(output.refineBonus,0.5);assert.equal(await page.locator('#gemDustBalance').textContent(),'1');
+            await page.evaluate(()=>{setDevelopmentPolisherOre(save.factory.polishers[0].id,null);setDevelopmentRefinerSelection(save.factory.refiner.id,null)});
+            // Upgrade all levels through the same visible control, keeping active work untouched.
+            for(let tier=2;tier<=10;tier++){await page.evaluate(t=>addDeveloperCash(RefinerModel.getTierUpgradePrice(t,0)),tier);await page.locator('#upgradeRefiner').click();}
+            assert.equal(await page.locator('#upgradeRefiner').textContent(),'Max Tier');assert.equal(await page.evaluate(()=>save.factory.refiner.tier),10);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.locator('#refinerPanel').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game12-refiner-'+width+'.png')});}
+            await page.evaluate(()=>openInventory());assert.match(await page.locator('#refinedInventoryList').textContent(),/Refined 1/);if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game12-inventory-'+width+'.png')});await page.evaluate(()=>closeInventory());
+            await page.getByRole('button',{name:'🔥 Open Furnace',exact:true}).click();const row=page.locator('#polishedFurnaceItems .furnace-cohort').filter({hasText:'Refined 1'});await row.getByRole('button',{name:'Select',exact:true}).click();await row.getByRole('button',{name:'100%',exact:true}).click();assert.equal(await page.evaluate(()=>pendingSmelt.quote.total),output.preRefinerValue*1.5);assert.match(await page.locator('#confirmOre').textContent(),/Refined 1/);
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game12-sale-'+width+'.png')});const cash=await page.evaluate(()=>save.cash);await page.getByRole('button',{name:'Confirm',exact:true}).click();assert.equal(await page.evaluate(()=>save.cash),cash+output.preRefinerValue*1.5);assert.equal(await page.evaluate(()=>save.processedInventory.refined.length),0);
+            await page.reload();assert.equal(await page.evaluate(()=>save.gemDust),1);assert.equal(await page.evaluate(()=>save.factory.refiner.tier),10);assert.equal(await page.evaluate(()=>save.processedInventory.refined.length),0);
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return ids.length!==new Set(ids).size}),false);assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS Chromium: GAME12 Refiner full economy, Tier 10, Dust, historical sale and reload '+width+'x'+height+'.');
+        }
+        {
+            const app=await session(null),{page}=app;await page.evaluate(()=>{addDeveloperCash(25000);buyDevelopmentRefiner();developmentCommand(n=>{const l=PolisherModel.createPolishedLot('ruby',1,100);n.processedInventory.polished.push(l);n.factory.refiner.selection=processedSelection(l)});updateDevelopmentMiner();testNow+=15000;Math.random=()=>0;advanceDevelopmentRefiner(save.factory.refiner.id,testNow)});
+            assert.equal(await page.evaluate(()=>save.factory.refiner.cycle.result.gemDustDelta),1);assert.equal(await page.evaluate(()=>save.factory.refiner.cycle.result.outputs.length),0);assert.equal(await page.evaluate(()=>save.gemDust),0);
+            await page.evaluate(()=>{window.originalWrite=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('quota')};advanceDevelopmentRefiner(save.factory.refiner.id,testNow)});const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);assert.equal(await page.evaluate(()=>save.gemDust),0);await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>save.gemDust),0);await page.evaluate(()=>{Storage.prototype.setItem=originalWrite;Math.random=()=>{throw Error('reroll')}});await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);assert.equal(await page.evaluate(()=>save.gemDust),1);assert.equal(await page.evaluate(()=>save.processedInventory.refined.length),0);await page.reload();assert.equal(await page.evaluate(()=>save.gemDust),1);assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS Chromium: GAME12 destroyed-only Dust, saved outcomes and exact failed-write retry.');
+        }
+
+        if(process.env.TEFI_BROWSER_SCOPE === "game12") return;
         // GAME11: all three slots, explicit queue ownership, completed stock and replacement.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null),{page}=app;await page.setViewportSize({width,height});

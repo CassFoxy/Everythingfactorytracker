@@ -627,6 +627,7 @@ function readVersionedSave(serializedSave){
     try{
         validateSaveData(migrated);
         completeDevelopmentPolisherFields(migrated);
+        completeDevelopmentRefinerFields(migrated);
         validateDevelopmentSave(migrated);
     }catch(error){
         throw error?.code ? error : saveLoadError("VALIDATION_ERROR", "Save validation failed. Stored data was not changed.", error);
@@ -2408,7 +2409,7 @@ document.getElementById(
 
 function updateUI(){
     renderDevelopmentMiner();
-    renderDevelopmentPolishers();
+    renderDevelopmentPolishers(); renderDevelopmentRefiner();
 
     // Presentation only: reuse existing ownership/costs, without parallel state.
     document.getElementById("dropperProduction").textContent =
@@ -4170,7 +4171,8 @@ function createMinerDevelopmentSave(){
         developerTools: { furnaceEnabled: false },
         shop: { miningPower: 0, minerUnlocked: false },
         manual: { firstActionCompleted: false, equippedPickaxeId: "pickaxe:default", pickaxes: [] },
-        factory: { minerSlots: MinerCandidateModel.createSlotAccess(), miners: [], polishers: [] },
+        factory: { minerSlots: MinerCandidateModel.createSlotAccess(), miners: [], polishers: [], refiner: null },
+        gemDust: 0,
         processedInventory: { polished: [], refined: [] },
         statistics: PolishedOutputStatisticsCandidateModel.createStatistics(),
         identity: { nextEntitySequence: 1, nextManualEquipSequence: 1 }
@@ -4288,7 +4290,8 @@ function validateDevelopmentSave(state){
             }else throw Error("Invalid cycle phase");
         }
         validateDevelopmentPolishers(state);
-        MinerCandidateModel.validateCandidate(projection, state.factory.polishers.map(m => m.id));
+        validateDevelopmentRefiner(state);
+        MinerCandidateModel.validateCandidate(projection, developmentOtherIds(state,"miner"));
     }catch(error){
         throw saveLoadError("DEVELOPMENT_INCOMPATIBLE", "Incompatible development save: " + error.message, error);
     }
@@ -4469,10 +4472,10 @@ function prepareDevelopmentSmelt(key, percent){
 // activate FurnaceModel's twenty-tier multipliers or reapply Ore Value here.
 function polishedSaleCohort(state, selection){
     InventoryModel.validateLot(selection);
-    if(selection.stage !== "polished") throw Error("Select a Polished ore cohort.");
+    if(!["polished","refined"].includes(selection.stage)) throw Error("Select a processed ore cohort.");
     InventoryModel.validateProcessedInventory(state.processedInventory);
     let cohort = null;
-    for(const lot of state.processedInventory.polished){
+    for(const lot of state.processedInventory[selection.stage]){
         if(InventoryModel.lotsCompatible(lot, selection))
             cohort = cohort ? InventoryModel.mergeLots(cohort, lot) : InventoryModel.createLot(lot);
     }
@@ -4495,7 +4498,7 @@ function developmentPolishedSmeltQuote(state, selection, amount){
         (!developerFurnaceEnabled(state) && amount > FURNACES[state.furnaceTier].capacity))
         throw Error("Invalid or unavailable Polished Furnace quantity. Select the batch again.");
     InventoryModel.splitLot(cohort, amount); // Validate exact conservation before quoting.
-    const value = exactDevelopmentProduct(cohort.polishedValue, developerFurnaceEnabled(state) ? 1000 : 1);
+    const value = exactDevelopmentProduct(processedUnitValue(cohort), developerFurnaceEnabled(state) ? 1000 : 1);
     const total = exactDevelopmentProduct(value, amount);
     exactDevelopmentAdd(state.cash, total);
     return { available: cohort.amount, value, total, developerMode: developerFurnaceEnabled(state), furnaceTier: state.furnaceTier };
@@ -4512,8 +4515,8 @@ function prepareDevelopmentPolishedSmelt(selection, percent){
         pendingSmelt = { kind: "polished", cohort: { ...cohort, amount: 1 }, amount, quote };
         document.getElementById("smeltFeedback").textContent = "";
         document.getElementById("furnaceFeedback").textContent = "";
-        document.getElementById("confirmOre").textContent = "Polished " + developmentOre(cohort.resourceId).name;
-        document.getElementById("confirmCohort").textContent = "Captured cohort value: $" + polishedCashText(cohort.polishedValue);
+        document.getElementById("confirmOre").textContent = processedLabel(cohort);
+        document.getElementById("confirmCohort").textContent = "Captured cohort value: $" + polishedCashText(processedUnitValue(cohort));
         document.getElementById("confirmFurnaceMode").textContent = quote.developerMode ? "Developer Furnace · testing ×1,000" : "Normal Furnace";
         document.getElementById("confirmAmount").textContent = amount.toLocaleString();
         document.getElementById("confirmValue").textContent = polishedCashText(quote.value);
@@ -4530,7 +4533,7 @@ function confirmDevelopmentPolishedSmelt(){
         if(!preview || Object.keys(quote).some(key => quote[key] !== preview[key]))
             throw Error("Cohort quantity or Furnace quote changed. Select the batch again to review it.");
         let remaining = amount;
-        next.processedInventory.polished = next.processedInventory.polished.flatMap(lot => {
+        next.processedInventory[cohort.stage] = next.processedInventory[cohort.stage].flatMap(lot => {
             if(remaining === 0 || !InventoryModel.lotsCompatible(lot, cohort)) return [lot];
             const take = Math.min(remaining, lot.amount), split = InventoryModel.splitLot(lot, take);
             remaining = developmentDebit(remaining, take);
@@ -4542,7 +4545,7 @@ function confirmDevelopmentPolishedSmelt(){
         next.achievementStats.oresSmelted = exactDevelopmentAdd(next.achievementStats.oresSmelted, amount);
         next.factoryXP = exactDevelopmentAdd(next.factoryXP, amount);
         prepareDevelopmentProgress(next);
-    }, { message: "Polished Furnace sale saved.", smelt: true });
+    }, { message: "Processed Furnace sale saved.", smelt: true });
 }
 function buildPolishedFurnaceMenu(){
     const container = document.getElementById("polishedFurnaceItems");
@@ -4551,11 +4554,11 @@ function buildPolishedFurnaceMenu(){
     try{
         // Group compatible records using InventoryModel, without rewriting saved stock.
         let grouped = InventoryModel.createProcessedInventory();
-        for(const lot of save.processedInventory.polished) grouped = InventoryModel.addProcessedLot(grouped, lot);
-        for(const cohort of grouped.polished){
+        for(const lot of [...save.processedInventory.polished,...save.processedInventory.refined]) grouped = InventoryModel.addProcessedLot(grouped, lot);
+        for(const cohort of [...grouped.polished,...grouped.refined]){
             const row = document.createElement("section"); row.className = "furnace-cohort";
-            const label = document.createElement("strong"); label.textContent = "✦ Polished " + developmentOre(cohort.resourceId).name;
-            const details = document.createElement("p"); details.textContent = "Available: " + cohort.amount.toLocaleString() + " · Captured unit value: $" + polishedCashText(cohort.polishedValue);
+            const label = document.createElement("strong"); label.textContent = processedLabel(cohort);
+            const details = document.createElement("p"); details.textContent = "Available: " + cohort.amount.toLocaleString() + " · Captured unit value: $" + polishedCashText(processedUnitValue(cohort));
             const estimate = document.createElement("p");
             try{
                 const amount = polishedSaleQuantity(cohort.amount, 1, developerFurnaceEnabled() ? null : FURNACES[save.furnaceTier].capacity);
@@ -4574,7 +4577,7 @@ function buildPolishedFurnaceMenu(){
             };
             actions.appendChild(select); row.appendChild(label); row.appendChild(details); row.appendChild(estimate); row.appendChild(actions); container.appendChild(row);
         }
-        if(!grouped.polished.length) container.textContent = "No completed Polished stock available. Queued and processing inputs cannot be sold.";
+        if(!grouped.polished.length && !grouped.refined.length) container.textContent = "No completed Polished stock available. Queued and processing inputs cannot be sold.";
     }catch(error){ container.textContent = error.message; }
 }
 
@@ -4614,14 +4617,14 @@ function idleDevelopmentMinerProjection(state){
 }
 function unlockDevelopmentMinerSlot(slot){
     return developmentCommand(next => {
-        const result = MinerCandidateModel.prepareSlotUnlock(idleDevelopmentMinerProjection(next), slot, 0, next.factory.polishers.map(m => m.id));
+        const result = MinerCandidateModel.prepareSlotUnlock(idleDevelopmentMinerProjection(next), slot, 0, developmentOtherIds(next,"miner"));
         next.cash = result.cash;
         next.factory.minerSlots = result.factory.minerSlots;
     });
 }
 function buyDevelopmentMiner(slot = 1){
     return developmentCommand(next => {
-        const result = MinerCandidateModel.preparePurchase(idleDevelopmentMinerProjection(next), slot, { discountLevel: 0, preservationLevel: 0 }, next.factory.polishers.map(m => m.id));
+        const result = MinerCandidateModel.preparePurchase(idleDevelopmentMinerProjection(next), slot, { discountLevel: 0, preservationLevel: 0 }, developmentOtherIds(next,"miner"));
         const purchased = result.factory.miners.find(miner => miner.slot === slot);
         next.cash = result.cash; next.identity = result.identity;
         next.factory.miners.push(purchased);
@@ -4646,7 +4649,7 @@ function upgradeDevelopmentMinerStat(minerId, kind){
             throw Error(kind === "tier" ? "Tier " + DEVELOPMENT_MINER_MAX_TIER + " is the maximum for this build" : "Local Ore Luck " + DEVELOPMENT_MINER_MAX_ORE_LUCK + " is the maximum");
         const projection = idleDevelopmentMinerProjection(next);
         const prepare = kind === "tier" ? MinerUpgradeCandidateModel.prepareTierUpgrade : MinerUpgradeCandidateModel.prepareOreLuckUpgrade;
-        const result = prepare(projection, minerId, 0, next.factory.polishers.map(m => m.id));
+        const result = prepare(projection, minerId, 0, developmentOtherIds(next,"miner"));
         const upgraded = result.factory.miners.find(item => item.id === minerId);
         next.cash = result.cash;
         miner[field] = upgraded[field];
@@ -4754,19 +4757,19 @@ function mineDevelopmentOre(){
 function updateDevelopmentMiner(){
     if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return;
     const now = Date.now();
-    const ids = [...save.factory.miners, ...save.factory.polishers].map(m => m.id)
+    const ids = [...save.factory.miners, ...save.factory.polishers, ...(save.factory.refiner ? [save.factory.refiner] : [])].map(m => m.id)
         .sort((a,b) => Number(a.split(":")[1]) - Number(b.split(":")[1]));
     for(const id of ids){
-        const isPolisher = id.startsWith("polisher:");
+        const isPolisher = id.startsWith("polisher:"), isRefiner = id.startsWith("refiner:");
         for(let step=0;step<3;step++){
             if(pendingDevelopmentWrite || recoveryState.active) return;
-            const before = (isPolisher ? save.factory.polishers : save.factory.miners).find(m => m.id === id)?.cycle;
+            const before = (isRefiner ? [save.factory.refiner] : isPolisher ? save.factory.polishers : save.factory.miners).find(m => m.id === id)?.cycle;
             if(before?.phase === "reserved" && now < before.startedAtMs + before.durationMs) break;
-            if(!(isPolisher ? advanceDevelopmentPolisher(id,now) : advanceDevelopmentMiner(id,now))) break;
+            if(!(isRefiner ? advanceDevelopmentRefiner(id,now) : isPolisher ? advanceDevelopmentPolisher(id,now) : advanceDevelopmentMiner(id,now))) break;
             if(before === null) break; // Never complete newly reserved work in this tick.
         }
     }
-    renderDevelopmentMiner(); renderDevelopmentPolishers();
+    renderDevelopmentMiner(); renderDevelopmentPolishers(); renderDevelopmentRefiner();
 }
 function advanceDevelopmentMiner(minerId, now){
     const miner = save.factory.miners.find(item => item.id === minerId);
@@ -4895,13 +4898,13 @@ function polisherProjection(state){
     return {cash:state.cash, identity:{...state.identity}, factory:{polishers:state.factory.polishers.map(m => ({...m,queue:[],cycle:null}))}};
 }
 function validateDevelopmentPolishers(state){
-    developmentRecord(state.factory,["minerSlots","miners","polishers"]);
+    developmentRecord(state.factory,["minerSlots","miners","polishers","refiner"]);
     for(const key of ["challenges","activeChallenges","challengeState"])
         if(Object.hasOwn(state,key)) throw Error("Active challenge state is unsupported in this private profile");
     developmentRecord(state.processedInventory,["polished","refined"]);
     InventoryModel.validateProcessedInventory(state.processedInventory);
     PolishedOutputStatisticsCandidateModel.validateStatistics(state.statistics);
-    PolisherCandidateModel.validateCandidate(polisherProjection(state),state.factory.miners.map(m=>m.id));
+    PolisherCandidateModel.validateCandidate(polisherProjection(state),developmentOtherIds(state,"polisher"));
     for(const m of state.factory.polishers){
         const expected=[{kind:"purchase",targetLevel:null,cashPaid:PolisherCandidateModel.getPurchasePrice(m.slot,0),basis:"actual"}];
         for(let tier=2;tier<=m.tier;tier++) expected.push({kind:"tier",targetLevel:tier,cashPaid:PolisherModel.getTierUpgradePrice(tier,0),basis:"actual"});
@@ -4922,14 +4925,14 @@ function polisherCommand(prepare){
 }
 function buyDevelopmentPolisher(slot){
     return polisherCommand(next=>{
-        const result=PolisherCandidateModel.preparePurchase(polisherProjection(next),slot,{discountLevel:0,preservationLevel:0},next.factory.miners.map(m=>m.id));
+        const result=PolisherCandidateModel.preparePurchase(polisherProjection(next),slot,{discountLevel:0,preservationLevel:0},developmentOtherIds(next,"polisher"));
         next.cash=result.cash;next.identity=result.identity;
         next.factory.polishers.push(result.factory.polishers.find(m=>m.slot===slot));
     });
 }
 function upgradeDevelopmentPolisher(id){
     return polisherCommand(next=>{
-        const result=PolisherCandidateModel.prepareTierUpgrade(polisherProjection(next),id,0,next.factory.miners.map(m=>m.id));
+        const result=PolisherCandidateModel.prepareTierUpgrade(polisherProjection(next),id,0,developmentOtherIds(next,"polisher"));
         const target=next.factory.polishers.find(m=>m.id===id), upgraded=result.factory.polishers.find(m=>m.id===id);
         next.cash=result.cash;target.tier=upgraded.tier;target.investment=upgraded.investment;
     });
@@ -5105,7 +5108,7 @@ function renderDevelopmentPolisherResale(machine){
 let selectedDevelopmentPolisherId=null;
 function selectDevelopmentPolisher(id){
     if(!isMinerDevelopment() || !save.factory.polishers.some(m=>m.id===id)) return false;
-    selectedDevelopmentPolisherId=id;renderDevelopmentPolishers();return true;
+    selectedDevelopmentPolisherId=id;renderDevelopmentPolishers(); renderDevelopmentRefiner();return true;
 }
 function renderDevelopmentPolishers(){
     const panel=document.getElementById("polisherPanel");panel.hidden=!isMinerDevelopment();
@@ -5152,3 +5155,172 @@ function renderDevelopmentPolishers(){
 }
 
 attemptSaveLoad();
+
+// GAME12 private activation: per-item outcomes are the approved Refiner-only
+// CycleResult extension. They are pending facts, never awards before commit.
+function developmentOtherIds(state,kind){
+    return [...state.factory.miners,...state.factory.polishers,...(state.factory.refiner ? [state.factory.refiner] : [])]
+        .filter(m=>!m.id.startsWith(kind+":" )).map(m=>m.id);
+}
+function completeDevelopmentRefinerFields(state){
+    if(!isMinerDevelopment(state)) return;
+    const owner=Object.hasOwn(state.factory||{},"refiner"), dust=Object.hasOwn(state,"gemDust");
+    if(!owner && !dust){ state.factory.refiner=null;state.gemDust=0; }
+    else if(!owner || !dust) throw Error("Incomplete Refiner fields; recovery required");
+}
+function refinerProjection(state){
+    return {cash:state.cash,identity:{...state.identity},factory:{refiner:state.factory.refiner ? {...state.factory.refiner,cycle:null} : null}};
+}
+function refinerResult(cycle,itemOutcomes){
+    const input=cycle.inputs[0], quantity=cycle.inputs.reduce((n,l)=>n+l.amount,0);
+    if(!Array.isArray(itemOutcomes)||itemOutcomes.length!==quantity||Reflect.ownKeys(itemOutcomes).length!==quantity+1) throw Error("Invalid per-item outcomes");
+    let dust=0,survived=0;
+    for(let i=0;i<quantity;i++){
+        const descriptor=Object.getOwnPropertyDescriptor(itemOutcomes,i);
+        if(!descriptor || !("value" in descriptor)) throw Error("Invalid outcome entry");
+        const item=descriptor.value;developmentRecord(item,["dust","destroyed"]);
+        // Current profile has Yield 0: each independent successful Dust roll
+        // awards exactly one, including when the same item is destroyed.
+        if(![0,1].includes(item.dust)||typeof item.destroyed!=="boolean") throw Error("Invalid item outcome");
+        dust+=item.dust;if(!item.destroyed) survived++;
+    }
+    const totalInput={...input,amount:quantity},pass=input.refineCount+1;
+    const event=(type,amount)=>({type,resourceId:input.resourceId,stage:"refined",refineCount:pass,amount});
+    return {outputs:survived ? [RefinerModel.createRefinedLot(totalInput,survived,cycle.effectContext.valueLevel)] : [],
+        cashDelta:0,factoryXPDelta:0,gemDustDelta:dust,
+        events:[event("refineAttempt",quantity),...(survived?[event("refineSurvived",survived)]:[]),...(quantity>survived?[event("refineDestroyed",quantity-survived)]:[])],
+        itemOutcomes:itemOutcomes.map(item=>({...item}))};
+}
+function validateDevelopmentRefiner(state){
+    if(typeof state.gemDust!=="number"||!Number.isFinite(state.gemDust)||!Number.isInteger(state.gemDust)||state.gemDust<0) throw Error("Invalid Gem Dust");
+    RefinerCandidateModel.validateCandidate(refinerProjection(state),developmentOtherIds(state,"refiner"));
+    const m=state.factory.refiner;if(!m)return;
+    const entries=[{kind:"purchase",targetLevel:null,cashPaid:RefinerCandidateModel.getPurchasePrice(0),basis:"actual"}];
+    for(let t=2;t<=m.tier;t++) entries.push({kind:"tier",targetLevel:t,cashPaid:RefinerModel.getTierUpgradePrice(t,0),basis:"actual"});
+    validateDevelopmentResult(m.investment,{entries});
+    const c=m.cycle;if(c===null)return;
+    developmentRecord(c,["id","phase","startedAtMs","durationMs","inputs","saleUnitValues","effectContext","result"]);
+    if(m.nextCycleSequence<2||c.id!==m.id+"/cycle:"+(m.nextCycleSequence-1))throw Error("Invalid Refiner cycle identity");
+    CycleEffectContextModel.validateMetadata(c.effectContext,"refiner",{startedAtMs:c.startedAtMs,durationMs:c.durationMs,inputs:c.inputs,saleUnitValues:c.saleUnitValues});
+    const e=c.effectContext;
+    if(e.tier>m.tier||[e.dustChanceLevel,e.stabilityLevel,e.yieldLevel,e.valueLevel].some(v=>v!==0))throw Error("Unsupported Refiner effects");
+    if(c.phase==="reserved"){if(c.result!==null)throw Error("Reserved Refiner result");}
+    else if(c.phase==="resolved"){
+        developmentRecord(c.result,["outputs","cashDelta","factoryXPDelta","gemDustDelta","events","itemOutcomes"]);
+        validateDevelopmentResult(c.result,refinerResult(c,c.result.itemOutcomes));
+    }
+    else throw Error("Invalid Refiner phase");
+}
+function refinerCommand(prepare){
+    const ok=developmentCommand(prepare);
+    document.getElementById("refinerFeedback").textContent=ok?"Saved.":document.getElementById("minerFeedback").textContent;
+    return ok;
+}
+function buyDevelopmentRefiner(){
+    return refinerCommand(next=>{
+        const result=RefinerCandidateModel.preparePurchase(refinerProjection(next),{discountLevel:0,preservationLevel:0},developmentOtherIds(next,"refiner"));
+        next.cash=result.cash;next.identity=result.identity;next.factory.refiner=result.factory.refiner;
+    });
+}
+function upgradeDevelopmentRefiner(id){
+    return refinerCommand(next=>{
+        if(next.factory.refiner?.id!==id)throw Error("Stale Refiner ID");
+        const result=RefinerCandidateModel.prepareTierUpgrade(refinerProjection(next),0,developmentOtherIds(next,"refiner"));
+        next.cash=result.cash;next.factory.refiner.tier=result.factory.refiner.tier;next.factory.refiner.investment=result.factory.refiner.investment;
+    });
+}
+function setDevelopmentRefinerSelection(id,selection){
+    return refinerCommand(next=>{
+        if(next.factory.refiner?.id!==id)throw Error("Stale Refiner ID");
+        RefinerCandidateModel.validateSelection(selection);
+        next.factory.refiner.selection=selection===null?null:{...selection};
+    });
+}
+function processedSelection(lot){const {amount,...key}=lot;return key;}
+function processedUnitValue(lot){
+    InventoryModel.validateLot(lot);
+    const value=lot.stage==="polished"?lot.polishedValue:lot.preRefinerValue*(1+lot.refineBonus);
+    if(!["polished","refined"].includes(lot.stage)||!Number.isFinite(value)||value<0)throw Error("Invalid processed value");
+    return value;
+}
+function processedLabel(lot){return (lot.stage==="polished"?"Polished ":"Refined "+lot.refineCount+" · ")+developmentOre(lot.resourceId).name;}
+function takeProcessedInput(state,cohort,amount){
+    let remaining=amount;
+    state.processedInventory[cohort.stage]=state.processedInventory[cohort.stage].flatMap(lot=>{
+        if(!remaining||!InventoryModel.lotsCompatible(lot,cohort))return [lot];
+        const take=Math.min(remaining,lot.amount),split=InventoryModel.splitLot(lot,take);
+        remaining=developmentDebit(remaining,take);return split.remaining?[split.remaining]:[];
+    });
+    if(remaining!==0)throw Error("Processed input ownership changed");
+}
+function advanceDevelopmentRefiner(id,now){
+    const machine=save.factory.refiner;if(machine?.id!==id)return false;
+    if(typeof now!=="number"||!Number.isFinite(now)||now<0||now>Number.MAX_SAFE_INTEGER)return false;
+    const cycle=machine.cycle;
+    if(cycle===null){
+        if(!machine.selection)return false;
+        const selected={...machine.selection,amount:1};
+        if(!save.processedInventory[selected.stage].some(l=>InventoryModel.lotsCompatible(l,selected)))return false;
+        return refinerCommand(next=>{
+            const m=next.factory.refiner,cohort=polishedSaleCohort(next,selected);
+            RefinerModel.validateInputLot(cohort);
+            const amount=RefinerModel.getProcessedAmount(m.tier,cohort.amount),input=InventoryModel.splitLot(cohort,amount).taken;
+            if(m.nextCycleSequence>=Number.MAX_SAFE_INTEGER)throw Error("Refiner sequence exhausted");
+            takeProcessedInput(next,cohort,amount);
+            m.cycle={id:m.id+"/cycle:"+m.nextCycleSequence++,phase:"reserved",startedAtMs:now,durationMs:RefinerModel.getInterval(m.tier)*1000,
+                inputs:[input],saleUnitValues:null,effectContext:{version:1,kind:"refiner",tier:m.tier,dustChanceLevel:0,stabilityLevel:0,yieldLevel:0,valueLevel:0},result:null};
+        });
+    }
+    if(cycle.phase==="reserved"){
+        if(now<cycle.startedAtMs+cycle.durationMs)return false;
+        return refinerCommand(next=>{
+            const c=next.factory.refiner.cycle,e=c.effectContext;
+            const perks={dustChanceLevel:e.dustChanceLevel,stabilityLevel:e.stabilityLevel,yieldLevel:e.yieldLevel,valueLevel:e.valueLevel};
+            const outcomes=[];
+            for(const input of c.inputs)for(let i=0;i<input.amount;i++){
+                const item=RefinerModel.evaluateItem({...input,amount:1},e.tier,perks,{dust:Math.random(),fractionalYield:Math.random(),destruction:Math.random()});
+                outcomes.push({dust:item.dust,destroyed:item.destroyed});
+            }
+            c.result=refinerResult(c,outcomes);c.phase="resolved";
+        });
+    }
+    return refinerCommand(next=>{
+        const c=next.factory.refiner.cycle;
+        validateDevelopmentRefiner(next);
+        for(const lot of c.result.outputs)next.processedInventory=InventoryModel.addProcessedLot(next.processedInventory,lot);
+        next.gemDust=polisherReturnAdd(next.gemDust,c.result.gemDustDelta);
+        next.factory.refiner.cycle=null;
+        // Physical events are validated above. No active challenge/statistics
+        // consumer exists in this profile; no mining/XP/discovery award is inferred.
+    });
+}
+function renderDevelopmentRefiner(){
+    const panel=document.getElementById("refinerPanel");panel.hidden=!isMinerDevelopment();if(!isMinerDevelopment())return;
+    const m=save.factory.refiner,blocked=!!pendingDevelopmentWrite||recoveryState.active;
+    document.getElementById("gemDustBalance").textContent=save.gemDust.toLocaleString();
+    const buy=document.getElementById("buyRefiner");buy.hidden=!!m;buy.disabled=blocked||save.cash<RefinerCandidateModel.getPurchasePrice(0);buy.onclick=buyDevelopmentRefiner;
+    document.getElementById("refinerDetail").hidden=!m;
+    if(m){
+        const c=m.cycle;
+        document.getElementById("refinerTitle").textContent=m.id+" · Tier "+m.tier+" / 10";
+        const up=document.getElementById("upgradeRefiner"),price=m.tier<10?RefinerModel.getTierUpgradePrice(m.tier+1,0):null;
+        up.textContent=price===null?"Max Tier":"Upgrade Tier "+(m.tier+1)+" · $"+price.toLocaleString();up.disabled=blocked||price===null||save.cash<price;up.onclick=()=>upgradeDevelopmentRefiner(m.id);
+        document.getElementById("refinerStatus").textContent="Interval "+RefinerModel.getInterval(m.tier).toFixed(3)+"s · Batch "+RefinerModel.getBatchSize(m.tier)+" · "+(c?c.phase+" · captured Tier "+c.effectContext.tier+" · input count "+c.inputs[0].refineCount:"Idle · select available processed stock");
+        const progress=document.getElementById("refinerProgress");progress.value=c?Math.max(0,Math.min(100,(Date.now()-c.startedAtMs)/c.durationMs*100)):0;
+        const select=document.getElementById("refinerSelection"),keys=[];
+        for(const lot of [...save.processedInventory.polished,...save.processedInventory.refined])if(lot.refineCount<15){const key=JSON.stringify(processedSelection(lot));if(!keys.includes(key))keys.push(key);}
+        const chosen=m.selection?JSON.stringify(m.selection):"";
+        if(chosen&&!keys.includes(chosen))keys.push(chosen);
+        const signature=JSON.stringify([keys,chosen]);
+        if(select.dataset.signature!==signature){
+            select.dataset.signature=signature;select.innerHTML="";
+            const empty=document.createElement("option");empty.value="";empty.textContent="Select processed cohort";select.appendChild(empty);
+            for(const key of keys){const lot={...JSON.parse(key),amount:1},option=document.createElement("option");option.value=key;option.textContent=processedLabel(lot)+" · $"+polishedCashText(processedUnitValue(lot));select.appendChild(option);}
+            select.value=chosen;
+        }
+        select.disabled=blocked;select.onchange=()=>setDevelopmentRefinerSelection(m.id,select.value?JSON.parse(select.value):null);
+    }
+    const list=document.getElementById("refinedInventoryList");list.innerHTML="";
+    for(const lot of save.processedInventory.refined){const row=document.createElement("p");row.textContent=processedLabel(lot)+" ×"+lot.amount+" · basis $"+polishedCashText(lot.preRefinerValue)+" · bonus "+(lot.refineBonus*100).toFixed(2)+"% · unit $"+polishedCashText(processedUnitValue(lot));list.appendChild(row);}
+    if(!save.processedInventory.refined.length)list.textContent="No Refined stock yet. Reserved inputs and pending results are not available.";
+}

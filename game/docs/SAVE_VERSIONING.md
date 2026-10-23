@@ -1,6 +1,25 @@
 # Save schema version 1 — accepted persistence foundation
 
 
+## V1-GAME12 — private Refiner and Refined economy
+
+The owner approved the singleton Refiner, all Tier 1–10 upgrades, direct processed-cohort reservation, Refine Counts 1–15 and manual Refined Furnace sales within saveVersion 1 / developmentProfile "miner-1". No public V2 migration or legacy Multiplier conversion occurs. Existing Miners, Polishers, processed cohorts, statistics, tools and normal Furnace ownership remain unchanged.
+
+Fresh profile states include factory.refiner:null and gemDust:0. For a supported earlier miner-1 state, **both fields absent** is the known pre-Refiner capability boundary: complete them together without writing on load or inferring processing history from inventory. One present field, malformed values or conflicting ownership fail recovery; untagged legacy saves do not receive this completion. Gem Dust is a finite non-negative integer Count; exact credit checks reject overflow/quantity loss. No spending or other currency conversion is activated.
+
+The Refiner uses the canonical singleton entity, selection without amount, global identity counter, actual purchase/tier ledger and per-machine cycle sequence. Purchase costs $25,000; targets 2–10 use RefinerModel/CashPricingModel. All independent machine IDs are included in validation/projections. Upgrades use a validated idle calculator projection and copy only Cash/tier/investment back, preserving active work. Selection is a preference, may name absent stock and cannot consume Count 15. No queue or resale control exists.
+
+**Approved GAME12 result extension:** a Refiner resolved CycleResult requires itemOutcomes in addition to outputs, cashDelta, factoryXPDelta, gemDustDelta and events. It is a dense ordered array with exactly one plain {dust,destroyed} record for each input unit, traversing inputs in array order. In this profile dust is exactly 0 or 1 and destroyed is Boolean; all four effect levels are 0. The array is generated using three independent explicit rolls per unit through RefinerModel.evaluateItem. It is evidence of saved physical outcomes, not an authenticated RNG log. Load validates structurally possible outcomes without rerolling. No other machine gains this field.
+
+Result validation reconstructs the exact expected aggregate output, Dust sum and physical events from inputs, bound context and itemOutcomes. Events have canonical {type,resourceId,stage,refineCount,amount}: stage refined, attempted output count (incoming+1), matching ore; one refineAttempt for all units, optional refineSurvived/refineDestroyed for positive respective totals. Dust belongs to each unit even when destroyed. Outputs preserve the original Polished basis on pass 1 and immutable preRefinerValue thereafter; no compounding or current-price lookup. Cash/XP deltas are zero. Counterfeit deltas, events, counts, values, extra fields and impossible outcomes reject before awards.
+
+A single commit adds all surviving Lots using InventoryModel, credits the exact Dust sum and clears the cycle. Physical events have no additional supported consumer here: no raw acquisition/discovery, smelting, Polished statistics, challenge progress or new achievements. K.1 remains unresolved, and active challenge records remain unsupported. Failed reservation/resolution/commit writes retain exact candidate bytes, block conflicting commands and retry without new RNG. Saved resolved results commit once; one overdue reservation may finish, then new work starts now through the shared numeric-ID scheduler.
+
+Manual Furnace sales reuse GAME10 cohort identity, percentage/capacity, stale-quote and exact retry checks. Refined value is the saved preRefinerValue × (1+refineBonus), with no reapplication of Polisher/Ore Value/current perks. The inherited three-tier normal Furnace remains unchanged; Developer Furnace applies exactly ×1,000 to Cash and unlimited owned manual quantities only. Ordinary per-item smelting/XP effects remain unchanged. Auto Furnace never selects processed stock. Reserved inputs/pending outputs are unavailable for sale.
+
+Remaining: Refiner resale (R1 active-input disposition still gated), Rebirth, challenge consumers, canonical twenty-tier Furnace progression, automatic processed sales, grid/conveyors and public V2 compatibility. This private exception does not satisfy those release gates.
+
+
 ## V1-GAME11 — private Polisher resale and replacement
 
 All three fixed Polisher slots now support confirmed ID-targeted resale in schema 1 / miner-1. No new saved field, migration, receipt, sold flag or retained deleted entity is introduced. Existing zero/one/two/three-Polisher saves, vacant slots, global identity counters, GAME09 completion and GAME10 cohort sales remain supported; legacy mode stays separate.
