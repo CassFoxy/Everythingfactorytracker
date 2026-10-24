@@ -1,5 +1,7 @@
 # V1-016 — V2 state and compatibility contract
 
+**GAME14 private R1 decision:** Reserved Refiner inputs return unchanged atomically with confirmed resale, even when overdue. Resolved results commit first without reroll, keep ownership and require fresh confirmation. [Exact private scope and recovery](SAVE_VERSIONING.md#v1-game14--private-refiner-resale-and-replacement). Historical R1 gates below remain applicable outside this private exception.
+
 **GAME13 private exception:** canonical permanent Furnace Tier 1–20, timed manual and automatic raw/processed batches are activated only within schema-1 miner-1. Explicit old-private conversion preserves historical reserved quantities/prices/10-second timing, then applies Tier 3 capacity 150 to future work. See [the exact conversion and transaction boundary](SAVE_VERSIONING.md#v1-game13--private-canonical-furnace-activation). Earlier three-tier/automatic-processed-sale exclusions below describe prior ticket scopes and are superseded for this bounded profile. Public V2 migration, grid placement and all unrelated gates remain outstanding.
 
 
@@ -328,7 +330,7 @@ Use Reference H's central reset matrix, not independently resetting fields from 
 | Structure | Rebirth | Resale |
 |---|---|---|
 | Cash, normal Shop and Miner unlock | Reset; compute Defined Stardust payout from pre-reset Cash first | Debit/credit only the approved machine transaction |
-| Raw/processed inventories, queues, active cycles/results | Clear without payout; no resurrected reservation | Miner entity work removed with ownership; exact active-cycle timing boundary T1 applies. Polisher queued/unprocessed inputs return once. Refiner active inputs gated R1. Furnace cannot be sold |
+| Raw/processed inventories, queues, active cycles/results | Clear without payout; no resurrected reservation | Miner entity work removed with ownership; exact active-cycle timing boundary T1 applies. Polisher queued/unprocessed inputs return once. Refiner active inputs use GAME14 restitution/commit-first rules in the private profile; otherwise gated R1. Furnace cannot be sold |
 | Miners / local Ore Luck / ledgers | Remove | Remove sold entity and ledger after one refund |
 | Polisher / Refiner ownership | Remove; fixed slot identities remain available in catalogue | Remove only sold instance; never renumber other slots |
 | Miner slot Booleans | Retain | Retain |

@@ -5732,6 +5732,8 @@ Without the value perk, Refines 1–5 give +50%, +37.5%, +25%, +12.5%, 0%. At pe
 
 Never multiply the previous refined value by the next pass's bonus. Preserve pre-Refiner value metadata when stacking cohorts.
 
+**GAME14 private-profile R1 decision:** Confirmed Refiner resale returns reserved processed inputs unchanged, including overdue reservations; resolved outcomes settle normally before a fresh sale confirmation. See [the bounded policy](SAVE_VERSIONING.md#v1-game14--private-refiner-resale-and-replacement). Rebirth and public activation are unchanged.
+
 ### Gem Dust quantities
 
 Base successful roll awards 1 Dust. ExpectedYield = 1 + 0.05 × GemDustYieldLevel. Award floor(ExpectedYield), with one extra at probability equal to its fractional part. Keep Gem Dust integer and persistent across Rebirth.

@@ -2735,6 +2735,16 @@ function startGameplay(){
  document.getElementById("unlockMiner").onclick = unlockDevelopmentMiner;
  // Slot actions are bound by renderDevelopmentMinerSlots.
  document.getElementById("sellMiner").onclick = () => prepareDevelopmentMinerSale(document.getElementById("sellMiner").dataset.minerId);
+ document.getElementById("confirmRefinerSale").onclick=confirmDevelopmentRefinerSale;
+ document.getElementById("cancelRefinerSale").onclick=closeDevelopmentRefinerSale;
+ document.getElementById("refinerSaleModal").onkeydown=event=>{
+     if(event.key==="Escape"){event.preventDefault();closeDevelopmentRefinerSale();}
+     if(event.key==="Tab"){
+         const first=document.getElementById("confirmRefinerSale"),last=document.getElementById("cancelRefinerSale");
+         if(event.shiftKey && document.activeElement===first){event.preventDefault();last.focus();}
+         else if(!event.shiftKey && document.activeElement===last){event.preventDefault();first.focus();}
+     }
+ };
  document.getElementById("confirmPolisherSale").onclick=confirmDevelopmentPolisherSale;
  document.getElementById("cancelPolisherSale").onclick=closeDevelopmentPolisherSale;
  document.getElementById("polisherSaleModal").onkeydown=event=>{if(event.key==="Escape"){event.preventDefault();closeDevelopmentPolisherSale();}};
@@ -4633,6 +4643,7 @@ function retryDevelopmentWrite(){
     if(feedback){
         document.getElementById("devFeedback").textContent = feedback.message;
         if(feedback.minerSale) document.getElementById("minerFeedback").textContent = feedback.message;
+        if(feedback.refinerSale) document.getElementById("refinerFeedback").textContent = feedback.message;
         if(feedback.polisherSale) document.getElementById("polisherFeedback").textContent = feedback.message;
         if(feedback.smelt){ pendingSmelt = {}; closeSmeltConfirm(); buildFurnaceMenu(); }
     }
@@ -4652,6 +4663,7 @@ function developmentCommand(prepare, feedback = null){
         document.getElementById("minerFeedback").textContent = error.message;
         if(feedback) document.getElementById("devFeedback").textContent = error.message;
         if(feedback?.smelt) document.getElementById("smeltFeedback").textContent = error.message;
+        if(feedback?.refinerSale) document.getElementById("refinerFeedback").textContent = error.message;
         if(feedback?.polisherSale) document.getElementById("polisherFeedback").textContent = error.message;
         return false;
     }
@@ -5281,15 +5293,15 @@ function advanceDevelopmentPolisher(id,now){
 }
 // GAME11: transient intent binds the full machine, including queues and work.
 let pendingPolisherSale = null;
+let pendingRefinerSale = null;
 function polisherSaleSignature(machine){ return JSON.stringify(machine); }
 function polisherReturnAdd(before, amount){
     const after = exactDevelopmentAdd(before, amount);
     if(BigInt(after) !== BigInt(before) + BigInt(amount)) throw Error("Raw ore return cannot be represented exactly.");
     return after;
 }
-function developmentPolisherSaleQuote(machine, state){
-    if(machine.cycle?.phase === "resolved") throw Error("Pending Polished output must be delivered before resale.");
-    const context = { machineType: "polisher", owned: true };
+function developmentProcessingMachineRefund(machine,state,machineType){
+    const context = { machineType, owned: true };
     const total = InvestmentModel.sumInvestment(machine.investment, context);
     const refund = InvestmentModel.calculateRefund(machine.investment, context);
     // All canonical profile tier/slot totals fit exactly. Keep the model's
@@ -5303,6 +5315,11 @@ function developmentPolisherSaleQuote(machine, state){
         cashAfter = exactDevelopmentAdd(state.cash, refund);
         if(Number.isInteger(state.cash) && BigInt(cashAfter) !== BigInt(state.cash) + BigInt(refund)) throw Error("precision");
     }catch(error){ throw Error("Sale unavailable: Cash cannot receive the refund exactly. No stock or ownership was changed."); }
+    return {total,refund,cashAfter};
+}
+function developmentPolisherSaleQuote(machine, state){
+    if(machine.cycle?.phase === "resolved") throw Error("Pending Polished output must be delivered before resale.");
+    const {total,refund,cashAfter}=developmentProcessingMachineRefund(machine,state,"polisher");
     const queued = {}, reserved = {}, returns = {}, inventoryAfter = {};
     const add = (map, lot) => {
         InventoryModel.validateLot(lot);
@@ -5586,6 +5603,7 @@ function renderDevelopmentRefiner(){
     const buy=document.getElementById("buyRefiner");buy.hidden=!!m;buy.disabled=blocked||save.cash<RefinerCandidateModel.getPurchasePrice(0);buy.onclick=buyDevelopmentRefiner;
     document.getElementById("refinerDetail").hidden=!m;
     if(m){
+        renderDevelopmentRefinerResale(m);
         const c=m.cycle;
         document.getElementById("refinerTitle").textContent=m.id+" · Tier "+m.tier+" / 10";
         const up=document.getElementById("upgradeRefiner"),price=m.tier<10?RefinerModel.getTierUpgradePrice(m.tier+1,0):null;
@@ -5608,4 +5626,89 @@ function renderDevelopmentRefiner(){
     const list=document.getElementById("refinedInventoryList");list.innerHTML="";
     for(const lot of save.processedInventory.refined){const row=document.createElement("p");row.textContent=processedLabel(lot)+" ×"+lot.amount+" · basis $"+polishedCashText(lot.preRefinerValue)+" · bonus "+(lot.refineBonus*100).toFixed(2)+"% · unit $"+polishedCashText(processedUnitValue(lot));list.appendChild(row);}
     if(!save.processedInventory.refined.length)list.textContent="No Refined stock yet. Reserved inputs and pending results are not available.";
+}
+
+// GAME14: transient ID/signature-bound resale; no new persistence mechanism.
+function developmentRefinerSaleQuote(machine,state){
+    if(machine.cycle?.phase==="resolved") throw Error("Pending Refiner output must be delivered before resale.");
+    const financial=developmentProcessingMachineRefund(machine,state,"refiner");
+    let inventoryAfter=copySaveData(state.processedInventory);
+    const returns=copySaveData(machine.cycle?.inputs || []);
+    for(const lot of returns){
+        InventoryModel.validateLot(lot);
+        if(!["polished","refined"].includes(lot.stage) || lot.refineCount>=15) throw Error("Invalid reserved Refiner input.");
+        const expected=inventoryAfter[lot.stage].filter(existing=>InventoryModel.lotsCompatible(existing,lot)).reduce((sum,existing)=>sum+BigInt(existing.amount),BigInt(lot.amount));
+        inventoryAfter=InventoryModel.addProcessedLot(inventoryAfter,lot);
+        const returned=inventoryAfter[lot.stage].find(existing=>InventoryModel.lotsCompatible(existing,lot));
+        if(BigInt(returned.amount)!==expected) throw Error("Reserved input return cannot be represented exactly.");
+    }
+    return {...financial,returns,inventoryAfter};
+}
+function refinerReturnText(lots){
+    return lots.map(lot=>processedLabel(lot)+" ×"+lot.amount.toLocaleString()+" · historical unit $"+polishedCashText(processedUnitValue(lot))).join("; ") || "None";
+}
+function closeDevelopmentRefinerSale(){
+    pendingRefinerSale=null;
+    document.getElementById("refinerSaleModal").style.display="none";
+    document.getElementById(save.factory?.refiner ? "sellRefiner" : "buyRefiner").focus();
+}
+function settleDevelopmentRefinerBeforeSale(machine){
+    // Only saved resolved work enters here: never resolve overdue reserved inputs.
+    const message="Pending Refiner output and Gem Dust delivered once. Review the Refiner and confirm a new sale.";
+    const committed=advanceDevelopmentRefiner(machine.id,Date.now());
+    if(!committed && pendingDevelopmentWrite) pendingDevelopmentWrite.feedback={refinerSale:true,message};
+    document.getElementById("refinerFeedback").textContent=committed ? message :
+        "Pending output could not be saved. The Refiner has not been sold; retry the pending write first.";
+    return false;
+}
+function prepareDevelopmentRefinerSale(id){
+    if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    closeDevelopmentRefinerSale();
+    try{
+        validateSaveData(save);validateDevelopmentSave(save);
+        const m=save.factory.refiner;
+        if(!m || m.id!==id) throw Error("Unknown or stale Refiner. Review current ownership.");
+        if(m.cycle?.phase==="resolved") return settleDevelopmentRefinerBeforeSale(m);
+        const q=developmentRefinerSaleQuote(m,save);
+        pendingRefinerSale={id,signature:JSON.stringify(m),refund:q.refund,returns:q.returns};
+        document.getElementById("refinerSaleIdentity").textContent=m.id+" · Tier "+m.tier+" · "+(m.cycle?.phase||"Idle");
+        document.getElementById("refinerSaleInvestment").textContent="$"+polishedCashText(q.total);
+        document.getElementById("refinerSaleRefund").textContent="$"+polishedCashText(q.refund);
+        document.getElementById("refinerSaleInputs").textContent=refinerReturnText(q.returns);
+        document.getElementById("refinerSaleReplacement").textContent="$"+RefinerCandidateModel.getPurchasePrice(0).toLocaleString();
+        document.getElementById("refinerSaleModal").style.display="block";
+        document.getElementById("cancelRefinerSale").focus();return true;
+    }catch(error){document.getElementById("refinerFeedback").textContent=error.message;return false;}
+}
+function confirmDevelopmentRefinerSale(){
+    const intent=pendingRefinerSale;closeDevelopmentRefinerSale();
+    if(!intent || !isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    try{
+        validateSaveData(save);validateDevelopmentSave(save);
+        const m=save.factory.refiner;
+        if(!m || m.id!==intent.id) throw Error("Sale confirmation is stale. Review current Refiner ownership.");
+        if(m.cycle?.phase==="resolved") return settleDevelopmentRefinerBeforeSale(m);
+        if(JSON.stringify(m)!==intent.signature) throw Error("Refiner changed. Review a new sale confirmation.");
+        const committed=developmentCommand(next=>{
+            const target=next.factory.refiner;
+            if(!target || target.id!==intent.id || JSON.stringify(target)!==intent.signature) throw Error("Refiner changed before sale.");
+            const q=developmentRefinerSaleQuote(target,next);
+            if(q.refund!==intent.refund || JSON.stringify(q.returns)!==JSON.stringify(intent.returns)) throw Error("Sale quote changed. Confirm again.");
+            next.processedInventory=q.inventoryAfter;next.cash=q.cashAfter;next.factory.refiner=null;
+        },{refinerSale:true,message:"Refiner sold for $"+polishedCashText(intent.refund)+". Reserved inputs returned unchanged; completed stock and Gem Dust retained."});
+        if(committed) document.getElementById("buyRefiner").focus();
+        return committed;
+    }catch(error){document.getElementById("refinerFeedback").textContent=error.message;return false;}
+}
+function renderDevelopmentRefinerResale(machine){
+    const button=document.getElementById("sellRefiner"),status=document.getElementById("refinerResaleStatus");
+    button.onclick=()=>prepareDevelopmentRefinerSale(machine.id);
+    try{
+        if(machine.cycle?.phase==="resolved") status.textContent="Pending output and Dust must save first; then review a fresh sale confirmation.";
+        else{
+            const q=developmentRefinerSaleQuote(machine,save);
+            status.textContent="Investment: $"+polishedCashText(q.total)+" · Refund: $"+polishedCashText(q.refund)+" · Input return: "+refinerReturnText(q.returns);
+        }
+        button.disabled=!!pendingDevelopmentWrite||recoveryState.active;
+    }catch(error){status.textContent=error.message;button.disabled=true;}
 }
