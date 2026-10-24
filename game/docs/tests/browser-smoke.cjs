@@ -24,8 +24,13 @@ const server = http.createServer((req, res) => {
         browser = await chromium.launch({ headless: true,
             ...(process.env.TEFI_BROWSER_CHANNEL ? { channel: process.env.TEFI_BROWSER_CHANNEL } : {}) });
         const url = "http://127.0.0.1:" + server.address().port;
-        async function session(raw) {
+        // Prior-ticket scenarios deliberately exercise supported pre-GAME13 private saves.
+const inheritedFurnaceFixtureScript = `const currentFreshSave=createMinerDevelopmentSave;
+createMinerDevelopmentSave=function(){const state=currentFreshSave();delete state.factory.furnace;
+const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[key]=defaults[key];return state;};`;
+        async function session(raw, canonical = false) {
             const context = await browser.newContext();
+            if(raw === null && !canonical) await context.route("**/game.js", route => route.fulfill({contentType:"text/javascript",body:files.get("/game.js").toString().replace("\nattemptSaveLoad();", "\n"+inheritedFurnaceFixtureScript+"\nattemptSaveLoad();")}));
             await context.addInitScript(raw => {
                 if (raw !== null && !sessionStorage.getItem("seeded")) {
                     localStorage.setItem("ef_incremental", raw);
@@ -83,6 +88,68 @@ const server = http.createServer((req, res) => {
             await app.context.close();
             return before;
         }
+        // GAME13 uses the actual fresh canonical entry point, not the inherited fixtures below.
+        for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
+            await page.locator('#mineButton').click();
+            await page.getByRole('button',{name:'🔥 Open Furnace',exact:true}).click();
+            await page.locator('#furnaceItems .furnace-cohort').first().getByRole('button',{name:'100%',exact:true}).click();
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game13-confirm-'+width+'.png')});}
+            await page.getByRole('button',{name:'Confirm',exact:true}).click();
+            assert.equal(await page.evaluate(()=>save.cash),0);
+            await page.evaluate(()=>{closeFurnace();testNow+=10000;updateDevelopmentMiner()});assert.equal(await page.evaluate(()=>save.cash),1);
+            await page.evaluate(()=>{addDeveloperCash(50000);Math.random=()=>0});
+            for(let n=0;n<8;n++){await page.locator('#mineButton').click();if(await page.locator('#discoveryPopup').isVisible())await page.locator('#discoveryPopup button').click();}
+            const ore=await page.evaluate(()=>ORE_KEYS.find(id=>save.inventory[id]>0));
+            await page.locator('#polisherAction1').click();await page.locator('#polisherOre').selectOption(ore);
+            await page.evaluate(()=>{updateDevelopmentMiner();testNow+=7500;updateDevelopmentMiner();setDevelopmentPolisherOre(save.factory.polishers[0].id,null)});
+            await page.locator('#buyRefiner').click();
+            const selection=await page.evaluate(()=>JSON.stringify(processedSelection(save.processedInventory.polished[0])));
+            await page.locator('#refinerSelection').selectOption(selection);
+            await page.evaluate(()=>{updateDevelopmentMiner();testNow+=15000;window.refineRoll=0;Math.random=()=>[0,0.5,0.99][refineRoll++%3];updateDevelopmentMiner();setDevelopmentRefinerSelection(save.factory.refiner.id,null)});
+            assert.ok(await page.evaluate(()=>save.processedInventory.refined.length)>0);
+            await page.locator('#upgradeFurnace').click();await page.locator('#upgradeFurnace').click();
+            await page.evaluate(()=>updateDevelopmentMiner());
+            const cycle=await page.evaluate(()=>JSON.parse(JSON.stringify(save.factory.furnace.cycle)));
+            assert.equal(cycle.effectContext.tier,3);assert.equal(cycle.inputs[0].stage,'refined');
+            await page.locator('#canonicalFurnaceAuto').uncheck();
+            const cash=await page.evaluate(()=>save.cash);
+            await page.reload();assert.equal(await page.evaluate(()=>save.factory.furnace.cycle.id),cycle.id);
+            await page.evaluate(()=>{testNow=save.factory.furnace.cycle.startedAtMs+save.factory.furnace.cycle.durationMs;updateDevelopmentMiner()});
+            assert.ok(await page.evaluate(()=>save.cash)>cash);assert.equal(await page.evaluate(()=>save.factory.furnace.cycle),null);
+            for(let tier=4;tier<=20;tier++){await page.evaluate(t=>addDeveloperCash(FurnaceModel.getTierUpgradePrice(t,0)),tier);await page.locator('#upgradeFurnace').click();}
+            assert.equal(await page.locator('#upgradeFurnace').textContent(),'Max Level');
+            assert.match(await page.locator('#furnaceName').textContent(),/20.*20/);
+            await page.locator('#furnaceCard').scrollIntoViewIfNeeded();
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game13-furnace-'+width+'.png')});}
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+            assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return new Set(ids).size===ids.length}),true);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME13 canonical player flow '+width+'x'+height);
+        }
+        {
+            const app=await session(null),{page}=app;
+            await page.evaluate(()=>{save.furnaceTier=2;save.autoFurnaceEnabled=false;save.autoFurnaceStartTime=Date.now();save.autoFurnaceBatch=[{key:'stone',amount:10000,value:2,name:'Stone',emoji:'S'}];saveGame();updateUI()});
+            await page.locator('#moderniseFurnace').click();
+            assert.equal(await page.evaluate(()=>save.factory.furnace.tier),3);
+            assert.equal(await page.evaluate(()=>save.factory.furnace.cycle.inputs[0].amount),10000);
+            await page.reload();await page.evaluate(()=>{testNow+=10000;updateDevelopmentMiner()});
+            assert.equal(await page.evaluate(()=>save.cash),20000);assert.equal(await page.locator('#furnaceCapacity').textContent(),'150');
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME13 historical conversion and completion');
+        }
+        {
+            const app=await session(null,true),{page}=app;
+            await page.evaluate(()=>{addDeveloperCash(10000);save.inventory.amber=2;buyDevelopmentPolisher(1);setDevelopmentPolisherOre(save.factory.polishers[0].id,'amber');updateDevelopmentMiner();setDevelopmentPolisherOre(save.factory.polishers[0].id,null);testNow+=7500;updateDevelopmentMiner();upgradeFurnace();upgradeFurnace();updateDevelopmentMiner()});
+            assert.equal(await page.evaluate(()=>save.factory.furnace.cycle.inputs[0].stage),'polished');
+            await page.evaluate(()=>{setCanonicalFurnacePreference('autoEnabled',false);testNow+=10000;advanceCanonicalFurnace(Date.now());window.originalStorageWrite=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('test denied')};advanceCanonicalFurnace(Date.now())});
+            const before=await page.evaluate(()=>({cash:save.cash,bytes:pendingDevelopmentWrite.serialized}));
+            assert.equal(await page.locator('#developmentWriteRecovery').isVisible(),true);
+            await page.evaluate(()=>{Storage.prototype.setItem=window.originalStorageWrite;retryDevelopmentWrite()});
+            assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),before.bytes);
+            assert.ok(await page.evaluate(()=>save.cash)>before.cash);
+            const paid=await page.evaluate(()=>save.cash);await page.reload();assert.equal(await page.evaluate(()=>save.cash),paid);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME13 Polished automatic output and exact failed-commit retry');
+        }
+        if(process.env.TEFI_BROWSER_SCOPE==='game13') return;
         // GAME12: playable manual ore -> Polisher -> Refiner -> Furnace, using real controls.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null),{page}=app;await page.setViewportSize({width,height});
