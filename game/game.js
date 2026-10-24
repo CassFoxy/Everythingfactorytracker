@@ -4320,6 +4320,7 @@ function reserveCanonicalFurnace(state,inputs,activation,now){
         durationMs:FurnaceModel.getFinalInterval(f.tier,0)*1000,inputs:copySaveData(inputs),saleUnitValues:values,
         effectContext:{version:1,kind:"furnace",tier:f.tier,speedLevel:0,valueLevel:0,activation},result:null};
     validateDevelopmentFurnace(state);
+    exactDevelopmentAdd(state.cash,furnaceResult(f.cycle).cashDelta);
 }
 function automaticFurnaceInputs(state){
     const f=state.factory.furnace;
@@ -4330,8 +4331,9 @@ function automaticFurnaceInputs(state){
     stock.push(...grouped.polished,...grouped.refined);
     stock=stock.filter(l=>f.resourceMode==="oresStone" || (f.resourceMode==="stoneOnly" ? l.resourceId==="stone" : l.resourceId!=="stone"));
     const lexical=(a,b)=>a<b?-1:a>b?1:0;
+    const metadataKey=lot=>JSON.stringify([lot.stage,lot.polishedValue,lot.preRefinerValue,lot.refineBonus]);
     stock.sort((a,b)=>canonicalFurnaceUnitValue(state,b)-canonicalFurnaceUnitValue(state,a) || lexical(a.resourceId,b.resourceId) ||
-        a.refineCount-b.refineCount || lexical(JSON.stringify(processedSelection(a)),JSON.stringify(processedSelection(b))));
+        a.refineCount-b.refineCount || lexical(metadataKey(a),metadataKey(b)));
     let remaining=FurnaceModel.getCapacity(f.tier); const inputs=[];
     for(const lot of stock){
         if(!remaining) break;

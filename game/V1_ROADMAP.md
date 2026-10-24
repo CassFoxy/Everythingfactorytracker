@@ -2,7 +2,9 @@
 
 ## V1-GAME13 — Complete Canonical Furnace Modernisation
 
-**Status: IN PROGRESS — implementation and consolidated verification.** Permanent Tier 1–20 Furnace, canonical capacity/value/timing, timed manual batches and automatic raw/Polished/Refined selection share the private durable scheduler. Explicit conversion maps old private indices 0/1/2 to tiers 1/2/3 without charge; historical batches retain their original quantity, value and ten-second duration once. New Tier 3 capacity is 150. Developer Furnace remains unlimited manual ×1,000 only.
+**Status: COMPLETE — bounded private canonical Furnace.** Permanent Tier 1–20 Furnace, canonical capacity/value/timing, timed manual batches and automatic raw/Polished/Refined selection share the private durable scheduler. Explicit conversion maps old private indices 0/1/2 to tiers 1/2/3 without charge; historical batches retain their original quantity, value and ten-second duration once. New Tier 3 capacity is 150. Developer Furnace remains unlimited manual ×1,000 only.
+
+Verification: four syntax checks, 469 Node tests and 72 browser scenarios passed in GitHub Actions run 40054956000. Furnace and confirmation screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844. Final branch checks are reported on the PR.
 
 Fresh states use canonical ownership; earlier private states retain supported inherited behavior until the visible Modernise Furnace command. Public migration remains separate. Remaining: Refiner resale (R1), Rebirth, challenges, grid/conveyors and public V2 compatibility. Next consolidated gameplay recommendation: Refiner resale/replacement after explicit approval of R1 input disposition; do not invent that policy here.
 

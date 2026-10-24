@@ -45,6 +45,8 @@ test("GAME13 automation permission, stable ties and overflow are enforced withou
     const before=app.state();assert.equal(app.run('prepareCanonicalSmelt(save.processedInventory.polished[0],1)'),false);assert.deepEqual(app.state(),before);
     app.run('save.cash=2**53;save.inventory.stone=1;save.factory.furnace.tier=1;');
     assert.equal(app.run('prepareDevelopmentSmelt("stone",1)'),false);assert.equal(app.state().inventory.stone,1);
+    app.run('save.factory.furnace.tier=3;save.inventory.stone=2;save.processedInventory.polished=[]');
+    assert.equal(app.run('advanceCanonicalFurnace(Date.now())'),false);assert.equal(app.state().inventory.stone,2);assert.equal(app.state().factory.furnace.cycle,null);
 });
 test("GAME13 resolved work survives upgrades and reload without repricing or duplicate awards",()=>{
     const app=canonicalFurnaceGame();app.run('save.cash=1000;save.inventory.stone=2;prepareDevelopmentSmelt("stone",1);confirmSmelt()');
