@@ -5630,3 +5630,74 @@ test('GAME12 scheduler keeps Miner Polisher and Refiner work independent and glo
  const a=refinerGame(10,20);a.run("addDeveloperCash(5450);buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner(1);buyDevelopmentPolisher(1);developmentCommand(n=>{n.inventory.ruby=4});setDevelopmentPolisherOre('polisher:3','ruby');updateDevelopmentMiner()");const before=a.state();assert.equal(before.factory.miners[0].cycle.effectContext.tier,1);assert.equal(before.factory.polishers[0].cycle.effectContext.tier,1);assert.equal(before.factory.refiner.cycle.effectContext.tier,10);a.run('Math.random=()=>0.99');a.advance(15000);a.run('updateDevelopmentMiner()');const after=a.state();assert.equal(after.processedInventory.refined[0].amount,10);assert.equal(after.statistics.lifetime.polishedOutput.ruby,1);assert.equal(after.factory.miners[0].nextCycleSequence,3);assert.equal(after.factory.polishers[0].nextCycleSequence,3);assert.equal(after.factory.refiner.nextCycleSequence,3);for(const m of [...after.factory.miners,...after.factory.polishers,after.factory.refiner])assert.equal(m.cycle.startedAtMs,a.now());
  const bad=structuredClone(after);bad.factory.refiner.id='refiner:2';assert.equal(boot(JSON.stringify(bad)).run('recoveryState.active'),true);
 });
+
+function sellRefiner(a){assert.equal(a.run('prepareDevelopmentRefinerSale(save.factory.refiner.id)'),true);return a.run('confirmDevelopmentRefinerSale()');}
+test('GAME14 all ten tiers refund exact investment and preserve unrelated assets in both Furnace formats',()=>{
+ for(let tier=1;tier<=10;tier++){
+  const a=refinerGame(tier,3);a.run('setDevelopmentRefinerSelection(save.factory.refiner.id,null)');if(tier%2===0)a.run('moderniseDevelopmentFurnace()');
+  const before=a.state(),exact=before.factory.refiner.investment.entries.reduce((s,p)=>s+BigInt(p.cashPaid),0n)/2n;
+  assert.equal(sellRefiner(a),true);const after=a.state();assert.equal(BigInt(after.cash)-BigInt(before.cash),exact);
+  const expected=structuredClone(before);expected.cash=after.cash;expected.factory.refiner=null;assert.deepEqual(after,expected);
+  assert.equal(a.run('confirmDevelopmentRefinerSale()'),false);assert.equal(a.run("advanceDevelopmentRefiner('refiner:1',Date.now())"),false);assert.deepEqual(ready(a.stored()).state(),after);
+ }
+});
+test('GAME14 Polished and all Refined counts return unchanged even overdue without RNG or rewards',()=>{
+ for(let count=0;count<15;count++){
+  const a=refinerGame(3,4,count);a.run('moderniseDevelopmentFurnace()');const original=a.state().processedInventory;reserveRefiner(a);const before=a.state();
+  a.advance(100000);a.run('Math.random=()=>{throw Error("resale must not roll")};');assert.equal(sellRefiner(a),true);const after=a.state();assert.deepEqual(after.processedInventory,original);
+  for(const key of ['gemDust','statistics','factoryXP','achievementStats','oreCollection','identity'])assert.deepEqual(after[key],before[key]);a.run('updateDevelopmentMiner()');assert.deepEqual(a.state(),after);
+ }
+});
+test('GAME14 partial batch restitution preserves distinct historical cohorts',()=>{
+ const a=refinerGame(10,3,7);a.run("developmentCommand(n=>{n.processedInventory.refined.push(InventoryModel.createLot({...n.processedInventory.refined[0],preRefinerValue:101,amount:9}))})");const original=a.state().processedInventory;
+ reserveRefiner(a);assert.equal(a.state().factory.refiner.cycle.inputs[0].amount,3);assert.equal(sellRefiner(a),true);assert.deepEqual(a.state().processedInventory.refined.slice().sort((x,y)=>x.preRefinerValue-y.preRefinerValue),original.refined);
+});
+test('GAME14 resolved mixed outcomes commit once before fresh confirmation and never return consumed inputs',()=>{
+ const a=refinerGame(10,4);reserveRefiner(a);resolveRefiner(a,[0,0.5,0, 0.9,0.5,0.99, 0,0.5,0.99, 0.9,0.5,0]);const result=a.state().factory.refiner.cycle.result,before=a.state();a.run('Math.random=()=>{throw Error("no reroll")};');
+ assert.equal(a.run("prepareDevelopmentRefinerSale('refiner:1')"),false);assert.equal(a.state().factory.refiner.cycle,null);assert.equal(a.state().cash,before.cash);assert.equal(a.state().gemDust,result.gemDustDelta);assert.deepEqual(a.state().processedInventory.refined,result.outputs);assert.equal(a.run('confirmDevelopmentRefinerSale()'),false);
+ assert.match(a.run('document.getElementById("refinerFeedback").textContent'),/confirm a new sale/);assert.equal(sellRefiner(a),true);assert.deepEqual(a.state().processedInventory.refined,result.outputs);assert.equal(a.state().gemDust,2);assert.deepEqual(a.state().processedInventory.polished,[]);assert.deepEqual(ready(a.stored()).state(),a.state());
+});
+test('GAME14 resolved commit failure retains exact outcome and requires fresh confirmation after retry',()=>{
+ const a=refinerGame();reserveRefiner(a);resolveRefiner(a,[0,0,0]);const before=a.state(),bytes=a.stored();a.faults.write=true;
+ assert.equal(a.run("prepareDevelopmentRefinerSale('refiner:1')"),false);assert.deepEqual(a.state(),before);assert.equal(a.stored(),bytes);const pending=a.run('pendingDevelopmentWrite.serialized');assert.equal(a.run('confirmDevelopmentRefinerSale()'),false);assert.equal(a.run('retryDevelopmentWrite()'),false);assert.equal(a.run('pendingDevelopmentWrite.serialized'),pending);
+ a.faults.write=false;a.run('Math.random=()=>{throw Error("retry cannot roll")};');assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.state().gemDust,1);assert.equal(a.state().factory.refiner.cycle,null);assert.deepEqual(a.state().processedInventory.refined,[]);assert.equal(a.run('confirmDevelopmentRefinerSale()'),false);assert.equal(sellRefiner(a),true);assert.equal(a.state().gemDust,1);
+});
+test('GAME14 failed sale publishes nothing and exact retry blocks conflicting commands',()=>{
+ const a=refinerGame(2,3,4);reserveRefiner(a);const before=a.state(),bytes=a.stored();a.faults.write=true;assert.equal(sellRefiner(a),false);assert.deepEqual(a.state(),before);assert.equal(a.stored(),bytes);const pending=a.run('pendingDevelopmentWrite.serialized');
+ for(const cmd of ['buyDevelopmentRefiner()',"upgradeDevelopmentRefiner('refiner:1')",'addDeveloperCash(1000)',"prepareDevelopmentRefinerSale('refiner:1')",'confirmDevelopmentRefinerSale()'])assert.equal(a.run(cmd),false);
+ a.run('updateDevelopmentMiner()');assert.deepEqual(a.state(),before);assert.equal(a.run('retryDevelopmentWrite()'),false);assert.equal(a.run('pendingDevelopmentWrite.serialized'),pending);
+ a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),pending);assert.equal(a.state().factory.refiner,null);assert.equal(a.state().processedInventory.refined[0].amount,3);const after=a.state();assert.equal(a.run('confirmDevelopmentRefinerSale()'),false);assert.deepEqual(ready(a.stored()).state(),after);
+});
+test('GAME14 stale confirmations reject changed selection tier cycle and replacement identity',()=>{
+ for(const change of ["setDevelopmentRefinerSelection('refiner:1',null)","addDeveloperCash(125000);upgradeDevelopmentRefiner('refiner:1')","advanceDevelopmentRefiner('refiner:1',Date.now())"]){const a=refinerGame();assert.equal(a.run("prepareDevelopmentRefinerSale('refiner:1')"),true);a.run(change);const before=a.state();assert.equal(a.run('confirmDevelopmentRefinerSale()'),false);assert.deepEqual(a.state(),before);}
+ const a=refinerGame();assert.equal(a.run("prepareDevelopmentRefinerSale('refiner:999')"),false);assert.equal(a.run("prepareDevelopmentRefinerSale('refiner:1')"),true);a.run('globalThis.oldRefinerIntent=pendingRefinerSale');assert.equal(a.run('confirmDevelopmentRefinerSale()'),true);a.run('addDeveloperCash(25000);buyDevelopmentRefiner();pendingRefinerSale=oldRefinerIntent');const before=a.state();assert.equal(a.run('confirmDevelopmentRefinerSale()'),false);assert.deepEqual(a.state(),before);
+});
+test('GAME14 resolution during confirmation settles without automatic sale',()=>{
+ const a=refinerGame();reserveRefiner(a);assert.equal(a.run("prepareDevelopmentRefinerSale('refiner:1')"),true);resolveRefiner(a);assert.equal(a.run('confirmDevelopmentRefinerSale()'),false);assert.equal(a.state().gemDust,1);assert.ok(a.state().factory.refiner);assert.equal(a.run('confirmDevelopmentRefinerSale()'),false);assert.equal(sellRefiner(a),true);
+});
+test('GAME14 malformed investment and inputs reject; Cash and inventory precision cannot consume ownership',()=>{
+ const good=refinerGame(3);reserveRefiner(good);const state=good.state();
+ for(const change of [s=>s.factory.refiner.investment.entries.pop(),s=>s.factory.refiner.investment.entries.push(s.factory.refiner.investment.entries[1]),s=>s.factory.refiner.investment.entries[0].cashPaid=1,s=>s.factory.refiner.cycle.inputs[0].stage='raw',s=>s.factory.refiner.cycle.inputs[0].amount=-1]){const s=structuredClone(state);change(s);const a=boot(JSON.stringify(s));assert.equal(a.run('recoveryState.active'),true);assert.equal(a.stored(),JSON.stringify(s));}
+ for(const kind of ['cash','inventory']){const a=refinerGame();reserveRefiner(a);a.run(kind==='cash'?'save.cash=2**60':'save.processedInventory.polished=[{...save.factory.refiner.cycle.inputs[0],amount:2**53}]');const before=a.state();assert.equal(a.run("prepareDevelopmentRefinerSale('refiner:1')"),false);assert.deepEqual(a.state(),before);}
+ const a=refinerGame();assert.equal(a.run('developmentProcessingMachineRefund({investment:{entries:[{kind:"purchase",targetLevel:null,cashPaid:25001,basis:"actual"}]}},{cash:0},"refiner").refund'),12500);
+});
+test('GAME14 repeated replacements get fresh IDs and progression while keeping Dust and completed stock',()=>{
+ const a=refinerGame();a.run('moderniseDevelopmentFurnace();developmentCommand(n=>{n.gemDust=7})');
+ for(let i=1;i<=3;i++){const before=a.state(),id=before.factory.refiner.id;assert.equal(sellRefiner(a),true);assert.equal(a.state().identity.nextEntitySequence,before.identity.nextEntitySequence);a.run('addDeveloperCash(25000)');const cash=a.state().cash;assert.equal(a.run('buyDevelopmentRefiner()'),true);const m=a.state().factory.refiner;
+ assert.notEqual(m.id,id);assert.equal(m.id,'refiner:'+(i+1));assert.equal(m.tier,1);assert.equal(m.selection,null);assert.equal(m.cycle,null);assert.equal(m.nextCycleSequence,1);assert.equal(m.investment.entries.length,1);assert.equal(m.investment.entries[0].cashPaid,25000);assert.equal(a.state().cash,cash-25000);assert.equal(a.state().gemDust,7);assert.deepEqual(a.state().processedInventory,before.processedInventory);assert.deepEqual(ready(a.stored()).state(),a.state());}
+ a.run('setDevelopmentRefinerSelection(save.factory.refiner.id,processedSelection(save.processedInventory.polished[0]));updateDevelopmentMiner()');assert.equal(a.state().factory.refiner.cycle.id,'refiner:4/cycle:1');a.advance(15000);a.run('Math.random=()=>0.5;updateDevelopmentMiner()');assert.equal(a.state().processedInventory.refined[0].refineCount,1);assert.equal(a.state().gemDust,7);
+});
+
+test('GAME14 resale preserves other active machines and both normal and Developer Furnace ownership',()=>{
+ for(const developer of [false,true]){
+  const a=ownedDevelopmentMiner();a.run('moderniseDevelopmentFurnace();addDeveloperCash(100000);buyDevelopmentPolisher(1);buyDevelopmentRefiner();developmentCommand(n=>{n.inventory.ruby=10;n.inventory.stone=10;const l=PolisherModel.createPolishedLot("ruby",2,100);n.processedInventory.polished.push(l);n.factory.refiner.selection=processedSelection(l)});setDevelopmentPolisherOre(save.factory.polishers[0].id,"ruby");updateDevelopmentMiner()');
+  if(developer)a.run('setDeveloperFurnace(true)');assert.equal(a.run('prepareDevelopmentSmelt("stone",1);confirmSmelt()'),true);
+  const before=a.state();assert.equal(sellRefiner(a),true);const after=a.state();
+  for(const key of ['miners','polishers','furnace'])assert.deepEqual(after.factory[key],before.factory[key]);for(const key of ['identity','gemDust','statistics','achievementStats','oreCollection','developerTools'])assert.deepEqual(after[key],before[key]);
+  a.advance(10000);a.run('updateDevelopmentMiner()');assert.ok(a.state().totalOres>before.totalOres);assert.ok(a.state().statistics.lifetime.polishedOutput.ruby>0);assert.equal(a.state().factory.refiner,null);assert.equal(a.state().processedInventory.polished.find(l=>l.polishedValue===100).amount,2);
+ }
+});
+test('GAME14 reload preserves saved resolved outcomes before later idle resale',()=>{
+ const a=refinerGame(10,2);reserveRefiner(a);resolveRefiner(a,[0,.5,0,0,.5,.99]);const r=a.state().factory.refiner.cycle.result;
+ const loaded=ready(a.stored());assert.equal(loaded.state().gemDust,r.gemDustDelta);assert.deepEqual(loaded.state().processedInventory.refined,r.outputs);assert.ok(loaded.state().factory.refiner);assert.equal(sellRefiner(loaded),true);assert.deepEqual(loaded.state().processedInventory.refined,r.outputs);
+});

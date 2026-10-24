@@ -1,5 +1,15 @@
 # Save schema version 1 — accepted persistence foundation
 
+## V1-GAME14 — private Refiner resale and replacement
+
+The owner resolves R1 for schema-1 / miner-1 only. Confirmed idle resale removes the singleton and credits floor(50% of its validated recorded purchase/tier investment). Reserved work, including due-but-still-reserved work, returns its original Polished or Refined input Lots unchanged through InventoryModel in the same Cash/removal transaction. It generates no Dust, destruction, output or events. Accepted command order governs; a deadline does not force resolution ahead of sale.
+
+Already-resolved work commits its saved itemOutcomes, survivors and Dust through the normal GAME12 atomic commit first. Ownership remains and a fresh confirmation is required. No reroll or resolved-input restitution is permitted. Failure retains the exact pending candidate/bytes and blocks conflicting commands until controlled Retry.
+
+Confirmation binds canonical ID, complete machine signature, refund and input summary. Full-state validation and exact integer checks precede any publication. Nonrepresentable Cash credits or cohort quantity additions reject without changing assets. The model's fractional historical-payment behavior is unchanged; this profile still requires canonical actual purchase/tier payments.
+
+Replacement uses the existing $25,000 purchase model, a new global ID, Tier 1, fresh investment, null selection/cycle and cycle sequence 1. Global identity never rewinds. Completed stock, historical values, Dust, other machines and Furnace preferences/work remain owned. No saved sale intent, refund receipt or sold record is introduced. Supported older private saves, both GAME13 Furnace formats, and separate untagged legacy mode remain supported without reset. This is not public V2 activation, Rebirth policy or challenge integration.
+
 ## V1-GAME13 — private canonical Furnace activation
 
 Fresh schema-1 / miner-1 games own the permanent canonical factory.furnace record at Tier 1. The exact record is FurnaceUpgradeCandidateModel's id, tier, autoEnabled, resourceMode, batchMode, selection, queue (empty), nextCycleSequence and cycle. Identity is furnace:permanent; no purchase, resale ledger or global entity allocation exists. Tier 1–20 upgrades use the canonical model and validated idle projection while retaining active work.

@@ -1,5 +1,15 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME14 — Complete Refiner Resale and Replacement
+
+**Status: COMPLETE — bounded private Refiner lifecycle.** Confirmed ID-targeted resale supports idle, reserved and resolved work. The owner-approved R1 decision returns reserved Polished/Refined Lots unchanged, even when overdue, without RNG or rewards. Saved resolved itemOutcomes commit survivors and Dust first, retain ownership and require fresh confirmation. Exact 50% recorded-investment refunds, input restitution and entity removal share one durable transaction. Failed writes retain the exact candidate for controlled Retry.
+
+Replacement uses the canonical $25,000 purchase and a fresh global identity, Tier 1, empty selection/cycle and fresh investment. Existing Dust, historical stock, other machines and both GAME13 Furnace save formats remain supported. No schema change or public V2 activation.
+
+Verification: four syntax checks, 481 Node tests and 78 browser scenarios passed locally. Confirmation screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844; keyboard focus/Escape, replacement/reload, overflow, duplicate IDs and browser errors checked. Exact-commit GitHub Actions results are reported on the PR.
+
+Remaining: Rebirth/permanent perks, challenges, grid/conveyors, Inscriptions and public V2 compatibility. Next consolidated playable ticket: Rebirth integration using the approved payout/reset matrix; no Rebirth code is activated here. Historical R1 exclusions in earlier ticket notes are superseded only for this private profile.
+
 ## V1-GAME13 — Complete Canonical Furnace Modernisation
 
 **Status: COMPLETE — bounded private canonical Furnace.** Permanent Tier 1–20 Furnace, canonical capacity/value/timing, timed manual batches and automatic raw/Polished/Refined selection share the private durable scheduler. Explicit conversion maps old private indices 0/1/2 to tiers 1/2/3 without charge; historical batches retain their original quantity, value and ten-second duration once. New Tier 3 capacity is 150. Developer Furnace remains unlimited manual ×1,000 only.

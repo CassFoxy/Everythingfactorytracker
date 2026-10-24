@@ -88,6 +88,40 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             await app.context.close();
             return before;
         }
+
+        // GAME14 uses the real canonical page and controls, with controlled stock/time.
+        for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
+            await page.evaluate(()=>{addDeveloperCash(100000);developmentCommand(n=>{n.processedInventory.polished.push(PolisherModel.createPolishedLot('ruby',3,100))})});
+            await page.locator('#buyRefiner').click();const old=await page.evaluate(()=>save.factory.refiner.id);
+            await page.locator('#refinerSelection').selectOption(await page.evaluate(()=>JSON.stringify(processedSelection(save.processedInventory.polished[0]))));
+            await page.evaluate(()=>updateDevelopmentMiner());const reserved=await page.evaluate(()=>JSON.parse(JSON.stringify(save.factory.refiner.cycle.inputs[0])));
+            await page.locator('#sellRefiner').click();assert.match(await page.locator('#refinerSaleRefund').textContent(),/12,500/);assert.match(await page.locator('#refinerSaleInputs').textContent(),/Polished Ruby.*1/);
+            assert.equal(await page.evaluate(()=>document.activeElement.id),'cancelRefinerSale');await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.id),'confirmRefinerSale');await page.keyboard.press('Escape');assert.equal(await page.locator('#refinerSaleModal').isVisible(),false);
+            await page.locator('#sellRefiner').click();if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game14-confirm-'+width+'.png')});}
+            const cash=await page.evaluate(()=>save.cash);await page.locator('#confirmRefinerSale').click();assert.equal(await page.evaluate(()=>save.factory.refiner),null);assert.equal(await page.evaluate(()=>save.cash),cash+12500);assert.equal(await page.evaluate(()=>save.processedInventory.polished[0].amount),3);
+            await page.reload();await page.locator('#buyRefiner').click();assert.notEqual(await page.evaluate(()=>save.factory.refiner.id),old);
+            await page.locator('#refinerSelection').selectOption(JSON.stringify(Object.fromEntries(Object.entries(reserved).filter(([key])=>key!=='amount'))));
+            await page.evaluate(()=>{updateDevelopmentMiner();setDevelopmentRefinerSelection(save.factory.refiner.id,null);testNow+=15000;window.rollIndex=0;Math.random=()=>[0,.5,.99][rollIndex++%3];updateDevelopmentMiner()});
+            assert.equal(await page.evaluate(()=>save.gemDust),1);assert.equal(await page.evaluate(()=>save.processedInventory.refined[0].amount),1);
+            await page.locator('#sellRefiner').click();await page.locator('#confirmRefinerSale').click();const retained=await page.evaluate(()=>JSON.stringify([save.gemDust,save.processedInventory]));await page.reload();assert.equal(await page.evaluate(()=>JSON.stringify([save.gemDust,save.processedInventory])),retained);
+            await page.locator('#refinerPanel').scrollIntoViewIfNeeded();if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game14-vacant-'+width+'.png')});
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return ids.length!==new Set(ids).size}),false);assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME14 '+width+'×'+height+': reserved restitution, confirmation keyboard, replacement, production and retained output reload.');
+        }
+        {
+            const app=await session(null,true),{page}=app;
+            await page.evaluate(()=>{addDeveloperCash(200000);buyDevelopmentRefiner();upgradeDevelopmentRefiner(save.factory.refiner.id);developmentCommand(n=>{const l=PolisherModel.createPolishedLot('ruby',2,100);n.processedInventory.polished.push(l);n.factory.refiner.selection=processedSelection(l)});advanceDevelopmentRefiner(save.factory.refiner.id,Date.now());setDevelopmentRefinerSelection(save.factory.refiner.id,null);testNow+=15000;window.rollIndex=0;Math.random=()=>[0,.5,0,0,.5,.99][rollIndex++%6];advanceDevelopmentRefiner(save.factory.refiner.id,Date.now());Math.random=()=>{throw Error('No reroll')};});
+            const result=await page.evaluate(()=>JSON.parse(JSON.stringify(save.factory.refiner.cycle.result)));
+            await page.evaluate(()=>{window.realWrite=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('test failure')}});
+            await page.locator('#sellRefiner').click();assert.ok(await page.evaluate(()=>pendingDevelopmentWrite));assert.equal(await page.evaluate(()=>save.gemDust),0);assert.ok(await page.evaluate(()=>save.factory.refiner));
+            const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);await page.evaluate(()=>{Storage.prototype.setItem=realWrite;retryDevelopmentWrite()});assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);assert.equal(await page.evaluate(()=>save.gemDust),result.gemDustDelta);assert.equal(await page.locator('#refinerSaleModal').isVisible(),false);assert.match(await page.locator('#refinerFeedback').textContent(),/confirm a new sale/);
+            await page.locator('#sellRefiner').click();await page.locator('#confirmRefinerSale').click();assert.equal(await page.evaluate(()=>save.factory.refiner),null);assert.deepEqual(await page.evaluate(()=>JSON.parse(JSON.stringify(save.processedInventory.refined))),result.outputs);assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME14 resolved outcomes settle with exact retry and fresh confirmation.');
+        }
+        {
+            const app=await session(null,true),{page}=app;await page.evaluate(()=>{addDeveloperCash(25000);buyDevelopmentRefiner();developmentCommand(n=>{const l=PolisherModel.createPolishedLot('ruby',1,100);n.processedInventory.polished.push(l);n.factory.refiner.selection=processedSelection(l)});advanceDevelopmentRefiner(save.factory.refiner.id,Date.now())});
+            await page.locator('#sellRefiner').click();const before=await page.evaluate(()=>JSON.stringify(save));await page.evaluate(()=>{window.realWrite=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('test failure')}});await page.locator('#confirmRefinerSale').click();assert.equal(await page.evaluate(()=>JSON.stringify(save)),before);const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);await page.evaluate(()=>{retryDevelopmentWrite();Storage.prototype.setItem=realWrite;retryDevelopmentWrite()});assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);assert.equal(await page.evaluate(()=>save.factory.refiner),null);assert.equal(await page.evaluate(()=>save.processedInventory.polished[0].amount),1);await page.reload();assert.equal(await page.evaluate(()=>save.cash),12500);assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME14 sale failure retains exact input/refund candidate through repeated retry and reload.');
+        }
+        if(process.env.TEFI_BROWSER_SCOPE==='game14') return;
         // GAME13 uses the actual fresh canonical entry point, not the inherited fixtures below.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
