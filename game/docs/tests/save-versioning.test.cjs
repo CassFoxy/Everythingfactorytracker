@@ -12,6 +12,178 @@ const ores = fs.readFileSync(path.join(root, "ores.js"), "utf8");
 const game = fs.readFileSync(path.join(root, "game.js"), "utf8");
 const KEY = "ef_incremental";
 
+function canonicalFurnaceGame(){
+    const app=ready();
+    assert.equal(app.run("moderniseDevelopmentFurnace()"),true);
+    return app;
+}
+test("GAME13 a truly fresh game starts canonical and needs no conversion or load write",()=>{
+    const app=boot();assert.equal(app.error,undefined);assert.equal(app.state().factory.furnace.tier,1);
+    assert.equal(app.state().factory.furnace.id,'furnace:permanent');assert.equal(app.writes.length,0);
+    assert.equal(Object.hasOwn(app.state(),'furnaceTier'),false);
+});
+test("GAME13 all twenty actual reservations capture canonical capacity value and full-precision timing",()=>{
+    const app=canonicalFurnaceGame();
+    for(let tier=1;tier<=20;tier++){
+        app.run(`save.factory.furnace.tier=${tier};save.factory.furnace.autoEnabled=false;save.inventory.stone=2000;`);
+        assert.equal(app.run('prepareDevelopmentSmelt("stone",1);confirmSmelt()'),true);
+        const cycle=app.state().factory.furnace.cycle;
+        assert.equal(cycle.inputs[0].amount,50*tier);
+        assert.equal(cycle.saleUnitValues[0],1+.25*(tier-1));
+        assert.equal(cycle.durationMs,Math.max(1,10*Math.pow(.1,(tier-1)/19))*1000);
+        app.advance(Math.ceil(cycle.durationMs));app.run('updateDevelopmentMiner()');assert.equal(app.state().factory.furnace.cycle,null);
+    }
+});
+test("GAME13 automation permission, stable ties and overflow are enforced without browser exceptions",()=>{
+    const app=canonicalFurnaceGame();app.run('save.inventory.stone=100');
+    assert.equal(app.run('developmentCommand(next=>reserveCanonicalFurnace(next,[furnaceRawLot("stone",1)],"automatic",Date.now()))'),false);
+    app.run('save.factory.furnace.tier=3;save.factory.furnace.autoEnabled=true;save.inventory.stone=0;');
+    app.run(`save.processedInventory.polished=['ruby','amber'].map(resourceId=>InventoryModel.createLot({resourceId,stage:'polished',refineCount:0,amount:1,polishedValue:10,preRefinerValue:null,refineBonus:null}));`);
+    assert.equal(app.run('automaticFurnaceInputs(save)[0].resourceId'),'amber');
+    app.run('save.processedInventory.polished[0].polishedValue=Number.MAX_VALUE');
+    assert.doesNotThrow(()=>app.run('updateDevelopmentMiner()'));assert.equal(app.state().factory.furnace.cycle,null);
+    const before=app.state();assert.equal(app.run('prepareCanonicalSmelt(save.processedInventory.polished[0],1)'),false);assert.deepEqual(app.state(),before);
+    app.run('save.cash=2**53;save.inventory.stone=1;save.factory.furnace.tier=1;');
+    assert.equal(app.run('prepareDevelopmentSmelt("stone",1)'),false);assert.equal(app.state().inventory.stone,1);
+});
+test("GAME13 resolved work survives upgrades and reload without repricing or duplicate awards",()=>{
+    const app=canonicalFurnaceGame();app.run('save.cash=1000;save.inventory.stone=2;prepareDevelopmentSmelt("stone",1);confirmSmelt()');
+    app.advance(10000);app.run('advanceCanonicalFurnace(Date.now())');const cycle=app.state().factory.furnace.cycle;
+    assert.equal(app.run('upgradeFurnace()'),true);assert.deepEqual(app.state().factory.furnace.cycle,cycle);
+    const loaded=ready(app.stored());assert.equal(loaded.state().cash,902);assert.equal(loaded.state().factory.furnace.cycle,null);
+    loaded.run('saveGame()');assert.equal(ready(loaded.stored()).state().cash,902);
+});
+test("GAME13 conversion and purchase write failures retain exact candidates",()=>{
+    const app=ready();app.run('save.cash=1000;saveGame()');const old=app.stored();app.faults.write=true;
+    assert.equal(app.run('moderniseDevelopmentFurnace()'),false);assert.equal(app.stored(),old);
+    assert.equal(Object.hasOwn(app.state().factory,'furnace'),false);
+    const bytes=app.run('pendingDevelopmentWrite.serialized');assert.equal(app.run('addDeveloperCash(1000)'),false);
+    app.faults.write=false;assert.equal(app.run('retryDevelopmentWrite()'),true);assert.equal(app.stored(),bytes);
+    app.faults.write=true;assert.equal(app.run('upgradeFurnace()'),false);assert.equal(app.state().cash,1000);
+    app.faults.write=false;assert.equal(app.run('retryDevelopmentWrite()'),true);assert.equal(app.state().cash,900);
+    assert.equal(app.state().factory.furnace.tier,2);
+});
+test("GAME13 reservation, resolution and output failures never partially publish",()=>{
+    for(const phase of ['reservation','resolution','commit']){
+        const app=canonicalFurnaceGame();app.run('save.inventory.stone=5;saveGame()');
+        if(phase!=='reservation'){app.run('prepareDevelopmentSmelt("stone",1);confirmSmelt()');app.advance(10000);}
+        if(phase==='commit')app.run('advanceCanonicalFurnace(Date.now())');
+        const before=app.state(),stored=app.stored();app.faults.write=true;
+        const command=phase==='reservation'?'prepareDevelopmentSmelt("stone",1);confirmSmelt()':'advanceCanonicalFurnace(Date.now())';
+        assert.equal(app.run(command),false);assert.deepEqual(app.state(),before);assert.equal(app.stored(),stored);
+        const candidate=app.run('pendingDevelopmentWrite.serialized');assert.equal(app.run('retryDevelopmentWrite()'),false);
+        app.faults.write=false;assert.equal(app.run('retryDevelopmentWrite()'),true);assert.equal(app.stored(),candidate);
+        if(phase==='reservation')app.advance(10000);
+        app.run('updateDevelopmentMiner()');assert.equal(app.state().cash,5);assert.equal(app.state().inventory.stone,0);
+        app.run('updateDevelopmentMiner()');assert.equal(app.state().cash,5);
+    }
+});
+test("GAME13 all processed resources and Refine counts use historical values without compounding",()=>{
+    const app=canonicalFurnaceGame();
+    const ids=app.run('ORE_KEYS.slice()');
+    for(const id of ids) for(const count of [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]){
+        app.run(`save.processedInventory={polished:[],refined:[]};
+            save.processedInventory[${count===0?'"polished"':'"refined"'}]=[InventoryModel.createLot({resourceId:${JSON.stringify(id)},stage:${count===0?'"polished"':'"refined"'},refineCount:${count},amount:3,
+            polishedValue:${count===0?16:'null'},preRefinerValue:${count===0?'null':16},refineBonus:${count===0?'null':0.25}})];`);
+        const lot=app.state().processedInventory[count===0?'polished':'refined'][0],expected=count===0?16:20;
+        const cash=app.state().cash;
+        assert.equal(app.run(`prepareCanonicalSmelt(${JSON.stringify(lot)},0.5)`),true);
+        assert.equal(app.run('pendingSmelt.quote.value'),expected);assert.equal(app.run('confirmSmelt()'),true);
+        app.advance(10000);app.run('updateDevelopmentMiner()');assert.equal(app.state().cash,cash+expected);
+        assert.equal(app.state().processedInventory[lot.stage][0].amount,2);
+    }
+});
+test("GAME13 Developer Furnace is timed, unlimited, exactly multiplied and cannot switch active work",()=>{
+    const app=canonicalFurnaceGame();app.run('save.cash=100;upgradeFurnace();setDeveloperFurnace(true);save.inventory.stone=10001;');
+    assert.equal(app.run('prepareDevelopmentSmelt("stone",1);confirmSmelt()'),true);
+    assert.equal(app.state().factory.furnace.cycle.inputs[0].amount,10001);
+    assert.equal(app.state().factory.furnace.cycle.saleUnitValues[0],1250);
+    assert.equal(app.run('setDeveloperFurnace(false)'),false);
+    app.advance(app.state().factory.furnace.cycle.durationMs);app.run('updateDevelopmentMiner()');
+    assert.equal(app.state().cash,12501250);assert.equal(app.state().factoryXP,10001);
+    assert.equal(app.run('setDeveloperFurnace(false)'),true);
+    app.run('save.inventory.stone=1000');assert.equal(app.run('prepareDevelopmentSmelt("stone",1)'),true);
+    assert.equal(app.run('pendingSmelt.amount'),100);
+});
+test("GAME13 stale quotes, insufficient stock, corrupted result and sequence reject",()=>{
+    const app=canonicalFurnaceGame();app.run('save.inventory.stone=20;save.cash=1000;prepareDevelopmentSmelt("stone",1);upgradeFurnace()');
+    assert.equal(app.run('confirmSmelt()'),false);assert.equal(app.state().inventory.stone,20);
+    app.run('prepareDevelopmentSmelt("stone",1);save.inventory.stone=19');assert.equal(app.run('confirmSmelt()'),false);
+    app.run('prepareDevelopmentSmelt("stone",1);confirmSmelt()');const original=app.state();
+    for(const mutate of [s=>s.factory.furnace.id='furnace:2',s=>s.factory.furnace.nextCycleSequence=1,
+        s=>s.factory.furnace.cycle.durationMs=1,s=>s.factory.furnace.cycle.effectContext.tier=20,
+        s=>s.factory.furnace.cycle.inputs[0].amount=-1,s=>s.factory.furnace.cycle.result={},s=>s.furnaceTier=0]){
+        const bad=structuredClone(original);mutate(bad);assert.ok(boot(JSON.stringify(bad)).error);
+    }
+    app.advance(10000);app.run('advanceCanonicalFurnace(Date.now())');const resolved=app.state();resolved.factory.furnace.cycle.result.cashDelta++;
+    assert.ok(boot(JSON.stringify(resolved)).error);
+});
+test("GAME13 full-batch and resource filters, stop preference, reload and no offline chains",()=>{
+    const app=canonicalFurnaceGame();app.run('save.cash=2000;upgradeFurnace();upgradeFurnace();save.inventory.stone=149;setCanonicalFurnacePreference("batchMode","full")');
+    assert.equal(app.run('advanceCanonicalFurnace(Date.now())'),false);
+    app.run('save.inventory.stone=300;setCanonicalFurnacePreference("resourceMode","oresOnly")');
+    assert.equal(app.run('advanceCanonicalFurnace(Date.now())'),false);
+    app.run('setCanonicalFurnacePreference("resourceMode","stoneOnly");advanceCanonicalFurnace(Date.now());setCanonicalFurnacePreference("autoEnabled",false)');
+    const later=boot(app.stored(),' ',{},app.now()+1000000);assert.equal(later.error,undefined);
+    assert.equal(later.state().cash,1125);assert.equal(later.state().inventory.stone,150);assert.equal(later.state().factory.furnace.cycle,null);
+    later.run('setCanonicalFurnacePreference("autoEnabled",true);updateDevelopmentMiner()');
+    assert.equal(later.state().factory.furnace.cycle.startedAtMs,later.now());assert.equal(later.state().cash,1125);
+});
+test("GAME13 conversion retains values and all twenty sequential Furnace upgrades bind only future work",()=>{
+    for(let old=0;old<3;old++){
+        const app=ready(); app.run(`save.furnaceTier=${old}; save.autoFurnaceEnabled=false; save.cash=100000000000000;`);
+        const before=app.state(); assert.equal(app.run("moderniseDevelopmentFurnace()"),true);
+        assert.equal(app.state().factory.furnace.tier,old+1);assert.equal(app.state().cash,before.cash);
+        assert.equal(app.state().factory.furnace.autoEnabled,false);
+        assert.equal(Object.hasOwn(app.state(),'furnaceTier'),false);
+        for(let tier=old+2;tier<=20;tier++){
+            const cash=app.state().cash,quote=app.run(`FurnaceModel.getTierUpgradePrice(${tier},0)`);
+            assert.equal(app.run('upgradeFurnace()'),true);
+            assert.equal(app.state().factory.furnace.tier,tier);assert.equal(app.state().cash,cash-quote);
+            assert.equal(app.run(`FurnaceModel.getCapacity(${tier})`),50*tier);
+        }
+        assert.equal(app.run('upgradeFurnace()'),false);
+        assert.equal(ready(app.stored()).state().factory.furnace.tier,20);
+    }
+});
+test("GAME13 manual batches reserve then resolve and commit exactly once",()=>{
+    const app=canonicalFurnaceGame();app.run('save.inventory.stone=90; save.cash=100;');
+    assert.equal(app.run('prepareDevelopmentSmelt("stone",1)'),true);
+    assert.equal(app.run('confirmSmelt()'),true);
+    assert.equal(app.state().inventory.stone,40);assert.equal(app.state().cash,100);
+    const cycle=app.state().factory.furnace.cycle;
+    assert.equal(cycle.durationMs,10000);assert.equal(app.run('upgradeFurnace()'),true);
+    assert.deepEqual(app.state().factory.furnace.cycle,cycle);
+    app.advance(10000);assert.equal(app.run('advanceCanonicalFurnace(Date.now())'),true);
+    assert.equal(app.state().cash,0);assert.equal(app.state().factory.furnace.cycle.phase,'resolved');
+    assert.equal(app.run('advanceCanonicalFurnace(Date.now())'),true);
+    assert.equal(app.state().cash,50);assert.equal(app.state().achievementStats.oresSmelted,50);
+    assert.equal(app.state().factoryXP,50);assert.equal(app.run('advanceCanonicalFurnace(Date.now())'),false);
+});
+test("GAME13 historical ten-thousand batch retains original values and completes once",()=>{
+    const app=ready();app.run(`save.furnaceTier=2;save.autoFurnaceEnabled=false;
+        save.autoFurnaceStartTime=Date.now();save.autoFurnaceBatch=[{key:'amber',amount:10000,value:7.5,name:'Amber',emoji:'A'}];`);
+    assert.equal(app.run('moderniseDevelopmentFurnace()'),true);
+    assert.equal(app.state().factory.furnace.cycle.inputs[0].amount,10000);
+    assert.equal(app.state().factory.furnace.cycle.durationMs,10000);
+    app.advance(10000);app.run('updateDevelopmentMiner()');
+    assert.equal(app.state().cash,75000);assert.equal(app.state().inventory.amber,0);
+    assert.equal(app.state().factory.furnace.cycle,null);
+    assert.equal(ready(app.stored()).state().cash,75000);
+});
+test("GAME13 automatic cohorts use highest historical value and preserve partial ownership",()=>{
+    const app=canonicalFurnaceGame();
+    app.run(`save.cash=2000;upgradeFurnace();upgradeFurnace();save.inventory.stone=200;
+        save.processedInventory.polished=[InventoryModel.createLot({resourceId:'ruby',stage:'polished',refineCount:0,amount:20,polishedValue:30,preRefinerValue:null,refineBonus:null})];`);
+    assert.equal(app.run('advanceCanonicalFurnace(Date.now())'),true);
+    const c=app.state().factory.furnace.cycle;
+    assert.equal(c.inputs[0].stage,'polished');assert.equal(c.inputs[0].amount,20);assert.equal(c.saleUnitValues[0],45);
+    assert.equal(c.inputs[1].amount,130);assert.equal(app.state().inventory.stone,70);
+    assert.equal(app.state().processedInventory.polished.length,0);
+    app.advance(c.durationMs);app.run('advanceCanonicalFurnace(Date.now());advanceCanonicalFurnace(Date.now())');
+    assert.equal(app.state().cash,1995); // 900 remaining + 900 polished + 195 Stone
+});
+
 const polishedStats = vm.runInNewContext(ores + '\nPolishedOutputStatisticsCandidateModel;');
 function polishedEvent(resourceId = "ruby", amount = 1) { return { type: "polished", resourceId, stage: "polished", refineCount: 0, amount }; }
 
@@ -3894,8 +4066,12 @@ function boot(raw = null, beforeLoad = "", storageFaults = {}, now = 17000000000
     };
 }
 
+// Prior-ticket scenarios deliberately exercise supported pre-GAME13 private saves.
+const inheritedFurnaceFixtureScript = `const currentFreshSave=createMinerDevelopmentSave;
+createMinerDevelopmentSave=function(){const state=currentFreshSave();delete state.factory.furnace;
+const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[key]=defaults[key];return state;};`;
 function ready(raw) {
-    const app = boot(raw);
+    const app = boot(raw, raw == null ? inheritedFurnaceFixtureScript : "");
     assert.equal(app.error, undefined, app.error?.stack);
     return app;
 }

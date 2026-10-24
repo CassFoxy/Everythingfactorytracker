@@ -700,6 +700,7 @@ function completeValidatedSave(validatedSave){
             }
         }
     }
+    if(hasCanonicalFurnace(completed)) for(const key of furnaceLegacyKeys()) delete defaults[key];
     fillMissing(completed, defaults);
     // DEV01: only an absent optional setting defaults off after validation.
     if(isMinerDevelopment(completed) && !Object.hasOwn(completed, "developerTools"))
@@ -881,6 +882,7 @@ function saveGame(){
     }
 
 function upgradeFurnace(){
+    if(hasCanonicalFurnace()) return upgradeCanonicalFurnace();
 
     if(
         save.furnaceTier >=
@@ -920,6 +922,10 @@ let autoFurnaceState = {
     batch: []
 };
 function restoreAutoFurnace(){
+if(hasCanonicalFurnace()){
+    autoFurnaceState.processing = save.factory.furnace.cycle !== null;
+    autoFurnaceState.batch = []; return;
+}
 autoFurnaceState.enabled =
     save.autoFurnaceEnabled;
 if(
@@ -1161,6 +1167,7 @@ function getAutoFurnaceBatchValue(
 
 
 function startAutoFurnaceCycle(){
+    if(hasCanonicalFurnace()) return false; // stale legacy callback
     if(developerFurnaceEnabled()) return;
 
     if(
@@ -1249,6 +1256,7 @@ function startAutoFurnaceCycle(){
 
 
 function finishAutoFurnaceCycle(){
+    if(hasCanonicalFurnace()) return false; // stale legacy callback
 
     if(
         !autoFurnaceState.processing
@@ -1352,6 +1360,7 @@ addFactoryXP(
 }
 
 function stopAutoFurnace(){
+    if(hasCanonicalFurnace()) return setCanonicalFurnacePreference("autoEnabled",false);
 
     /*
         Disable the creation of new batches.
@@ -1400,6 +1409,7 @@ function stopAutoFurnace(){
 }
 
 function startAutoFurnace(){
+    if(hasCanonicalFurnace()) return setCanonicalFurnacePreference("autoEnabled",true);
     if(developerFurnaceEnabled()) return;
 
     autoFurnaceState.enabled =
@@ -1418,6 +1428,7 @@ function startAutoFurnace(){
 
 
 function updateAutoFurnace(){
+    if(hasCanonicalFurnace()) return renderCanonicalFurnace();
     if(developerFurnaceEnabled()){ updateAutoFurnaceUI(); return; }
 
     if(save.furnaceTier < 2)
@@ -1498,6 +1509,7 @@ function updateAutoFurnace(){
 
 
 function setAutoFurnaceMode(mode){
+    if(hasCanonicalFurnace()) return setCanonicalFurnacePreference("resourceMode",mode);
 
     if(
         ![
@@ -1524,6 +1536,7 @@ function setAutoFurnaceMode(mode){
 function setAutoFurnaceBatchMode(
     mode
 ){
+    if(hasCanonicalFurnace()) return setCanonicalFurnacePreference("batchMode",mode);
 
     if(
         ![
@@ -1559,6 +1572,7 @@ function formatAutoFurnaceTime(
 
 
 function updateAutoFurnaceUI(){
+    if(hasCanonicalFurnace()) return renderCanonicalFurnace();
 
     const container =
         document.getElementById(
@@ -2512,6 +2526,12 @@ document.getElementById("dropperCost").textContent =
     document.getElementById("multipliers").textContent =
         save.multipliers;
 
+    document.getElementById("moderniseFurnace").hidden = !isMinerDevelopment() || hasCanonicalFurnace();
+    document.getElementById("moderniseFurnaceNotice").hidden = !isMinerDevelopment() || hasCanonicalFurnace();
+    if(isMinerDevelopment() && !hasCanonicalFurnace()) document.getElementById("moderniseFurnaceNotice").textContent =
+        "Free conversion to canonical Tier "+(save.furnaceTier+1)+". Future batches: "+FurnaceModel.getCapacity(save.furnaceTier+1)+
+        " capacity. An existing reserved batch keeps its original quantity, value and ten-second duration.";
+    if(!hasCanonicalFurnace()){
     const furnace =
 
     FURNACES[
@@ -2556,6 +2576,7 @@ formatCash(
 }
     
 
+    }else { renderCanonicalFurnace(); renderDeveloperTools(); }
     document.getElementById("adderCost").textContent =
         formatCash(getAdderCost());
 
@@ -3585,6 +3606,7 @@ document.getElementById(
 }
 
 function confirmSmelt(){
+    if(hasCanonicalFurnace()) return confirmCanonicalSmelt();
     if(isMinerDevelopment() && pendingSmelt.kind === "polished") return confirmDevelopmentPolishedSmelt();
     if(isMinerDevelopment()){
         if(autoFurnaceState.processing || pendingDevelopmentWrite) return false;
@@ -3652,6 +3674,7 @@ updateFactoryLevel();
 }
 
           function buildFurnaceMenu(){
+    if(hasCanonicalFurnace()) return buildCanonicalFurnaceMenu();
 
     const container =
         document.getElementById(
@@ -4166,7 +4189,7 @@ const DEVELOPMENT_MINER_MAX_TIER = 25;
 const DEVELOPMENT_MINER_MAX_ORE_LUCK = 50;
 function isMinerDevelopment(state = save){ return state.developmentProfile === "miner-1"; }
 function createMinerDevelopmentSave(){
-    return Object.assign(createDefaultSave(), {
+    const state = Object.assign(createDefaultSave(), {
         developmentProfile: "miner-1",
         developerTools: { furnaceEnabled: false },
         shop: { miningPower: 0, minerUnlocked: false },
@@ -4177,6 +4200,253 @@ function createMinerDevelopmentSave(){
         statistics: PolishedOutputStatisticsCandidateModel.createStatistics(),
         identity: { nextEntitySequence: 1, nextManualEquipSequence: 1 }
     });
+    state.factory.furnace=newDevelopmentFurnace();
+    for(const key of furnaceLegacyKeys()) delete state[key];
+    return state;
+}
+
+// GAME13: one permanent Furnace authority. Old private saves are converted only
+// by an explicit command; untagged legacy saves keep their original runtime.
+function hasCanonicalFurnace(state = save){
+    return isMinerDevelopment(state) && Object.hasOwn(state.factory, "furnace");
+}
+function furnaceLegacyKeys(){
+    return ["furnaceTier","autoFurnaceBatch","autoFurnaceStartTime","autoFurnaceEnabled","autoFurnaceMode","autoFurnaceBatchMode"];
+}
+function newDevelopmentFurnace(){
+    return { id:"furnace:permanent", tier:1, autoEnabled:true, resourceMode:"oresStone", batchMode:"available",
+        selection:null, queue:[], nextCycleSequence:1, cycle:null };
+}
+function furnaceRawLot(resourceId, amount){
+    return InventoryModel.createLot({resourceId,amount,stage:"raw",refineCount:0,
+        polishedValue:null,preRefinerValue:null,refineBonus:null});
+}
+function furnaceResult(cycle){
+    let cashDelta = 0, factoryXPDelta = 0;
+    const events = cycle.inputs.map((lot,index) => {
+        cashDelta = exactDevelopmentAdd(cashDelta, exactDevelopmentProduct(lot.amount,cycle.saleUnitValues[index]));
+        factoryXPDelta = polisherReturnAdd(factoryXPDelta,lot.amount);
+        return {type:"smelted",resourceId:lot.resourceId,stage:lot.stage,refineCount:lot.refineCount,amount:lot.amount};
+    });
+    return {outputs:[],cashDelta,factoryXPDelta,gemDustDelta:0,events};
+}
+function validateDevelopmentFurnace(state){
+    if(!hasCanonicalFurnace(state)){
+        for(const item of state.autoFurnaceBatch) developmentRecord(item,["key","amount","value","name","emoji"]);
+        return;
+    }
+    if(furnaceLegacyKeys().some(key => Object.hasOwn(state,key))) throw Error("Contradictory Furnace authorities");
+    const f=state.factory.furnace, c=f.cycle;
+    FurnaceUpgradeCandidateModel.validateIdleFurnace({...f,cycle:null});
+    if(c===null) return;
+    developmentRecord(c,["id","phase","startedAtMs","durationMs","inputs","saleUnitValues","effectContext","result"]);
+    if(f.nextCycleSequence<2 || c.id!==f.id+"/cycle:"+(f.nextCycleSequence-1)) throw Error("Invalid Furnace cycle identity");
+    const legacy=c.effectContext?.kind==="legacyFurnaceV1";
+    const metadata={startedAtMs:c.startedAtMs,durationMs:c.durationMs,inputs:c.inputs,saleUnitValues:c.saleUnitValues};
+    if(legacy){
+        CycleEffectContextModel.validateLegacyFurnaceForAdapter(c.effectContext,"furnace",metadata);
+        if(f.tier<3 || f.nextCycleSequence!==2 || c.inputs.reduce((n,l)=>polisherReturnAdd(n,l.amount),0)>10000 || developerFurnaceEnabled(state))
+            throw Error("Invalid historical Furnace reservation");
+    }else{
+        const e=CycleEffectContextModel.validateContext(c.effectContext,"furnace");
+        if(e.tier>f.tier || e.speedLevel!==0 || e.valueLevel!==0) throw Error("Unsupported Furnace effects");
+        if(developerFurnaceEnabled(state)){
+            // Private testing override: only capacity is unlimited. Validate every
+            // input independently through the normal metadata validator.
+            if(e.activation!=="manual" || !Array.isArray(c.inputs) || !c.inputs.length ||
+                !Array.isArray(c.saleUnitValues) || c.saleUnitValues.length!==c.inputs.length) throw Error("Invalid testing batch");
+            c.inputs.forEach((lot,i)=>{
+                InventoryModel.validateLot(lot);
+                CycleEffectContextModel.validateMetadata(e,"furnace",{...metadata,
+                    inputs:[{...lot,amount:1}],saleUnitValues:[c.saleUnitValues[i]]});
+            });
+        }else CycleEffectContextModel.validateMetadata(e,"furnace",metadata);
+        c.inputs.forEach((lot,index)=>{
+            if(lot.stage!=="raw"){
+                const expected=exactDevelopmentProduct(FurnaceModel.calculateSaleValue(processedUnitValue(lot),e.tier,0),developerFurnaceEnabled(state)?1000:1);
+                if(c.saleUnitValues[index]!==expected) throw Error("Captured processed Furnace value mismatch");
+            }
+        });
+    }
+    const expected=furnaceResult(c);
+    if(c.phase==="reserved") { if(c.result!==null) throw Error("Reserved Furnace has a result"); }
+    else if(c.phase==="resolved") validateDevelopmentResult(c.result,expected);
+    else throw Error("Invalid Furnace phase");
+}
+function prepareFurnaceConversion(state){
+    if(hasCanonicalFurnace(state)) throw Error("Furnace already modernised");
+    validateSaveData(state); validateDevelopmentSave(state);
+    const f=newDevelopmentFurnace();
+    f.tier=state.furnaceTier+1; f.autoEnabled=state.autoFurnaceEnabled;
+    f.resourceMode=state.autoFurnaceMode; f.batchMode=state.autoFurnaceBatchMode;
+    if(state.autoFurnaceBatch.length){
+        f.nextCycleSequence=2;
+        f.cycle={id:f.id+"/cycle:1",phase:"reserved",startedAtMs:state.autoFurnaceStartTime,durationMs:10000,
+            inputs:state.autoFurnaceBatch.map(item=>furnaceRawLot(item.key,item.amount)),
+            saleUnitValues:state.autoFurnaceBatch.map(item=>item.value),effectContext:{version:1,kind:"legacyFurnaceV1"},result:null};
+    }
+    state.factory.furnace=f;
+    for(const key of furnaceLegacyKeys()) delete state[key];
+    validateDevelopmentFurnace(state);
+}
+function moderniseDevelopmentFurnace(){
+    return developmentCommand(prepareFurnaceConversion,{message:"Furnace modernised. Historical reserved work retains its original terms."});
+}
+function upgradeCanonicalFurnace(){
+    return developmentCommand(next=>{
+        const f=next.factory.furnace;
+        const candidate=FurnaceUpgradeCandidateModel.prepareTierUpgrade({cash:next.cash,factory:{furnace:{...copySaveData(f),cycle:null}}},0);
+        next.cash=candidate.cash; f.tier=candidate.factory.furnace.tier;
+    },{message:"Furnace upgraded. Active work is unchanged."});
+}
+function canonicalFurnaceUnitValue(state,lot){
+    const basis=lot.stage==="raw" ? (lot.resourceId==="stone" ? state.stoneValue : developmentOre(lot.resourceId).value) : processedUnitValue(lot);
+    const normal=FurnaceModel.calculateSaleValue(basis,state.factory.furnace.tier,0);
+    exactDevelopmentProduct(basis,FurnaceModel.getTierValueMultiplier(state.factory.furnace.tier));
+    return exactDevelopmentProduct(normal,developerFurnaceEnabled(state)?1000:1);
+}
+function reserveCanonicalFurnace(state,inputs,activation,now){
+    const f=state.factory.furnace;
+    if(f.cycle || !inputs.length || f.nextCycleSequence>=Number.MAX_SAFE_INTEGER) throw Error("Furnace unavailable");
+    if(activation==="automatic" && (!f.autoEnabled || !FurnaceModel.isAutoProcessingEligible(f.tier) || developerFurnaceEnabled(state)))
+        throw Error("Automatic Furnace unavailable");
+    const values=inputs.map(lot=>canonicalFurnaceUnitValue(state,lot));
+    for(const lot of inputs){
+        InventoryModel.validateLot(lot);
+        if(lot.stage==="raw") state.inventory[lot.resourceId]=developmentDebit(state.inventory[lot.resourceId],lot.amount);
+        else takeProcessedInput(state,lot,lot.amount);
+    }
+    f.cycle={id:f.id+"/cycle:"+f.nextCycleSequence++,phase:"reserved",startedAtMs:now,
+        durationMs:FurnaceModel.getFinalInterval(f.tier,0)*1000,inputs:copySaveData(inputs),saleUnitValues:values,
+        effectContext:{version:1,kind:"furnace",tier:f.tier,speedLevel:0,valueLevel:0,activation},result:null};
+    validateDevelopmentFurnace(state);
+}
+function automaticFurnaceInputs(state){
+    const f=state.factory.furnace;
+    let stock=[];
+    for(const id of ["stone",...ORE_KEYS]) if(state.inventory[id]>0) stock.push(furnaceRawLot(id,state.inventory[id]));
+    let grouped=InventoryModel.createProcessedInventory();
+    for(const lot of [...state.processedInventory.polished,...state.processedInventory.refined]) grouped=InventoryModel.addProcessedLot(grouped,lot);
+    stock.push(...grouped.polished,...grouped.refined);
+    stock=stock.filter(l=>f.resourceMode==="oresStone" || (f.resourceMode==="stoneOnly" ? l.resourceId==="stone" : l.resourceId!=="stone"));
+    const lexical=(a,b)=>a<b?-1:a>b?1:0;
+    stock.sort((a,b)=>canonicalFurnaceUnitValue(state,b)-canonicalFurnaceUnitValue(state,a) || lexical(a.resourceId,b.resourceId) ||
+        a.refineCount-b.refineCount || lexical(JSON.stringify(processedSelection(a)),JSON.stringify(processedSelection(b))));
+    let remaining=FurnaceModel.getCapacity(f.tier); const inputs=[];
+    for(const lot of stock){
+        if(!remaining) break;
+        const amount=Math.min(remaining,lot.amount);
+        inputs.push(InventoryModel.splitLot(lot,amount).taken); remaining-=amount;
+    }
+    return f.batchMode==="full" && remaining>0 ? [] : inputs;
+}
+function advanceCanonicalFurnace(now){
+    const f=save.factory.furnace,c=f.cycle;
+    if(!c){
+        if(!f.autoEnabled || f.tier<3 || developerFurnaceEnabled()) return false;
+        let inputs;
+        try{ inputs=automaticFurnaceInputs(save); }
+        catch(error){ document.getElementById("furnaceFeedback").textContent=error.message;return false; }
+        if(!inputs.length) return false;
+        return developmentCommand(next=>reserveCanonicalFurnace(next,inputs,"automatic",now));
+    }
+    if(c.phase==="reserved"){
+        if(now<c.startedAtMs+c.durationMs) return false;
+        return developmentCommand(next=>{const cycle=next.factory.furnace.cycle; cycle.result=furnaceResult(cycle);cycle.phase="resolved";});
+    }
+    return developmentCommand(next=>{
+        const result=next.factory.furnace.cycle.result;
+        next.cash=exactDevelopmentAdd(next.cash,result.cashDelta);
+        next.factoryXP=polisherReturnAdd(next.factoryXP,result.factoryXPDelta);
+        next.achievementStats.oresSmelted=polisherReturnAdd(next.achievementStats.oresSmelted,result.factoryXPDelta);
+        next.factory.furnace.cycle=null; prepareDevelopmentProgress(next);
+    });
+}
+function canonicalSmeltQuote(state,selection,amount){
+    const f=state.factory.furnace;
+    if(f.cycle) throw Error("Wait for the current Furnace cycle to finish.");
+    InventoryModel.validateLot(selection);
+    const available=selection.stage==="raw" ? state.inventory[selection.resourceId] : polishedSaleCohort(state,selection).amount;
+    if(!Number.isInteger(amount) || amount<=0 || amount>available ||
+        (!developerFurnaceEnabled(state) && amount>FurnaceModel.getCapacity(f.tier))) throw Error("Unavailable Furnace quantity");
+    InventoryModel.splitLot({...selection,amount:available},amount);
+    const value=canonicalFurnaceUnitValue(state,selection),total=exactDevelopmentProduct(value,amount);
+    exactDevelopmentAdd(state.cash,total);
+    return {available,value,total,tier:f.tier,developerMode:developerFurnaceEnabled(state),durationMs:FurnaceModel.getFinalInterval(f.tier,0)*1000};
+}
+function prepareCanonicalSmelt(selection,percent){
+    if(pendingDevelopmentWrite || recoveryState.active) return false;
+    try{
+        validateSaveData(save); validateDevelopmentSave(save);
+        const available=selection.stage==="raw" ? save.inventory[selection.resourceId] : polishedSaleCohort(save,selection).amount;
+        const amount=polishedSaleQuantity(available,percent,developerFurnaceEnabled()?null:FurnaceModel.getCapacity(save.factory.furnace.tier));
+        const quote=canonicalSmeltQuote(save,selection,amount);
+        pendingSmelt={kind:"canonical",cohort:{...selection,amount:1},amount,quote};
+        document.getElementById("confirmOre").textContent=selection.stage==="raw" ? "Raw "+developmentOre(selection.resourceId).name : processedLabel(selection);
+        document.getElementById("confirmCohort").textContent="Starts a timed batch · "+(quote.durationMs/1000).toFixed(3)+" seconds";
+        document.getElementById("confirmFurnaceMode").textContent=quote.developerMode?"Developer Furnace · testing ×1,000":"Furnace Tier "+quote.tier;
+        for(const [id,value] of [["confirmAmount",amount],["confirmValue",quote.value],["confirmTotal",quote.total]])
+            document.getElementById(id).textContent=polishedCashText(value);
+        document.getElementById("smeltConfirmModal").style.display="block";
+        return true;
+    }catch(error){document.getElementById("furnaceFeedback").textContent=error.message;return false;}
+}
+function confirmCanonicalSmelt(){
+    return developmentCommand(next=>{
+        if(pendingSmelt.kind!=="canonical") throw Error("Review the Furnace batch again");
+        const {cohort,amount,quote}=pendingSmelt;
+        validateDevelopmentResult(canonicalSmeltQuote(next,cohort,amount),quote);
+        next.factory.furnace.selection=Object.fromEntries(Object.entries(cohort).filter(([key])=>key!=="amount"));
+        reserveCanonicalFurnace(next,[{...cohort,amount}],"manual",Date.now());
+    },{message:"Furnace inputs reserved. Cash is awarded only after processing completes.",smelt:true});
+}
+function setCanonicalFurnacePreference(key,value){
+    return developmentCommand(next=>{
+        if(!["autoEnabled","resourceMode","batchMode"].includes(key)) throw Error("Invalid Furnace preference");
+        next.factory.furnace[key]=value;
+    },{message:"Furnace preference saved. Reserved work is unchanged."});
+}
+function renderCanonicalFurnace(){
+    if(!hasCanonicalFurnace()) return;
+    const f=save.factory.furnace,c=f.cycle,dev=developerFurnaceEnabled();
+    document.getElementById("moderniseFurnace").hidden=true;
+    document.getElementById("canonicalFurnaceDetails").hidden=false;
+    document.getElementById("autoFurnaceControls").hidden=true;
+    document.getElementById("furnaceName").textContent=(dev?"Developer Furnace · ":"Furnace · ")+"Tier "+f.tier+" / 20";
+    document.getElementById("furnaceCapacity").textContent=dev?"Unlimited":FurnaceModel.getCapacity(f.tier);
+    document.getElementById("canonicalFurnaceBenefits").textContent=FurnaceModel.getTierValueMultiplier(f.tier).toFixed(2)+"× value · "+
+        FurnaceModel.getFinalInterval(f.tier,0).toFixed(3)+"s · "+(f.tier<3?"Manual processing":"Automatic processing available");
+    const button=document.getElementById("upgradeFurnace"),price=f.tier<20?FurnaceModel.getTierUpgradePrice(f.tier+1,0):null;
+    button.textContent=price===null?"Max Level":"Upgrade Tier "+(f.tier+1)+" — $"+formatCash(price);
+    button.disabled=price===null || save.cash<price || !!pendingDevelopmentWrite;
+    const toggle=document.getElementById("canonicalFurnaceAuto"); toggle.checked=f.autoEnabled; toggle.disabled=f.tier<3 || dev;
+    document.getElementById("canonicalFurnaceResources").value=f.resourceMode;
+    document.getElementById("canonicalFurnaceBatch").value=f.batchMode;
+    document.getElementById("canonicalFurnaceStatus").textContent=c ?
+        (c.effectContext.kind==="legacyFurnaceV1"?"Historical 10-second batch": "Captured Tier "+c.effectContext.tier)+" · "+c.phase+" · "+
+            c.inputs.map(l=>l.amount+" "+l.stage+" "+developmentOre(l.resourceId).name).join(", ")+" · Captured payout $"+polishedCashText(furnaceResult(c).cashDelta) :
+        dev?"Testing only: automatic reservations paused.":"Idle. "+(f.tier<3?"Open Furnace to start a batch.":f.autoEnabled?"Waiting for eligible stock.":"Automatic reservations stopped.");
+    document.getElementById("canonicalFurnaceProgress").value=c?Math.min(100,Math.max(0,(Date.now()-c.startedAtMs)/c.durationMs*100)):0;
+}
+function buildCanonicalFurnaceMenu(){
+    const raw=document.getElementById("furnaceItems"),processed=document.getElementById("polishedFurnaceItems");raw.innerHTML="";processed.innerHTML="";
+    let grouped=InventoryModel.createProcessedInventory();
+    for(const lot of [...save.processedInventory.polished,...save.processedInventory.refined]) grouped=InventoryModel.addProcessedLot(grouped,lot);
+    const stock=[...["stone",...ORE_KEYS].filter(id=>save.inventory[id]>0).map(id=>furnaceRawLot(id,save.inventory[id])),...grouped.polished,...grouped.refined];
+    for(const lot of stock){
+        const row=document.createElement("section");row.className="furnace-cohort";
+        const label=document.createElement("strong");label.textContent=lot.stage==="raw"?"Raw "+developmentOre(lot.resourceId).name:processedLabel(lot);row.appendChild(label);
+        const details=document.createElement("p");
+        try{details.textContent=lot.amount.toLocaleString()+" available · Sale unit $"+polishedCashText(canonicalFurnaceUnitValue(save,lot));}
+        catch(error){details.textContent=error.message;}
+        row.appendChild(details);
+        for(const percent of [.25,.5,1]){
+            const button=document.createElement("button");button.textContent=(percent*100)+"%";
+            button.disabled=!!save.factory.furnace.cycle || !!pendingDevelopmentWrite || Math.floor(lot.amount*percent)===0;
+            button.onclick=()=>prepareCanonicalSmelt(lot,percent);row.appendChild(button);
+        }
+        (lot.stage==="raw"?raw:processed).appendChild(row);
+    }
 }
 function developmentRecord(value, keys){
     if(!value || typeof value !== "object" || Array.isArray(value) ||
@@ -4218,10 +4488,10 @@ function validateDevelopmentSave(state){
         if(Object.hasOwn(state, "developerTools")){
             developmentRecord(state.developerTools, ["furnaceEnabled"]);
             if(typeof state.developerTools.furnaceEnabled !== "boolean") throw Error("Invalid developer Furnace mode");
-            if(state.developerTools.furnaceEnabled && state.autoFurnaceBatch.length)
+            if(state.developerTools.furnaceEnabled && (state.autoFurnaceBatch?.length || state.factory?.furnace?.cycle?.effectContext?.activation === "automatic"))
                 throw Error("Developer Furnace cannot own an automatic batch");
         }
-        for(const key of Object.keys(createDefaultSave())) if(!Object.hasOwn(state, key)) throw Error("Missing development field: " + key);
+        for(const key of Object.keys(createDefaultSave())) if(!(hasCanonicalFurnace(state) && furnaceLegacyKeys().includes(key)) && !Object.hasOwn(state, key)) throw Error("Missing development field: " + key);
         for(const key of ["stone", ...ORE_KEYS]) if(!Object.hasOwn(state.inventory, key)) throw Error("Missing inventory counter");
         developmentRecord(state.shop, ["miningPower", "minerUnlocked"]);
         if(![0,1].includes(state.shop.miningPower) || state.shop.minerUnlocked && state.shop.miningPower !== 1)
@@ -4291,6 +4561,7 @@ function validateDevelopmentSave(state){
         }
         validateDevelopmentPolishers(state);
         validateDevelopmentRefiner(state);
+        validateDevelopmentFurnace(state);
         MinerCandidateModel.validateCandidate(projection, developmentOtherIds(state,"miner"));
     }catch(error){
         throw saveLoadError("DEVELOPMENT_INCOMPATIBLE", "Incompatible development save: " + error.message, error);
@@ -4331,6 +4602,7 @@ function prepareDevelopmentAward(state, resourceId, amount, manual){
 function publishDevelopmentState(next){
     const previous = save;
     save = next;
+    if(hasCanonicalFurnace()) restoreAutoFurnace();
     document.getElementById("minerFeedback").textContent = "";
     for(const id of ORE_KEYS) if(previous.oreCollection[id] === 0 && save.oreCollection[id] > 0){
         const ore = developmentOre(id); showDiscoveryPopup(ore.emoji + " " + ore.name, ore.value);
@@ -4416,7 +4688,7 @@ function addDeveloperCash(input){
 function setDeveloperFurnace(enabled){
     return developmentCommand(next => {
         if(typeof enabled !== "boolean") throw Error("Invalid Developer Furnace setting.");
-        if(autoFurnaceState.processing || next.autoFurnaceBatch.length)
+        if(autoFurnaceState.processing || next.autoFurnaceBatch?.length || next.factory.furnace?.cycle)
             throw Error("Wait for the current Auto Furnace batch to finish before switching.");
         next.developerTools = { furnaceEnabled: enabled };
     }, { message: enabled ? "Developer Furnace enabled. Manual sales only; Auto Furnace paused." : "Normal Furnace restored. Saved Auto Furnace preference retained.", smelt: true });
@@ -4442,6 +4714,7 @@ function developmentSmeltQuote(state, key, amount){
     return { value, total };
 }
 function prepareDevelopmentSmelt(key, percent){
+    if(hasCanonicalFurnace()) return prepareCanonicalSmelt(furnaceRawLot(key,1),percent);
     document.getElementById("confirmCohort").textContent = "";
     document.getElementById("confirmFurnaceMode").textContent = developerFurnaceEnabled() ? "Developer Furnace · testing ×1,000" : "Normal Furnace";
     if(pendingDevelopmentWrite || recoveryState.active || autoFurnaceState.processing) return false;
@@ -4505,6 +4778,7 @@ function developmentPolishedSmeltQuote(state, selection, amount){
 }
 function polishedCashText(value){ return value.toLocaleString(undefined, { maximumSignificantDigits: 21 }); }
 function prepareDevelopmentPolishedSmelt(selection, percent){
+    if(hasCanonicalFurnace()) return prepareCanonicalSmelt(selection,percent);
     if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
     try{
         if(autoFurnaceState.processing || save.autoFurnaceBatch.length) throw Error("Wait for the active Auto Furnace batch to finish.");
@@ -4527,7 +4801,7 @@ function prepareDevelopmentPolishedSmelt(selection, percent){
 }
 function confirmDevelopmentPolishedSmelt(){
     return developmentCommand(next => {
-        if(autoFurnaceState.processing || next.autoFurnaceBatch.length) throw Error("Wait for the active Auto Furnace batch to finish, then review the sale.");
+        if(autoFurnaceState.processing || next.autoFurnaceBatch?.length || next.factory.furnace?.cycle) throw Error("Wait for the active Auto Furnace batch to finish, then review the sale.");
         const { cohort, amount, quote: preview } = pendingSmelt;
         const quote = developmentPolishedSmeltQuote(next, cohort, amount);
         if(!preview || Object.keys(quote).some(key => quote[key] !== preview[key]))
@@ -4769,6 +5043,15 @@ function updateDevelopmentMiner(){
             if(before === null) break; // Never complete newly reserved work in this tick.
         }
     }
+    if(hasCanonicalFurnace()){
+        for(let step=0;step<3;step++){
+            if(pendingDevelopmentWrite || recoveryState.active) break;
+            const before=save.factory.furnace.cycle;
+            if(!advanceCanonicalFurnace(now)) break;
+            if(before===null) break;
+        }
+        renderCanonicalFurnace();
+    }
     renderDevelopmentMiner(); renderDevelopmentPolishers(); renderDevelopmentRefiner();
 }
 function advanceDevelopmentMiner(minerId, now){
@@ -4898,7 +5181,7 @@ function polisherProjection(state){
     return {cash:state.cash, identity:{...state.identity}, factory:{polishers:state.factory.polishers.map(m => ({...m,queue:[],cycle:null}))}};
 }
 function validateDevelopmentPolishers(state){
-    developmentRecord(state.factory,["minerSlots","miners","polishers","refiner"]);
+    developmentRecord(state.factory,["minerSlots","miners","polishers","refiner",...(hasCanonicalFurnace(state)?["furnace"]:[])]);
     for(const key of ["challenges","activeChallenges","challengeState"])
         if(Object.hasOwn(state,key)) throw Error("Active challenge state is unsupported in this private profile");
     developmentRecord(state.processedInventory,["polished","refined"]);

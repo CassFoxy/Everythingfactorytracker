@@ -57,6 +57,16 @@
     <p id="furnaceModeNotice">Smelt resources from your inventory to earn Cash.</p>
     <div class="furnace-actions"><button onclick="openFurnace()">🔥 Open Furnace</button><button id="upgradeFurnace">Upgrade Furnace</button></div>
     <div id="autoFurnaceControls"></div>
+    <button id="moderniseFurnace" hidden onclick="moderniseDevelopmentFurnace()">Modernise Furnace — keep existing work</button>
+    <p id="moderniseFurnaceNotice" hidden></p>
+    <div id="canonicalFurnaceDetails" hidden>
+     <p id="canonicalFurnaceBenefits"></p>
+     <label><input id="canonicalFurnaceAuto" type="checkbox" onchange="setCanonicalFurnacePreference('autoEnabled',this.checked)"> Automatic batches (Tier 3+)</label>
+     <label>Resources <select id="canonicalFurnaceResources" onchange="setCanonicalFurnacePreference('resourceMode',this.value)"><option value="oresStone">All resources and stages</option><option value="oresOnly">Ores, all stages</option><option value="stoneOnly">Stone only</option></select></label>
+     <label>Batch <select id="canonicalFurnaceBatch" onchange="setCanonicalFurnacePreference('batchMode',this.value)"><option value="available">Available stock</option><option value="full">Full capacity only</option></select></label>
+     <progress id="canonicalFurnaceProgress" max="100" value="0" aria-label="Furnace processing progress"></progress>
+     <p id="canonicalFurnaceStatus" role="status"></p>
+    </div>
    </article>
    <div class="factory-note"><span aria-hidden="true">▦</span><p>Build at your own pace.<br><span>Mine → collect → smelt → expand.</span></p></div>
   </section>

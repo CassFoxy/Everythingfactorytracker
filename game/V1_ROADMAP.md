@@ -1,5 +1,12 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME13 — Complete Canonical Furnace Modernisation
+
+**Status: IN PROGRESS — implementation and consolidated verification.** Permanent Tier 1–20 Furnace, canonical capacity/value/timing, timed manual batches and automatic raw/Polished/Refined selection share the private durable scheduler. Explicit conversion maps old private indices 0/1/2 to tiers 1/2/3 without charge; historical batches retain their original quantity, value and ten-second duration once. New Tier 3 capacity is 150. Developer Furnace remains unlimited manual ×1,000 only.
+
+Fresh states use canonical ownership; earlier private states retain supported inherited behavior until the visible Modernise Furnace command. Public migration remains separate. Remaining: Refiner resale (R1), Rebirth, challenges, grid/conveyors and public V2 compatibility. Next consolidated gameplay recommendation: Refiner resale/replacement after explicit approval of R1 input disposition; do not invent that policy here.
+
+
 
 ## V1-GAME12 — Complete Playable Refiner and Refined-Ore Economy
 
