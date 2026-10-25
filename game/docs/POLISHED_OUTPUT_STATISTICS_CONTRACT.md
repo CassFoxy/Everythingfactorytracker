@@ -1,5 +1,7 @@
 # V1-152A1 — Polished-output statistics fields
 
+**GAME15 private activation:** Core Rebirth now owns one atomic reset, retaining lifetime Polished output and zeroing the complete current-Rebirth map. It clears all reserved/resolved work without settlement or restitution and retains permanent Furnace identity/preferences/sequence at Tier 1. [Exact state, hundredths arithmetic and known-absence policy](SAVE_VERSIONING.md#v1-game15--private-core-rebirth-and-stardust). This supersedes historical unimplemented-Rebirth wording only for miner-1, not public V2 or perk purchases.
+
 **GAME09 private-development exception:** The miner-1 profile now activates three canonical Polishers, Tier 1–10, raw/queue reservations, resolution and an atomic processed-inventory plus lifetime/current-Rebirth statistics commit. See [the bounded activation and known-absence policy](SAVE_VERSIONING.md#v1-game09--private-playable-polisher-activation). Earlier pure-only/public-blocked wording below remains the historical/public contract; it does not prohibit this approved private consumer. Active challenges, processed sales, Polisher resale and full public V2 remain unsupported.
 
 **Future technical contract; pure candidates only. Production saveVersion remains 1.**

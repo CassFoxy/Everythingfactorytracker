@@ -5701,3 +5701,69 @@ test('GAME14 reload preserves saved resolved outcomes before later idle resale',
  const a=refinerGame(10,2);reserveRefiner(a);resolveRefiner(a,[0,.5,0,0,.5,.99]);const r=a.state().factory.refiner.cycle.result;
  const loaded=ready(a.stored());assert.equal(loaded.state().gemDust,r.gemDustDelta);assert.deepEqual(loaded.state().processedInventory.refined,r.outputs);assert.ok(loaded.state().factory.refiner);assert.equal(sellRefiner(loaded),true);assert.deepEqual(loaded.state().processedInventory.refined,r.outputs);
 });
+
+function rebirthForTest(a){assert.equal(a.run('prepareDevelopmentRebirth()'),true);return a.run('confirmDevelopmentRebirth()');}
+function rebirthFactoryFixture(resolved=false){
+ const a=canonicalFurnaceGame();
+ a.run('addDeveloperCash(2000000000000);buyMiningPower();unlockDevelopmentMiner();for(let slot=1;slot<=5;slot++){if(slot>1)unlockDevelopmentMinerSlot(slot);buyDevelopmentMiner(slot)};for(let slot=1;slot<=3;slot++)buyDevelopmentPolisher(slot);buyDevelopmentRefiner()');
+ assert.equal(a.state().factory.miners.length,5);assert.equal(a.state().factory.polishers.length,3);assert.ok(a.state().factory.refiner);
+ assert.equal(a.run('developmentCommand(n=>{n.inventory.ruby=100;n.inventory.stone=100;n.processedInventory.polished.push(PolisherModel.createPolishedLot("ruby",10,100));n.processedInventory.refined.push(InventoryModel.createLot({resourceId:"ruby",stage:"refined",refineCount:7,amount:4,polishedValue:null,preRefinerValue:100,refineBonus:-.18}));n.factory.refiner.selection=processedSelection(n.processedInventory.polished[0]);n.factory.furnace.autoEnabled=false;n.factory.furnace.resourceMode="stoneOnly";n.factory.furnace.batchMode="full";n.statistics.lifetime.polishedOutput.ruby=30;n.statistics.thisRebirth.polishedOutput.ruby=10;n.gemDust=7;n.factoryXP=10000;n.factoryLevel=10;n.factoryMilestones[10]=true;n.manual.firstActionCompleted=true;n.oreCollection.ruby=40;n.materials={wood:3,scrap:4,metal:5};n.permanentBonuses.stardustGain=7500;prepareDevelopmentProgress(n)})'),true);
+ a.run('for(const m of save.factory.polishers){setDevelopmentPolisherOre(m.id,"ruby");queueDevelopmentPolisher(m.id,5)};updateDevelopmentMiner()');
+ assert.equal(a.run('prepareDevelopmentSmelt("stone",1);confirmSmelt()'),true);
+ // Validated controlled ownership at caps, retaining older captured work.
+ assert.equal(a.run('developmentCommand(n=>{for(const m of n.factory.miners){m.tier=25;m.oreLuckLevel=50;for(let t=2;t<=25;t++)m.investment.entries.push({kind:"tier",targetLevel:t,cashPaid:MinerTierModel.getTierUpgradePrice(t,0),basis:"actual"});for(let l=1;l<=50;l++)m.investment.entries.push({kind:"oreLuck",targetLevel:l,cashPaid:MinerOreLuckModel.getUpgradePrice(l,0),basis:"actual"})}for(const m of [...n.factory.polishers,n.factory.refiner]){m.tier=10;for(let t=2;t<=10;t++)m.investment.entries.push({kind:"tier",targetLevel:t,cashPaid:(m.id.startsWith("refiner:")?RefinerModel:PolisherModel).getTierUpgradePrice(t,0),basis:"actual"})}n.factory.furnace.tier=20;n.cash=2000000})'),true);
+ if(resolved){a.advance(20000);a.run('for(const m of save.factory.miners)advanceDevelopmentMiner(m.id,Date.now());for(const m of save.factory.polishers)advanceDevelopmentPolisher(m.id,Date.now());advanceDevelopmentRefiner(save.factory.refiner.id,Date.now());advanceCanonicalFurnace(Date.now())');}
+ return a;
+}
+test('GAME15 payout table uses unspent Cash and final rounding only with exact repeated hundredths',()=>{
+ for(const [cash,award] of [[1000000,10],[2000000,15],[4000000,20],[8000000,25],[16000000,30],[3000000,17.92],[1000001,10],[1000000000000,109.66],[Number.MAX_VALUE,5030.34]]){
+  const a=canonicalFurnaceGame();a.run('save.cash='+cash);const expected=Number((10+5*Math.log2(cash/1000000)).toFixed(2));assert.equal(a.run('developmentRebirthQuote(save).award'),expected);assert.equal(expected,award);assert.equal(rebirthForTest(a),true);assert.equal(a.state().stardust,expected);assert.equal(a.state().rebirthCount,1);assert.equal(a.state().cash,0);assert.equal(a.run('confirmDevelopmentRebirth()'),false);
+ }
+ const a=canonicalFurnaceGame();for(let i=0;i<10;i++){a.run('addDeveloperCash(3000000)');assert.equal(rebirthForTest(a),true);}assert.equal(a.state().stardust,179.2);assert.equal(a.state().rebirthCount,10);assert.deepEqual(ready(a.stored()).state(),a.state());
+});
+test('GAME15 eligibility ignores investments inventory lifetime counters and bonus aliases',()=>{
+ const a=canonicalFurnaceGame();for(const cash of [0,999999,999999.99]){a.run('save.cash='+cash+';save.totalOres=1e12;save.achievementStats.oresSmelted=1e12;save.inventory.ruby=1e12;save.permanentBonuses.stardustGain=7500');const before=a.state();assert.equal(a.run('prepareDevelopmentRebirth()'),false);assert.deepEqual(a.state(),before);}
+ a.run('save.cash=1000000');assert.equal(a.run('developmentRebirthQuote(save).award'),10);assert.equal(rebirthForTest(a),true);
+});
+test('GAME15 reserved and resolved factory resets are atomic with no refunds restitution RNG or pending rewards',()=>{
+ for(const resolved of [false,true]){
+  const a=rebirthFactoryFixture(resolved),before=a.state();if(!resolved)a.advance(100000);
+  a.run('Math.random=()=>{throw Error("Rebirth must not roll")};');assert.equal(rebirthForTest(a),true);const after=a.state();
+  assert.equal(after.cash,0);assert.equal(after.stardust,15);assert.equal(after.rebirthCount,1);assert.deepEqual(after.shop,{miningPower:0,minerUnlocked:false});assert.deepEqual(after.factory.miners,[]);assert.deepEqual(after.factory.polishers,[]);assert.equal(after.factory.refiner,null);assert.deepEqual(after.processedInventory,{polished:[],refined:[]});assert.ok(Object.values(after.inventory).every(v=>v===0));
+  assert.deepEqual(after.factory.furnace,{...before.factory.furnace,tier:1,selection:null,queue:[],cycle:null});assert.deepEqual(after.statistics.lifetime,before.statistics.lifetime);assert.ok(Object.values(after.statistics.thisRebirth.polishedOutput).every(v=>v===0));
+  for(const key of ['factoryXP','factoryLevel','gemDust','identity','manual','materials','oreCollection','achievements','achievementStats','factoryMilestones','permanentBonuses','cycleBonuses','cosmetics','developerTools','totalOres'])assert.deepEqual(after[key],before[key]);assert.deepEqual(after.factory.minerSlots,before.factory.minerSlots);
+  const expected=structuredClone(before);expected.cash=0;expected.stardust=15;expected.rebirthCount=1;expected.shop=after.shop;expected.inventory=after.inventory;expected.processedInventory=after.processedInventory;expected.factory=after.factory;expected.statistics=after.statistics;assert.deepEqual(after,expected);
+  for(const m of before.factory.miners)assert.equal(a.run('advanceDevelopmentMiner('+JSON.stringify(m.id)+',Date.now())'),false);for(const m of before.factory.polishers)assert.equal(a.run('advanceDevelopmentPolisher('+JSON.stringify(m.id)+',Date.now())'),false);assert.equal(a.run('advanceDevelopmentRefiner('+JSON.stringify(before.factory.refiner.id)+',Date.now())'),false);a.run('updateDevelopmentMiner()');assert.deepEqual(a.state(),after);assert.deepEqual(ready(a.stored()).state(),after);
+ }
+});
+test('GAME15 cancel and any authoritative state change invalidate confirmation without reset',()=>{
+ for(const change of ['closeDevelopmentRebirth()','addDeveloperCash(1)','mineDevelopmentOre()','setCanonicalFurnacePreference("autoEnabled",false)','buyDevelopmentRefiner()']){
+  const a=canonicalFurnaceGame();a.run('addDeveloperCash(2000000)');assert.equal(a.run('prepareDevelopmentRebirth()'),true);a.run(change);const before=a.state();assert.equal(a.run('confirmDevelopmentRebirth()'),false);assert.deepEqual(a.state(),before);
+ }
+ const a=rebirthFactoryFixture();assert.equal(a.run('prepareDevelopmentRebirth()'),true);a.advance(5000);a.run('updateDevelopmentMiner()');const before=a.state();assert.equal(a.run('confirmDevelopmentRebirth()'),false);assert.deepEqual(a.state(),before);
+});
+test('GAME15 failed Rebirth retains exact candidate and bytes; repeated retry never duplicates rewards',()=>{
+ const a=rebirthFactoryFixture(true),before=a.state(),stored=a.stored();assert.equal(a.run('prepareDevelopmentRebirth()'),true);a.faults.write=true;assert.equal(a.run('confirmDevelopmentRebirth()'),false);assert.deepEqual(a.state(),before);assert.equal(a.stored(),stored);const bytes=a.run('pendingDevelopmentWrite.serialized');
+ for(const cmd of ['prepareDevelopmentRebirth()','confirmDevelopmentRebirth()','addDeveloperCash(1)','mineDevelopmentOre()','retryDevelopmentWrite()'])assert.equal(a.run(cmd),false);a.run('updateDevelopmentMiner()');assert.equal(a.run('pendingDevelopmentWrite.serialized'),bytes);assert.deepEqual(a.state(),before);
+ a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.state().stardust,15);assert.equal(a.state().rebirthCount,1);assert.equal(a.run('retryDevelopmentWrite()'),false);assert.deepEqual(ready(a.stored()).state(),a.state());
+});
+test('GAME15 compatible paired absence completes only private saves and never writes on load',()=>{
+ const a=canonicalFurnaceGame();const old=a.state();delete old.stardust;delete old.rebirthCount;const raw=JSON.stringify(old),loaded=boot(raw);assert.equal(loaded.error,undefined);assert.equal(loaded.run('recoveryState.active'),false);assert.equal(loaded.state().stardust,0);assert.equal(loaded.state().rebirthCount,0);assert.equal(loaded.writes.length,0);assert.equal(loaded.stored(),raw);
+ const legacy=boot(JSON.stringify({cash:1000000,droppers:0,adders:0,multipliers:0,stardust:'inert old extension'}));assert.equal(legacy.run('recoveryState.active'),false);assert.equal(legacy.state().stardust,'inert old extension');assert.equal(legacy.run('prepareDevelopmentRebirth()'),false);assert.equal(Object.hasOwn(legacy.state(),'rebirthCount'),false);
+ for(const change of [s=>delete s.stardust,s=>delete s.rebirthCount,s=>s.stardust=null,s=>s.stardust=-1,s=>s.stardust=.001,s=>s.stardust='10',s=>s.rebirthCount=-1,s=>s.rebirthCount=.5,s=>s.rebirthCount='1']){const s=a.state();change(s);const bytes=JSON.stringify(s),bad=boot(bytes);assert.equal(bad.run('recoveryState.active'),true);assert.equal(bad.stored(),bytes);}
+});
+test('GAME15 inherited Furnace requires explicit modernisation and retains historical work until conversion',()=>{
+ const a=ready();a.run('addDeveloperCash(1000000)');const before=a.state();assert.equal(a.run('prepareDevelopmentRebirth()'),false);assert.deepEqual(a.state(),before);assert.match(a.elements.get('rebirthFeedback').textContent,/Modernise Furnace/);assert.equal(a.run('moderniseDevelopmentFurnace()'),true);assert.equal(rebirthForTest(a),true);assert.equal(a.state().factory.furnace.tier,1);
+});
+test('GAME15 Stardust and count arithmetic reject precision exhaustion instead of capping or rounding',()=>{
+ const a=canonicalFurnaceGame();for(const value of [NaN,Infinity,-1,.001])assert.throws(()=>a.run('stardustHundredths('+String(value)+')'));
+ for(const [balance,count] of [[2**60,0],[0,2**53]]){a.run('save.cash=1000000;save.stardust='+balance+';save.rebirthCount='+count);const before=a.state();assert.equal(a.run('prepareDevelopmentRebirth()'),false);assert.deepEqual(a.state(),before);}
+ assert.equal(a.run('stardustText(562949953421312.1)'), '562,949,953,421,312.10');assert.throws(()=>a.run('stardustFromHundredths(56294995342131213n)'));assert.equal(a.run('stardustFromHundredths(stardustHundredths(.29)+stardustHundredths(.01))'),.3);assert.equal(a.run('stardustFromHundredths(stardustHundredths(2**53)+10000n)'),2**53+100);assert.throws(()=>a.run('stardustFromHundredths(stardustHundredths(2**53)+1n)'));
+});
+test('GAME15 repeated rebuilding preserves slots and global IDs and cannot replay the first action',()=>{
+ const a=ownedDevelopmentMiner();a.run('moderniseDevelopmentFurnace();mineDevelopmentOre();addDeveloperCash(1000000)');const first=a.state().factory.miners[0].id,next=a.state().identity.nextEntitySequence;assert.equal(rebirthForTest(a),true);assert.equal(a.state().manual.firstActionCompleted,true);assert.equal(a.run('buyDevelopmentMiner(1)'),false);
+ a.run('addDeveloperCash(450);buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner(1)');assert.equal(a.state().factory.miners[0].id,'miner:'+next);assert.notEqual(a.state().factory.miners[0].id,first);a.run('addDeveloperCash(1000000)');assert.equal(rebirthForTest(a),true);assert.equal(a.state().stardust,20);assert.equal(a.state().rebirthCount,2);assert.equal(a.elements.get('milestonesButton').hidden,false);assert.deepEqual(ready(a.stored()).state(),a.state());
+});
+test('GAME15 milestones track before reveal and permanent claims are not reawarded',()=>{
+ const a=canonicalFurnaceGame();assert.equal(a.elements.get('milestonesButton').hidden,true);a.run('developmentCommand(n=>{n.factoryXP=10000;prepareDevelopmentProgress(n);for(const p of Object.values(n.achievements))p.claimed=true});addDeveloperCash(1000000)');const before=a.state();assert.equal(before.factoryMilestones[10],true);assert.notEqual(a.elements.get('milestonePopup').style.display,'block');assert.equal(rebirthForTest(a),true);assert.deepEqual(a.state().achievements,before.achievements);assert.deepEqual(a.state().factoryMilestones,before.factoryMilestones);assert.equal(a.state().factoryXP,10000);assert.equal(a.state().factoryLevel,10);assert.equal(a.elements.get('milestonesButton').hidden,false);a.run('openMilestones()');assert.equal(a.elements.get('milestonesModal').style.display,'block');
+});

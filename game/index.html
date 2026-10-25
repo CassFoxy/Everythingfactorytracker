@@ -28,7 +28,7 @@
  </header>
  <nav class="secondary-nav" aria-label="Progress and tools">
   <button onclick="openStats()">📊 Statistics</button>
-  <button onclick="openMilestones()">🏆 Milestones <span id="milestoneCount">0</span></button>
+  <button id="milestonesButton" onclick="openMilestones()">🏆 Milestones <span id="milestoneCount">0</span></button>
   <button onclick="openAchievements()">🏅 Achievements <span id="achievementCount">0</span>/<span id="achievementTotal">0</span></button>
   <details class="dev-tools"><summary>⚙ Dev tools</summary><div class="dev-panel">
    <p class="dev-panel-label">Private testing only · Disable or exclude these tools before public release.</p>
@@ -72,6 +72,12 @@
   </section>
   <section class="game-panel shop-panel" aria-labelledby="shopTitle"><div class="section-heading"><span class="eyebrow">03 / Supply depot</span><h2 id="shopTitle">Shop & upgrades</h2><p>Small purchases. A growing factory.</p></div>
  <article class="shop-row" id="miningPowerCard" hidden><h3>⛏ Mining Power I</h3><p>Default Pickaxe: 1 resource plus a 50% chance of one more per click. Required to unlock Miners.</p><button id="buyMiningPower">Buy Mining Power I · $250</button></article>
+<article id="rebirthPanel" class="shop-row" hidden aria-labelledby="rebirthTitle">
+<h3 id="rebirthTitle">✦ Rebirth</h3><p>Stardust <strong id="stardustBalance">0.00</strong> · Completed <strong id="rebirthCount">0</strong></p>
+<p id="rebirthCash"></p><progress id="rebirthProgress" max="100" value="0" aria-label="Cash toward Rebirth"></progress>
+<p>Stardust preview: <strong id="rebirthAward">10.00</strong></p><p id="rebirthRequirement" class="shop-note"></p>
+<button id="rebirthButton" aria-describedby="rebirthRequirement">Rebirth…</button><p id="rebirthFeedback" role="status"></p>
+</article>
 <article class="shop-row" id="dropperCard">
    <div class="shop-heading"><h3><span aria-hidden="true">🏗</span> Dropper</h3><span class="owned">Owned <strong id="droppers">0</strong></span></div>
    <p>Produces Stone automatically each second.</p><div class="shop-action"><span class="price">$<span id="dropperCost">0</span></span><button id="buyDropper">Buy Dropper</button></div>
@@ -110,6 +116,15 @@
    <p>Replacement cost: <span id="refinerSaleReplacement"></span></p>
    <p id="refinerSaleWarning">The Refiner and its upgrades will be permanently removed. Reserved processing is cancelled without rewards. Completed processed ores and Gem Dust remain owned. A replacement starts fresh.</p>
    <div class="furnace-actions"><button id="confirmRefinerSale">Confirm Sale</button><button id="cancelRefinerSale">Cancel</button></div>
+  </div>
+ </div>
+ <div id="rebirthModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="rebirthModalTitle" aria-describedby="rebirthResetWarning">
+  <div class="modal-content miner-sale-dialog">
+   <h2 id="rebirthModalTitle">Confirm Rebirth?</h2><p>Current Cash: <strong id="rebirthConfirmCash"></strong></p><p>Receive <strong id="rebirthConfirmAward"></strong> Stardust.</p>
+   <p id="rebirthResetWarning"><strong>You lose:</strong> Cash, raw and processed inventory, Miners, Polishers, Refiner, their upgrades and unfinished work, Mining Power and Miner unlock. Furnace tier returns to 1. No refunds or pending rewards are paid.</p>
+   <p><strong>You keep:</strong> Factory XP/Level, unlocked Miner slots, Stardust, Gem Dust, achievements, milestones, Collection, permanent Pickaxe/material progress and Furnace identity/preferences.</p>
+   <p class="shop-note">Stardust perk purchases are not available in this build. Changed progress requires a fresh confirmation.</p>
+   <div class="furnace-actions"><button id="confirmRebirth">Confirm Rebirth</button><button id="cancelRebirth">Cancel</button></div>
   </div>
  </div>
  <footer class="game-footer">Everything Factory Incremental <span>Prototype · progress autosaves</span></footer>
