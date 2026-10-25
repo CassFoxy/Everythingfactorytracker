@@ -1,5 +1,17 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME15 — Complete Playable Rebirth and Stardust Integration
+
+**Status: COMPLETE — bounded private core Rebirth.** Current unspent Cash of at least $1,000,000 enables a signature-bound confirmation. Reference H awards Stardust at effective Gain Level 0, rounded once to hundredths and accumulated with exact internal hundredth arithmetic. One durable candidate increments the completed count, resets Cash and normal Shop progression, removes machine ownership and all unfinished work without rewards/refunds, clears raw/processed stock, and resets current-Rebirth Polished counts.
+
+Factory XP/derived Level, unlocked Miner slots, Gem Dust, Collection, achievement claims, milestone flags, supported permanent/manual history and allocation counters remain intact. The permanent canonical Furnace retains identity/preferences/sequence, clears work and returns to Tier 1. Earlier inherited Furnaces require the existing explicit Modernise Furnace action first. Milestones reveal after the first successful Rebirth. Repeated Rebirth and exact failed-write retry are supported.
+
+Schema 1 / miner-1 adds validated Stardust/count fields through a paired known-absence rule for supported older private saves; loading alone does not rewrite bytes. No public V2 migration or permanent perk ownership is implied. Runtime/UI, Node/browser regressions and narrow save/lifecycle/statistics documentation are included in this ticket.
+
+Verification: four syntax checks, 491 Node tests and 85 browser scenarios passed locally. Confirmation and post-Rebirth screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844, including focus/Escape, overflow, duplicate IDs and console checks. Exact-commit GitHub Actions results are reported on the PR.
+
+Remaining: full permanent Stardust perk transactions and gameplay effects, broader statistics, Daily/Weekly challenges, grid/conveyors, Inscriptions and public V2 compatibility. Next consolidated ticket: GAME16, all approved permanent Stardust perk ranges and their actual consumers, respecting outstanding pricing/design gates. Not implemented here.
+
 ## V1-GAME14 — Complete Refiner Resale and Replacement
 
 **Status: COMPLETE — bounded private Refiner lifecycle.** Confirmed ID-targeted resale supports idle, reserved and resolved work. The owner-approved R1 decision returns reserved Polished/Refined Lots unchanged, even when overdue, without RNG or rewards. Saved resolved itemOutcomes commit survivors and Dust first, retain ownership and require fresh confirmation. Exact 50% recorded-investment refunds, input restitution and entity removal share one durable transaction. Failed writes retain the exact candidate for controlled Retry.

@@ -628,6 +628,7 @@ function readVersionedSave(serializedSave){
         validateSaveData(migrated);
         completeDevelopmentPolisherFields(migrated);
         completeDevelopmentRefinerFields(migrated);
+        completeDevelopmentRebirthFields(migrated);
         validateDevelopmentSave(migrated);
     }catch(error){
         throw error?.code ? error : saveLoadError("VALIDATION_ERROR", "Save validation failed. Stored data was not changed.", error);
@@ -2422,6 +2423,7 @@ document.getElementById(
 }
 
 function updateUI(){
+    renderDevelopmentRebirth();
     renderDevelopmentMiner();
     renderDevelopmentPolishers(); renderDevelopmentRefiner();
 
@@ -2735,6 +2737,17 @@ function startGameplay(){
  document.getElementById("unlockMiner").onclick = unlockDevelopmentMiner;
  // Slot actions are bound by renderDevelopmentMinerSlots.
  document.getElementById("sellMiner").onclick = () => prepareDevelopmentMinerSale(document.getElementById("sellMiner").dataset.minerId);
+ document.getElementById("rebirthButton").onclick=prepareDevelopmentRebirth;
+ document.getElementById("confirmRebirth").onclick=confirmDevelopmentRebirth;
+ document.getElementById("cancelRebirth").onclick=closeDevelopmentRebirth;
+ document.getElementById("rebirthModal").onkeydown=event=>{
+     if(event.key==="Escape"){event.preventDefault();closeDevelopmentRebirth();}
+     if(event.key==="Tab"){
+         const first=document.getElementById("confirmRebirth"),last=document.getElementById("cancelRebirth");
+         if(event.shiftKey && document.activeElement===first){event.preventDefault();last.focus();}
+         else if(!event.shiftKey && document.activeElement===last){event.preventDefault();first.focus();}
+     }
+ };
  document.getElementById("confirmRefinerSale").onclick=confirmDevelopmentRefinerSale;
  document.getElementById("cancelRefinerSale").onclick=closeDevelopmentRefinerSale;
  document.getElementById("refinerSaleModal").onkeydown=event=>{
@@ -3355,6 +3368,7 @@ function closeStats(){
 }
 
 function openMilestones(){
+    if(isMinerDevelopment() && save.rebirthCount === 0) return;
 
     buildMilestonesMenu();
 
@@ -4113,6 +4127,7 @@ function closeDiscoveryPopup(){
 function showMilestonePopup(
     level
 ){
+    if(isMinerDevelopment() && save.rebirthCount === 0) return;
 
     document.getElementById(
         "milestonePopupLevel"
@@ -4195,6 +4210,7 @@ document.getElementById("retrySaveLoad").onclick = attemptSaveLoad;
 document.getElementById("resetRecoverySave").onclick = resetRecoverySave;
 // V1-GAME01: private development profile. Not public V2 activation.
 let pendingDevelopmentWrite = null;
+const DEVELOPMENT_REBIRTH_CASH = 1000000;
 const DEVELOPMENT_MINER_MAX_TIER = 25;
 const DEVELOPMENT_MINER_MAX_ORE_LUCK = 50;
 function isMinerDevelopment(state = save){ return state.developmentProfile === "miner-1"; }
@@ -4206,6 +4222,8 @@ function createMinerDevelopmentSave(){
         manual: { firstActionCompleted: false, equippedPickaxeId: "pickaxe:default", pickaxes: [] },
         factory: { minerSlots: MinerCandidateModel.createSlotAccess(), miners: [], polishers: [], refiner: null },
         gemDust: 0,
+        stardust: 0,
+        rebirthCount: 0,
         processedInventory: { polished: [], refined: [] },
         statistics: PolishedOutputStatisticsCandidateModel.createStatistics(),
         identity: { nextEntitySequence: 1, nextManualEquipSequence: 1 }
@@ -4497,6 +4515,7 @@ function validateDevelopmentSave(state){
     if(!Object.prototype.hasOwnProperty.call(state, "developmentProfile")) return; // supported legacy mode
     try{
         if(!isMinerDevelopment(state)) throw Error("Unsupported development profile");
+        validateDevelopmentRebirth(state);
         if(Object.hasOwn(state, "developerTools")){
             developmentRecord(state.developerTools, ["furnaceEnabled"]);
             if(typeof state.developerTools.furnaceEnabled !== "boolean") throw Error("Invalid developer Furnace mode");
@@ -4614,6 +4633,7 @@ function prepareDevelopmentAward(state, resourceId, amount, manual){
 function publishDevelopmentState(next){
     const previous = save;
     save = next;
+    if(isMinerDevelopment() && previous.rebirthCount !== save.rebirthCount) clearRebirthTransientUI();
     if(hasCanonicalFurnace()) restoreAutoFurnace();
     document.getElementById("minerFeedback").textContent = "";
     for(const id of ORE_KEYS) if(previous.oreCollection[id] === 0 && save.oreCollection[id] > 0){
@@ -4643,6 +4663,7 @@ function retryDevelopmentWrite(){
     if(feedback){
         document.getElementById("devFeedback").textContent = feedback.message;
         if(feedback.minerSale) document.getElementById("minerFeedback").textContent = feedback.message;
+        if(feedback.rebirth) document.getElementById("rebirthFeedback").textContent = feedback.message;
         if(feedback.refinerSale) document.getElementById("refinerFeedback").textContent = feedback.message;
         if(feedback.polisherSale) document.getElementById("polisherFeedback").textContent = feedback.message;
         if(feedback.smelt){ pendingSmelt = {}; closeSmeltConfirm(); buildFurnaceMenu(); }
@@ -4663,6 +4684,7 @@ function developmentCommand(prepare, feedback = null){
         document.getElementById("minerFeedback").textContent = error.message;
         if(feedback) document.getElementById("devFeedback").textContent = error.message;
         if(feedback?.smelt) document.getElementById("smeltFeedback").textContent = error.message;
+        if(feedback?.rebirth) document.getElementById("rebirthFeedback").textContent = error.message;
         if(feedback?.refinerSale) document.getElementById("refinerFeedback").textContent = error.message;
         if(feedback?.polisherSale) document.getElementById("polisherFeedback").textContent = error.message;
         return false;
@@ -5294,6 +5316,7 @@ function advanceDevelopmentPolisher(id,now){
 // GAME11: transient intent binds the full machine, including queues and work.
 let pendingPolisherSale = null;
 let pendingRefinerSale = null;
+let pendingDevelopmentRebirth = null;
 function polisherSaleSignature(machine){ return JSON.stringify(machine); }
 function polisherReturnAdd(before, amount){
     const after = exactDevelopmentAdd(before, amount);
@@ -5711,4 +5734,113 @@ function renderDevelopmentRefinerResale(machine){
         }
         button.disabled=!!pendingDevelopmentWrite||recoveryState.active;
     }catch(error){status.textContent=error.message;button.disabled=true;}
+}
+
+// GAME15: private Reference H payout/reset. Perk purchases remain unavailable.
+function completeDevelopmentRebirthFields(state){
+    if(!isMinerDevelopment(state)) return;
+    const balance=Object.hasOwn(state,"stardust"),count=Object.hasOwn(state,"rebirthCount");
+    if(!balance && !count){state.stardust=0;state.rebirthCount=0;}
+    else if(!balance || !count) throw Error("Incomplete Rebirth fields; recovery required.");
+}
+function stardustHundredths(value){
+    if(typeof value!=="number" || !Number.isFinite(value) || value<0) throw Error("Invalid Stardust balance.");
+    // Whole Numbers may exceed safe integers; BigInt captures their exact value.
+    if(Number.isInteger(value)) return BigInt(value)*100n;
+    // Use the same decimal spelling JSON persists, not toFixed rounding.
+    const parts=/^(\d+)\.(\d{1,2})$/.exec(value.toString());
+    if(!parts) throw Error("Stardust must have at most two decimal places.");
+    return BigInt(parts[1])*100n+BigInt(parts[2].padEnd(2,"0"));
+}
+function stardustFromHundredths(cents){
+    if(cents<0n) throw Error("Invalid Stardust award.");
+    const value=Number((cents/100n).toString()+"."+(cents%100n).toString().padStart(2,"0"));
+    if(!Number.isFinite(value) || stardustHundredths(value)!==cents) throw Error("Stardust precision exhausted; Rebirth cannot be credited exactly.");
+    return value;
+}
+function stardustText(value){
+    const cents=stardustHundredths(value);
+    return (cents/100n).toLocaleString()+"."+(cents%100n).toString().padStart(2,"0");
+}
+function validateDevelopmentRebirth(state){
+    if(!Object.hasOwn(state,"stardust") || !Object.hasOwn(state,"rebirthCount")) throw Error("Missing Rebirth fields.");
+    stardustHundredths(state.stardust);
+    if(typeof state.rebirthCount!=="number" || !Number.isFinite(state.rebirthCount) || !Number.isInteger(state.rebirthCount) || state.rebirthCount<0) throw Error("Invalid completed Rebirth count.");
+}
+function developmentRebirthQuote(state){
+    validateDevelopmentRebirth(state);
+    if(typeof state.cash!=="number" || !Number.isFinite(state.cash) || state.cash<0) throw Error("Invalid Rebirth Cash basis.");
+    const raw=10+5*Math.log2(Math.max(1,state.cash/DEVELOPMENT_REBIRTH_CASH));
+    const cents=BigInt(Math.round(raw*100)); // Round only the final award; Gain Level 0.
+    const award=stardustFromHundredths(cents);
+    const balance=stardustFromHundredths(stardustHundredths(state.stardust)+cents);
+    const count=Number(BigInt(state.rebirthCount)+1n);
+    if(!Number.isFinite(count) || BigInt(count)!==BigInt(state.rebirthCount)+1n) throw Error("Rebirth count precision exhausted.");
+    return {cash:state.cash,award,balance,count};
+}
+function prepareDevelopmentRebirth(){
+    if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    closeDevelopmentRebirth();
+    try{
+        validateSaveData(save);validateDevelopmentSave(save);
+        if(!hasCanonicalFurnace()) throw Error("Use Modernise Furnace before Rebirth. Existing Furnace work is preserved by that separate action.");
+        if(save.cash<DEVELOPMENT_REBIRTH_CASH) throw Error("Rebirth requires $1,000,000 current unspent Cash.");
+        const quote=developmentRebirthQuote(save);
+        pendingDevelopmentRebirth={signature:JSON.stringify(save),cash:save.cash,award:quote.award,count:save.rebirthCount};
+        document.getElementById("rebirthConfirmAward").textContent=stardustText(quote.award);
+        document.getElementById("rebirthConfirmCash").textContent="$"+polishedCashText(save.cash);
+        document.getElementById("rebirthModal").style.display="block";
+        document.getElementById("cancelRebirth").focus();return true;
+    }catch(error){document.getElementById("rebirthFeedback").textContent=error.message;return false;}
+}
+function closeDevelopmentRebirth(){
+    pendingDevelopmentRebirth=null;
+    document.getElementById("rebirthModal").style.display="none";
+    document.getElementById("rebirthButton").focus();
+}
+function applyDevelopmentRebirth(next,quote){
+    next.cash=0;next.stardust=quote.balance;next.rebirthCount=quote.count;
+    next.shop={miningPower:0,minerUnlocked:false};
+    next.inventory=createDefaultInventory();next.processedInventory=InventoryModel.createProcessedInventory();
+    next.factory.miners=[];next.factory.polishers=[];next.factory.refiner=null;
+    const furnace=next.factory.furnace;
+    furnace.tier=1;furnace.selection=null;furnace.queue=[];furnace.cycle=null;
+    next.statistics.thisRebirth.polishedOutput=PolishedOutputStatisticsCandidateModel.createStatistics().thisRebirth.polishedOutput;
+    next.factoryLevel=getFactoryLevelFromXP(next.factoryXP);
+}
+function confirmDevelopmentRebirth(){
+    const intent=pendingDevelopmentRebirth;closeDevelopmentRebirth();
+    if(!intent || !isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
+    return developmentCommand(next=>{
+        if(JSON.stringify(next)!==intent.signature || next.cash!==intent.cash || next.rebirthCount!==intent.count) throw Error("Progress changed. Review a fresh Rebirth confirmation.");
+        if(!hasCanonicalFurnace(next) || next.cash<DEVELOPMENT_REBIRTH_CASH) throw Error("Rebirth eligibility changed. Review a new confirmation.");
+        const quote=developmentRebirthQuote(next);
+        if(quote.award!==intent.award) throw Error("Stardust quote changed. Review a new confirmation.");
+        applyDevelopmentRebirth(next,quote);
+    },{rebirth:true,message:"Rebirth completed. Awarded "+stardustText(intent.award)+" Stardust. Permanent progress retained."});
+}
+function clearRebirthTransientUI(){
+    pendingDevelopmentRebirth=null;pendingMinerSale=null;pendingPolisherSale=null;pendingRefinerSale=null;pendingSmelt={};
+    selectedDevelopmentMinerId=null;selectedDevelopmentPolisherId=null;
+    for(const id of ["rebirthModal","minerSaleModal","polisherSaleModal","refinerSaleModal","furnaceModal"])
+        document.getElementById(id).style.display="none";
+    closeSmeltConfirm();
+}
+function renderDevelopmentRebirth(){
+    const active=isMinerDevelopment();
+    document.getElementById("rebirthPanel").hidden=!active;
+    document.getElementById("milestonesButton").hidden=active && save.rebirthCount===0;
+    if(!active)return;
+    document.getElementById("stardustBalance").textContent=stardustText(save.stardust);
+    document.getElementById("rebirthCount").textContent=save.rebirthCount.toLocaleString();
+    document.getElementById("rebirthCash").textContent="$"+polishedCashText(save.cash)+" / $1,000,000";
+    document.getElementById("rebirthProgress").value=Math.min(100,save.cash/DEVELOPMENT_REBIRTH_CASH*100);
+    const button=document.getElementById("rebirthButton"),notice=document.getElementById("rebirthRequirement");
+    button.disabled=true;
+    try{
+        const quote=developmentRebirthQuote(save);
+        document.getElementById("rebirthAward").textContent=stardustText(quote.award);
+        notice.textContent=!hasCanonicalFurnace()?"Use Modernise Furnace in the Factory panel before Rebirth.":save.cash<DEVELOPMENT_REBIRTH_CASH?"Reach $1,000,000 unspent Cash to Rebirth. The preview shows the award at eligibility.":"Eligible. Review what resets and what stays before confirming.";
+        button.disabled=!hasCanonicalFurnace() || save.cash<DEVELOPMENT_REBIRTH_CASH || !!pendingDevelopmentWrite || recoveryState.active;
+    }catch(error){notice.textContent=error.message;document.getElementById("rebirthAward").textContent="Unavailable";}
 }
