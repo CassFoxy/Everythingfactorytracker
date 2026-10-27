@@ -629,6 +629,7 @@ function readVersionedSave(serializedSave){
         completeDevelopmentPolisherFields(migrated);
         completeDevelopmentRefinerFields(migrated);
         completeDevelopmentRebirthFields(migrated);
+        completeDevelopmentPerkFields(migrated);
         validateDevelopmentSave(migrated);
     }catch(error){
         throw error?.code ? error : saveLoadError("VALIDATION_ERROR", "Save validation failed. Stored data was not changed.", error);
@@ -2424,6 +2425,7 @@ document.getElementById(
 
 function updateUI(){
     renderDevelopmentRebirth();
+    renderPermanentPerks();
     renderDevelopmentMiner();
     renderDevelopmentPolishers(); renderDevelopmentRefiner();
 
@@ -3643,7 +3645,7 @@ function confirmSmelt(){
             next.inventory[key] = remaining;
             next.cash = exactDevelopmentAdd(next.cash, quote.total);
             next.achievementStats.oresSmelted = exactDevelopmentAdd(next.achievementStats.oresSmelted, amount);
-            next.factoryXP = exactDevelopmentAdd(next.factoryXP, amount);
+            next.factoryXP = developmentXPAdd(next.factoryXP, developmentXPAward(amount,perkLevel(next,"factoryXP")));
             prepareDevelopmentProgress(next);
         }, { message: "Furnace sale saved.", smelt: true });
         return success;
@@ -4223,6 +4225,7 @@ function createMinerDevelopmentSave(){
         factory: { minerSlots: MinerCandidateModel.createSlotAccess(), miners: [], polishers: [], refiner: null },
         gemDust: 0,
         stardust: 0,
+        permanentPerks: PermanentPerkModel.createOwnership(),
         rebirthCount: 0,
         processedInventory: { polished: [], refined: [] },
         statistics: PolishedOutputStatisticsCandidateModel.createStatistics(),
@@ -4256,7 +4259,7 @@ function furnaceResult(cycle){
         factoryXPDelta = polisherReturnAdd(factoryXPDelta,lot.amount);
         return {type:"smelted",resourceId:lot.resourceId,stage:lot.stage,refineCount:lot.refineCount,amount:lot.amount};
     });
-    return {outputs:[],cashDelta,factoryXPDelta,gemDustDelta:0,events};
+    return {outputs:[],cashDelta,factoryXPDelta:developmentXPAward(factoryXPDelta,cycle.effectContext.factoryXPLevel||0),gemDustDelta:0,events};
 }
 function validateDevelopmentFurnace(state){
     if(!hasCanonicalFurnace(state)){
@@ -4277,7 +4280,7 @@ function validateDevelopmentFurnace(state){
             throw Error("Invalid historical Furnace reservation");
     }else{
         const e=CycleEffectContextModel.validateContext(c.effectContext,"furnace");
-        if(e.tier>f.tier || e.speedLevel!==0 || e.valueLevel!==0) throw Error("Unsupported Furnace effects");
+        if(e.tier>f.tier || e.speedLevel>perkLevel(state,"furnaceSpeed") || e.valueLevel>perkLevel(state,"furnaceValue") || boundXPLevel(e)>perkLevel(state,"factoryXP")) throw Error("Unsupported Furnace effects");
         if(developerFurnaceEnabled(state)){
             // Private testing override: only capacity is unlimited. Validate every
             // input independently through the normal metadata validator.
@@ -4291,7 +4294,7 @@ function validateDevelopmentFurnace(state){
         }else CycleEffectContextModel.validateMetadata(e,"furnace",metadata);
         c.inputs.forEach((lot,index)=>{
             if(lot.stage!=="raw"){
-                const expected=exactDevelopmentProduct(FurnaceModel.calculateSaleValue(processedUnitValue(lot),e.tier,0),developerFurnaceEnabled(state)?1000:1);
+                const expected=exactDevelopmentProduct(FurnaceModel.calculateSaleValue(processedUnitValue(lot),e.tier,e.valueLevel),developerFurnaceEnabled(state)?1000:1);
                 if(c.saleUnitValues[index]!==expected) throw Error("Captured processed Furnace value mismatch");
             }
         });
@@ -4329,7 +4332,7 @@ function upgradeCanonicalFurnace(){
 }
 function canonicalFurnaceUnitValue(state,lot){
     const basis=lot.stage==="raw" ? (lot.resourceId==="stone" ? state.stoneValue : developmentOre(lot.resourceId).value) : processedUnitValue(lot);
-    const normal=FurnaceModel.calculateSaleValue(basis,state.factory.furnace.tier,0);
+    const normal=FurnaceModel.calculateSaleValue(basis,state.factory.furnace.tier,perkLevel(state,"furnaceValue"));
     exactDevelopmentProduct(basis,FurnaceModel.getTierValueMultiplier(state.factory.furnace.tier));
     return exactDevelopmentProduct(normal,developerFurnaceEnabled(state)?1000:1);
 }
@@ -4345,8 +4348,8 @@ function reserveCanonicalFurnace(state,inputs,activation,now){
         else takeProcessedInput(state,lot,lot.amount);
     }
     f.cycle={id:f.id+"/cycle:"+f.nextCycleSequence++,phase:"reserved",startedAtMs:now,
-        durationMs:FurnaceModel.getFinalInterval(f.tier,0)*1000,inputs:copySaveData(inputs),saleUnitValues:values,
-        effectContext:{version:1,kind:"furnace",tier:f.tier,speedLevel:0,valueLevel:0,activation},result:null};
+        durationMs:FurnaceModel.getFinalInterval(f.tier,perkLevel(state,"furnaceSpeed"))*1000,inputs:copySaveData(inputs),saleUnitValues:values,
+        effectContext:{version:1,kind:"furnace",tier:f.tier,speedLevel:perkLevel(state,"furnaceSpeed"),valueLevel:perkLevel(state,"furnaceValue"),...xpEffectSnapshot(state),activation},result:null};
     validateDevelopmentFurnace(state);
     exactDevelopmentAdd(state.cash,furnaceResult(f.cycle).cashDelta);
 }
@@ -4387,8 +4390,8 @@ function advanceCanonicalFurnace(now){
     return developmentCommand(next=>{
         const result=next.factory.furnace.cycle.result;
         next.cash=exactDevelopmentAdd(next.cash,result.cashDelta);
-        next.factoryXP=polisherReturnAdd(next.factoryXP,result.factoryXPDelta);
-        next.achievementStats.oresSmelted=polisherReturnAdd(next.achievementStats.oresSmelted,result.factoryXPDelta);
+        next.factoryXP=developmentXPAdd(next.factoryXP,result.factoryXPDelta);
+        next.achievementStats.oresSmelted=polisherReturnAdd(next.achievementStats.oresSmelted,result.events.reduce((n,e)=>n+e.amount,0));
         next.factory.furnace.cycle=null; prepareDevelopmentProgress(next);
     });
 }
@@ -4402,7 +4405,7 @@ function canonicalSmeltQuote(state,selection,amount){
     InventoryModel.splitLot({...selection,amount:available},amount);
     const value=canonicalFurnaceUnitValue(state,selection),total=exactDevelopmentProduct(value,amount);
     exactDevelopmentAdd(state.cash,total);
-    return {available,value,total,tier:f.tier,developerMode:developerFurnaceEnabled(state),durationMs:FurnaceModel.getFinalInterval(f.tier,0)*1000};
+    return {available,value,total,tier:f.tier,developerMode:developerFurnaceEnabled(state),durationMs:FurnaceModel.getFinalInterval(f.tier,perkLevel(state,"furnaceSpeed"))*1000};
 }
 function prepareCanonicalSmelt(selection,percent){
     if(pendingDevelopmentWrite || recoveryState.active) return false;
@@ -4444,8 +4447,8 @@ function renderCanonicalFurnace(){
     document.getElementById("autoFurnaceControls").hidden=true;
     document.getElementById("furnaceName").textContent=(dev?"Developer Furnace · ":"Furnace · ")+"Tier "+f.tier+" / 20";
     document.getElementById("furnaceCapacity").textContent=dev?"Unlimited":FurnaceModel.getCapacity(f.tier);
-    document.getElementById("canonicalFurnaceBenefits").textContent=FurnaceModel.getTierValueMultiplier(f.tier).toFixed(2)+"× value · "+
-        FurnaceModel.getFinalInterval(f.tier,0).toFixed(3)+"s · "+(f.tier<3?"Manual processing":"Automatic processing available");
+    document.getElementById("canonicalFurnaceBenefits").textContent=FurnaceModel.calculateSaleValue(1,f.tier,perkLevel(save,"furnaceValue")).toFixed(3)+"× value · "+
+        FurnaceModel.getFinalInterval(f.tier,perkLevel(save,"furnaceSpeed")).toFixed(3)+"s · "+(f.tier<3?"Manual processing":"Automatic processing available");
     const button=document.getElementById("upgradeFurnace"),price=f.tier<20?FurnaceModel.getTierUpgradePrice(f.tier+1,0):null;
     button.textContent=price===null?"Max Level":"Upgrade Tier "+(f.tier+1)+" — $"+formatCash(price);
     button.disabled=price===null || save.cash<price || !!pendingDevelopmentWrite;
@@ -4504,11 +4507,11 @@ function validateDevelopmentResult(actual, expected){
         for(const key of Object.keys(expected)) validateDevelopmentResult(actual[key], expected[key]);
     }else if(actual !== expected) throw Error("Invalid Miner result");
 }
-function minerResult(resourceId){
+function minerResult(resourceId,xpLevel=0){
     const ore = developmentOre(resourceId);
     return { outputs: [InventoryModel.createLot({ resourceId, stage: "raw", refineCount: 0, amount: 1,
         polishedValue: null, preRefinerValue: null, refineBonus: null })],
-        cashDelta: 0, factoryXPDelta: ore.xp, gemDustDelta: 0,
+        cashDelta: 0, factoryXPDelta: developmentXPAward(ore.xp,xpLevel), gemDustDelta: 0,
         events: [{ type: "resourceAcquired", resourceId, stage: "raw", refineCount: 0, amount: 1 }] };
 }
 function validateDevelopmentSave(state){
@@ -4516,6 +4519,7 @@ function validateDevelopmentSave(state){
     try{
         if(!isMinerDevelopment(state)) throw Error("Unsupported development profile");
         validateDevelopmentRebirth(state);
+        PermanentPerkModel.validateOwnership(state.permanentPerks);
         if(Object.hasOwn(state, "developerTools")){
             developmentRecord(state.developerTools, ["furnaceEnabled"]);
             if(typeof state.developerTools.furnaceEnabled !== "boolean") throw Error("Invalid developer Furnace mode");
@@ -4540,11 +4544,11 @@ function validateDevelopmentSave(state){
                 !Number.isInteger(miner.oreLuckLevel) || miner.oreLuckLevel < 0 ||
                 miner.oreLuckLevel > DEVELOPMENT_MINER_MAX_ORE_LUCK || !state.shop.minerUnlocked)
                 throw Error("Unsupported Miner ownership");
-            // This profile has no Discount/Preservation ownership. Require the
-            // exact purchase history; never infer paid tiers from owned level.
+            // Validate paid tiers above the immutable purchase-time grant, never current Preservation.
+            const startingTier=developmentStartingTier(miner,state,25);
             const entries = [{ kind: "purchase", targetLevel: null,
                 cashPaid: CashPricingModel.calculateCashPrice(100, { category: "minerPurchase", discountLevel: 0 }), basis: "actual" }];
-            for(let targetLevel = 2; targetLevel <= miner.tier; targetLevel++)
+            for(let targetLevel = startingTier+1; targetLevel <= miner.tier; targetLevel++)
                 entries.push({ kind: "tier", targetLevel,
                     cashPaid: MinerTierModel.getTierUpgradePrice(targetLevel, 0), basis: "actual" });
             for(let targetLevel = 1; targetLevel <= miner.oreLuckLevel; targetLevel++)
@@ -4557,7 +4561,7 @@ function validateDevelopmentSave(state){
                 throw Error("Miner purchase must precede upgrades");
             // Tier and local Luck are independent purchases. Validate the exact
             // required set without rewriting the chronological saved history.
-            let paidTier = 1, paidOreLuck = 0;
+            let paidTier = startingTier, paidOreLuck = 0;
             for(const payment of miner.investment.entries){
                 const index = entries.findIndex(expected => expected.kind === payment?.kind && expected.targetLevel === payment?.targetLevel);
                 if(index < 0) throw Error("Unexpected or duplicate Miner payment");
@@ -4574,8 +4578,8 @@ function validateDevelopmentSave(state){
             CycleEffectContextModel.validateMetadata(cycle.effectContext, "miner", {
                 startedAtMs: cycle.startedAtMs, durationMs: cycle.durationMs, inputs: cycle.inputs, saleUnitValues: cycle.saleUnitValues });
             const c = cycle.effectContext;
-            if(c.tier > miner.tier || c.overallLuck !== 1 || c.rebirthOreLuckLevel !== 0 ||
-                c.localOreLuckLevel > miner.oreLuckLevel || c.speedLevel !== 0)
+            if(c.tier > miner.tier || !validBoundOverallLuck(c.overallLuck,state) || c.rebirthOreLuckLevel > perkLevel(state,"oreLuck") ||
+                c.localOreLuckLevel > miner.oreLuckLevel || c.speedLevel > perkLevel(state,"minerSpeed") || boundXPLevel(c)>perkLevel(state,"factoryXP"))
                 throw Error("Unsupported bound effects");
             if(cycle.phase === "reserved"){
                 if(cycle.result !== null) throw Error("Reserved cycle has result");
@@ -4585,7 +4589,7 @@ function validateDevelopmentSave(state){
                 const probabilities = MinerTierModel.getTierProbabilities(c.tier, c.overallLuck);
                 if(probabilities[outputTier === 0 ? "stone" : "tier" + outputTier] <= 0)
                     throw Error("Miner result is inaccessible to the captured tier");
-                const expected = minerResult(resourceId);
+                const expected = minerResult(resourceId,c.factoryXPLevel||0);
                 // Exact canonical nested shapes and values, independent of JSON key order.
                 validateDevelopmentResult(cycle.result, expected);
             }else throw Error("Invalid cycle phase");
@@ -4612,13 +4616,13 @@ function prepareDevelopmentProgress(state){
             state.achievements[id] = { unlocked: true, claimed: false };
     }
 }
-function prepareDevelopmentAward(state, resourceId, amount, manual){
+function prepareDevelopmentAward(state, resourceId, amount, manual, xpLevel=perkLevel(state,"factoryXP")){
     const ore = developmentOre(resourceId);
     state.inventory[resourceId] = exactDevelopmentAdd(state.inventory[resourceId], amount);
     state.totalOres = exactDevelopmentAdd(state.totalOres, amount);
     const counter = ore.tier === 0 ? "stoneOres" : "tier" + ore.tier + "Ores";
     state[counter] = exactDevelopmentAdd(state[counter], amount);
-    state.factoryXP = exactDevelopmentAdd(state.factoryXP, ore.xp * amount);
+    state.factoryXP = developmentXPAdd(state.factoryXP, developmentXPAward(ore.xp * amount,xpLevel));
     if(ore.tier){
         if(state.oreCollection[resourceId] === 0) state.achievementStats.oresDiscovered++;
         state.oreCollection[resourceId] = exactDevelopmentAdd(state.oreCollection[resourceId], amount);
@@ -4664,6 +4668,7 @@ function retryDevelopmentWrite(){
         document.getElementById("devFeedback").textContent = feedback.message;
         if(feedback.minerSale) document.getElementById("minerFeedback").textContent = feedback.message;
         if(feedback.rebirth) document.getElementById("rebirthFeedback").textContent = feedback.message;
+        if(feedback.permanentPerk) document.getElementById("permanentPerkFeedback").textContent = feedback.message;
         if(feedback.refinerSale) document.getElementById("refinerFeedback").textContent = feedback.message;
         if(feedback.polisherSale) document.getElementById("polisherFeedback").textContent = feedback.message;
         if(feedback.smelt){ pendingSmelt = {}; closeSmeltConfirm(); buildFurnaceMenu(); }
@@ -4685,6 +4690,7 @@ function developmentCommand(prepare, feedback = null){
         if(feedback) document.getElementById("devFeedback").textContent = error.message;
         if(feedback?.smelt) document.getElementById("smeltFeedback").textContent = error.message;
         if(feedback?.rebirth) document.getElementById("rebirthFeedback").textContent = error.message;
+        if(feedback?.permanentPerk) document.getElementById("permanentPerkFeedback").textContent = error.message;
         if(feedback?.refinerSale) document.getElementById("refinerFeedback").textContent = error.message;
         if(feedback?.polisherSale) document.getElementById("polisherFeedback").textContent = error.message;
         return false;
@@ -4853,7 +4859,7 @@ function confirmDevelopmentPolishedSmelt(){
         next.cash = exactDevelopmentAdd(next.cash, quote.total);
         // Same existing private Furnace effects as raw sales; no new Polisher event.
         next.achievementStats.oresSmelted = exactDevelopmentAdd(next.achievementStats.oresSmelted, amount);
-        next.factoryXP = exactDevelopmentAdd(next.factoryXP, amount);
+        next.factoryXP = developmentXPAdd(next.factoryXP, developmentXPAward(amount,perkLevel(next,"factoryXP")));
         prepareDevelopmentProgress(next);
     }, { message: "Processed Furnace sale saved.", smelt: true });
 }
@@ -4934,8 +4940,9 @@ function unlockDevelopmentMinerSlot(slot){
 }
 function buyDevelopmentMiner(slot = 1){
     return developmentCommand(next => {
-        const result = MinerCandidateModel.preparePurchase(idleDevelopmentMinerProjection(next), slot, { discountLevel: 0, preservationLevel: 0 }, developmentOtherIds(next,"miner"));
+        const result = MinerCandidateModel.preparePurchase(idleDevelopmentMinerProjection(next), slot, { discountLevel: 0, preservationLevel: perkLevel(next,"preservation") }, developmentOtherIds(next,"miner"));
         const purchased = result.factory.miners.find(miner => miner.slot === slot);
+        stampPreservationGrant(purchased,next);
         next.cash = result.cash; next.identity = result.identity;
         next.factory.miners.push(purchased);
     });
@@ -5099,8 +5106,8 @@ function advanceDevelopmentMiner(minerId, now){
             const m = next.factory.miners.find(item => item.id === minerId);
             if(m.nextCycleSequence >= Number.MAX_SAFE_INTEGER) throw Error("Miner sequence exhausted");
             m.cycle = { id: m.id + "/cycle:" + m.nextCycleSequence++, phase: "reserved", startedAtMs: now,
-                durationMs: MinerTierModel.getProductionInterval(m.tier, 0) * 1000, inputs: [], saleUnitValues: null,
-                effectContext: { version: 1, kind: "miner", tier: m.tier, overallLuck: 1, rebirthOreLuckLevel: 0, localOreLuckLevel: m.oreLuckLevel, speedLevel: 0 }, result: null };
+                durationMs: MinerTierModel.getProductionInterval(m.tier, perkLevel(next,"minerSpeed")) * 1000, inputs: [], saleUnitValues: null,
+                effectContext: { version: 1, kind: "miner", tier: m.tier, overallLuck: PermanentPerkModel.getEffect("overallLuck",perkLevel(next,"overallLuck")), rebirthOreLuckLevel: perkLevel(next,"oreLuck"), localOreLuckLevel: m.oreLuckLevel, speedLevel: perkLevel(next,"minerSpeed"), ...xpEffectSnapshot(next) }, result: null };
         });
     }else if(cycle.phase === "reserved" && now >= cycle.startedAtMs + cycle.durationMs){
         return developmentCommand(next => {
@@ -5112,12 +5119,12 @@ function advanceDevelopmentMiner(minerId, now){
                 if(roll < cumulative){ tier = i; break; }
             }
             const id = tier === 0 ? "stone" : MinerOreLuckModel.selectOreId(tier, effects.rebirthOreLuckLevel, effects.localOreLuckLevel, Math.random());
-            c.result = minerResult(id); c.phase = "resolved";
+            c.result = minerResult(id,effects.factoryXPLevel||0); c.phase = "resolved";
         });
     }else if(cycle.phase === "resolved"){
         return developmentCommand(next => {
             const m = next.factory.miners.find(item => item.id === minerId), output = m.cycle.result.outputs[0];
-            prepareDevelopmentAward(next, output.resourceId, output.amount, false);
+            prepareDevelopmentAward(next, output.resourceId, output.amount, false,m.cycle.effectContext.factoryXPLevel||0);
             m.cycle = null;
         });
     }
@@ -5173,7 +5180,7 @@ function renderDevelopmentMiner(){
     document.getElementById("unlockMiner").disabled = unlocked || !save.shop.miningPower || save.cash < 100;
     document.getElementById("unlockMiner").textContent = unlocked ? "Miner system unlocked" : "Unlock Miners · $100";
     const c = miner?.cycle;
-    const interval = miner ? MinerTierModel.getProductionInterval(miner.tier, 0) : 0;
+    const interval = miner ? MinerTierModel.getProductionInterval(miner.tier, perkLevel(save,"minerSpeed")) : 0;
     document.getElementById("minerStatus").textContent = miner ? "Owned Tier " + miner.tier + " / 25 Miner · 1 resource per cycle · Next cycle: Tier " + miner.tier + " (" + Number(interval.toFixed(3)) + "s)" : unlocked ? "Slot 1 is free and vacant. Purchase your Miner separately." : "Requires Mining Power I. Unlocking does not buy a machine.";
     const upgrade = document.getElementById("upgradeMiner"), atCap = miner?.tier === DEVELOPMENT_MINER_MAX_TIER;
     const nextTier = (miner?.tier || 1) + 1;
@@ -5191,7 +5198,7 @@ function renderDevelopmentMiner(){
     luckButton.title = luckAtCap ? "Maximum local Ore Luck" : "Exact price: $" + luckPrice.toLocaleString("en-US");
     luckButton.disabled = !miner || luckAtCap || save.cash < luckPrice;
     luckButton.textContent = luckAtCap ? "Local Ore Luck 50 · Max Level" : "Upgrade Local Ore Luck " + (nextLuck === 1 ? "I" : nextLuck === 2 ? "II" : nextLuck) + " · $" + formatCash(luckPrice);
-    document.getElementById("minerOreLuckStatus").textContent = miner ? "Local Ore Luck: " + miner.oreLuckLevel + " / " + DEVELOPMENT_MINER_MAX_ORE_LUCK + " (" + MinerOreLuckModel.getFinalOreLuck(0, miner.oreLuckLevel).toFixed(2) + "×)" +
+    document.getElementById("minerOreLuckStatus").textContent = miner ? "Local Ore Luck: " + miner.oreLuckLevel + " / " + DEVELOPMENT_MINER_MAX_ORE_LUCK + " (" + MinerOreLuckModel.getFinalOreLuck(perkLevel(save,"oreLuck"), miner.oreLuckLevel).toFixed(2) + "×)" +
         (c && c.effectContext.localOreLuckLevel !== miner.oreLuckLevel ? " · Current cycle: Level " + c.effectContext.localOreLuckLevel + " · Next cycle: Level " + miner.oreLuckLevel : "") : "Purchase your first Miner to upgrade Local Ore Luck.";
     document.getElementById("minerOreLuckHint").textContent = "Improves which ore is selected within a rolled tier, not the chance of a higher tier. " +
         (luckAtCap ? "Future cycles use Level 50; existing work is unchanged." : "Costs $" + formatCash(luckPrice) + " Cash; no Factory Discount. " + (miner && save.cash < luckPrice ? "Insufficient Cash. " : "") + "Existing work keeps its captured level.");
@@ -5226,14 +5233,14 @@ function validateDevelopmentPolishers(state){
     PolisherCandidateModel.validateCandidate(polisherProjection(state),developmentOtherIds(state,"polisher"));
     for(const m of state.factory.polishers){
         const expected=[{kind:"purchase",targetLevel:null,cashPaid:PolisherCandidateModel.getPurchasePrice(m.slot,0),basis:"actual"}];
-        for(let tier=2;tier<=m.tier;tier++) expected.push({kind:"tier",targetLevel:tier,cashPaid:PolisherModel.getTierUpgradePrice(tier,0),basis:"actual"});
+        for(let tier=developmentStartingTier(m,state,10)+1;tier<=m.tier;tier++) expected.push({kind:"tier",targetLevel:tier,cashPaid:PolisherModel.getTierUpgradePrice(tier,0),basis:"actual"});
         validateDevelopmentResult(m.investment,{entries:expected});
         const projection={polisher:m,inventory:state.inventory};
         if(m.cycle===null) PolisherReservationCandidateModel.validateCandidate(projection);
         else {
             if(m.cycle.phase==="reserved") PolisherResolutionCandidateModel.validateReservedCandidate(projection);
             else PolisherResolutionCandidateModel.validateResolvedCandidate(projection);
-            if(m.cycle.effectContext.tier>m.tier || m.cycle.effectContext.valueLevel!==0) throw Error("Unsupported bound Polisher effects");
+            if(m.cycle.effectContext.tier>m.tier || m.cycle.effectContext.valueLevel>perkLevel(state,"polisherValue")) throw Error("Unsupported bound Polisher effects");
         }
     }
 }
@@ -5244,9 +5251,10 @@ function polisherCommand(prepare){
 }
 function buyDevelopmentPolisher(slot){
     return polisherCommand(next=>{
-        const result=PolisherCandidateModel.preparePurchase(polisherProjection(next),slot,{discountLevel:0,preservationLevel:0},developmentOtherIds(next,"polisher"));
+        const result=PolisherCandidateModel.preparePurchase(polisherProjection(next),slot,{discountLevel:0,preservationLevel:perkLevel(next,"preservation")},developmentOtherIds(next,"polisher"));
         next.cash=result.cash;next.identity=result.identity;
-        next.factory.polishers.push(result.factory.polishers.find(m=>m.slot===slot));
+        const purchased=result.factory.polishers.find(m=>m.slot===slot);stampPreservationGrant(purchased,next);
+        next.factory.polishers.push(purchased);
     });
 }
 function upgradeDevelopmentPolisher(id){
@@ -5284,7 +5292,7 @@ function reserveDevelopmentPolisher(id,source,now){
         // Existing profile Ore Value helper, once, at reservation. No Furnace/Developer multiplier.
         const currentOreValue=developmentOre(m.selectedOreId).value*getOreValueMultiplier();
         const result=PolisherReservationCandidateModel.prepareReservation({polisher:m,inventory:next.inventory},id,source,
-            {currentOreValue,valueLevel:0,startedAtMs:now});
+            {currentOreValue,valueLevel:perkLevel(next,"polisherValue"),startedAtMs:now});
         next.inventory=result.inventory;next.factory.polishers[next.factory.polishers.findIndex(m=>m.id===id)]=result.polisher;
     });
 }
@@ -5504,9 +5512,9 @@ function refinerResult(cycle,itemOutcomes){
         const descriptor=Object.getOwnPropertyDescriptor(itemOutcomes,i);
         if(!descriptor || !("value" in descriptor)) throw Error("Invalid outcome entry");
         const item=descriptor.value;developmentRecord(item,["dust","destroyed"]);
-        // Current profile has Yield 0: each independent successful Dust roll
-        // awards exactly one, including when the same item is destroyed.
-        if(![0,1].includes(item.dust)||typeof item.destroyed!=="boolean") throw Error("Invalid item outcome");
+        // Saved per-item Dust must match the captured whole/fractional yield range.
+        const yieldValue=RefinerModel.getExpectedDustYield(cycle.effectContext.yieldLevel);
+        if(![0,Math.floor(yieldValue),Math.ceil(yieldValue)].includes(item.dust)||typeof item.destroyed!=="boolean") throw Error("Invalid item outcome");
         dust+=item.dust;if(!item.destroyed) survived++;
     }
     const totalInput={...input,amount:quantity},pass=input.refineCount+1;
@@ -5521,14 +5529,14 @@ function validateDevelopmentRefiner(state){
     RefinerCandidateModel.validateCandidate(refinerProjection(state),developmentOtherIds(state,"refiner"));
     const m=state.factory.refiner;if(!m)return;
     const entries=[{kind:"purchase",targetLevel:null,cashPaid:RefinerCandidateModel.getPurchasePrice(0),basis:"actual"}];
-    for(let t=2;t<=m.tier;t++) entries.push({kind:"tier",targetLevel:t,cashPaid:RefinerModel.getTierUpgradePrice(t,0),basis:"actual"});
+    for(let t=developmentStartingTier(m,state,10)+1;t<=m.tier;t++) entries.push({kind:"tier",targetLevel:t,cashPaid:RefinerModel.getTierUpgradePrice(t,0),basis:"actual"});
     validateDevelopmentResult(m.investment,{entries});
     const c=m.cycle;if(c===null)return;
     developmentRecord(c,["id","phase","startedAtMs","durationMs","inputs","saleUnitValues","effectContext","result"]);
     if(m.nextCycleSequence<2||c.id!==m.id+"/cycle:"+(m.nextCycleSequence-1))throw Error("Invalid Refiner cycle identity");
     CycleEffectContextModel.validateMetadata(c.effectContext,"refiner",{startedAtMs:c.startedAtMs,durationMs:c.durationMs,inputs:c.inputs,saleUnitValues:c.saleUnitValues});
     const e=c.effectContext;
-    if(e.tier>m.tier||[e.dustChanceLevel,e.stabilityLevel,e.yieldLevel,e.valueLevel].some(v=>v!==0))throw Error("Unsupported Refiner effects");
+    if(e.tier>m.tier||e.dustChanceLevel>perkLevel(state,"dustChance")||e.stabilityLevel>perkLevel(state,"stability")||e.yieldLevel>perkLevel(state,"dustYield")||e.valueLevel>perkLevel(state,"refinerValue"))throw Error("Unsupported Refiner effects");
     if(c.phase==="reserved"){if(c.result!==null)throw Error("Reserved Refiner result");}
     else if(c.phase==="resolved"){
         developmentRecord(c.result,["outputs","cashDelta","factoryXPDelta","gemDustDelta","events","itemOutcomes"]);
@@ -5543,8 +5551,8 @@ function refinerCommand(prepare){
 }
 function buyDevelopmentRefiner(){
     return refinerCommand(next=>{
-        const result=RefinerCandidateModel.preparePurchase(refinerProjection(next),{discountLevel:0,preservationLevel:0},developmentOtherIds(next,"refiner"));
-        next.cash=result.cash;next.identity=result.identity;next.factory.refiner=result.factory.refiner;
+        const result=RefinerCandidateModel.preparePurchase(refinerProjection(next),{discountLevel:0,preservationLevel:perkLevel(next,"preservation")},developmentOtherIds(next,"refiner"));
+        next.cash=result.cash;next.identity=result.identity;next.factory.refiner=result.factory.refiner;stampPreservationGrant(next.factory.refiner,next);
     });
 }
 function upgradeDevelopmentRefiner(id){
@@ -5593,7 +5601,7 @@ function advanceDevelopmentRefiner(id,now){
             if(m.nextCycleSequence>=Number.MAX_SAFE_INTEGER)throw Error("Refiner sequence exhausted");
             takeProcessedInput(next,cohort,amount);
             m.cycle={id:m.id+"/cycle:"+m.nextCycleSequence++,phase:"reserved",startedAtMs:now,durationMs:RefinerModel.getInterval(m.tier)*1000,
-                inputs:[input],saleUnitValues:null,effectContext:{version:1,kind:"refiner",tier:m.tier,dustChanceLevel:0,stabilityLevel:0,yieldLevel:0,valueLevel:0},result:null};
+                inputs:[input],saleUnitValues:null,effectContext:{version:1,kind:"refiner",tier:m.tier,dustChanceLevel:perkLevel(next,"dustChance"),stabilityLevel:perkLevel(next,"stability"),yieldLevel:perkLevel(next,"dustYield"),valueLevel:perkLevel(next,"refinerValue")},result:null};
         });
     }
     if(cycle.phase==="reserved"){
@@ -5770,8 +5778,8 @@ function validateDevelopmentRebirth(state){
 function developmentRebirthQuote(state){
     validateDevelopmentRebirth(state);
     if(typeof state.cash!=="number" || !Number.isFinite(state.cash) || state.cash<0) throw Error("Invalid Rebirth Cash basis.");
-    const raw=10+5*Math.log2(Math.max(1,state.cash/DEVELOPMENT_REBIRTH_CASH));
-    const cents=BigInt(Math.round(raw*100)); // Round only the final award; Gain Level 0.
+    const raw=(10+5*Math.log2(Math.max(1,state.cash/DEVELOPMENT_REBIRTH_CASH)))*PermanentPerkModel.getEffect("stardustGain",perkLevel(state,"stardustGain"));
+    const cents=BigInt(Math.round(raw*100)); // Round only the final award with current purchased Gain.
     const award=stardustFromHundredths(cents);
     const balance=stardustFromHundredths(stardustHundredths(state.stardust)+cents);
     const count=Number(BigInt(state.rebirthCount)+1n);
@@ -5788,6 +5796,7 @@ function prepareDevelopmentRebirth(){
         const quote=developmentRebirthQuote(save);
         pendingDevelopmentRebirth={signature:JSON.stringify(save),cash:save.cash,award:quote.award,count:save.rebirthCount};
         document.getElementById("rebirthConfirmAward").textContent=stardustText(quote.award);
+        document.getElementById("rebirthRestoredTier").textContent=Math.min(20,Math.max(1,perkLevel(save,"preservation")));
         document.getElementById("rebirthConfirmCash").textContent="$"+polishedCashText(save.cash);
         document.getElementById("rebirthModal").style.display="block";
         document.getElementById("cancelRebirth").focus();return true;
@@ -5804,7 +5813,7 @@ function applyDevelopmentRebirth(next,quote){
     next.inventory=createDefaultInventory();next.processedInventory=InventoryModel.createProcessedInventory();
     next.factory.miners=[];next.factory.polishers=[];next.factory.refiner=null;
     const furnace=next.factory.furnace;
-    furnace.tier=1;furnace.selection=null;furnace.queue=[];furnace.cycle=null;
+    furnace.tier=Math.min(20,Math.max(1,perkLevel(next,"preservation")));furnace.selection=null;furnace.queue=[];furnace.cycle=null;
     next.statistics.thisRebirth.polishedOutput=PolishedOutputStatisticsCandidateModel.createStatistics().thisRebirth.polishedOutput;
     next.factoryLevel=getFactoryLevelFromXP(next.factoryXP);
 }
@@ -5843,4 +5852,116 @@ function renderDevelopmentRebirth(){
         notice.textContent=!hasCanonicalFurnace()?"Use Modernise Furnace in the Factory panel before Rebirth.":save.cash<DEVELOPMENT_REBIRTH_CASH?"Reach $1,000,000 unspent Cash to Rebirth. The preview shows the award at eligibility.":"Eligible. Review what resets and what stays before confirming.";
         button.disabled=!hasCanonicalFurnace() || save.cash<DEVELOPMENT_REBIRTH_CASH || !!pendingDevelopmentWrite || recoveryState.active;
     }catch(error){notice.textContent=error.message;document.getElementById("rebirthAward").textContent="Unavailable";}
+}
+
+// GAME16 private permanent ownership. Legacy bonus aliases remain independent.
+function perkLevel(state,id){return state.permanentPerks?.[id] ?? 0;}
+function completeDevelopmentPerkFields(state){
+    if(!isMinerDevelopment(state))return;
+    if(!Object.hasOwn(state,"permanentPerks")){
+        const machines=[...(state.factory?.miners||[]),...(state.factory?.polishers||[]),...(state.factory?.refiner?[state.factory.refiner]:[])];
+        if(machines.some(m=>Object.hasOwn(m,"preservationLevelAtPurchase")))throw Error("Missing permanent ownership for purchase grant");
+        state.permanentPerks=PermanentPerkModel.createOwnership();
+    }
+}
+function stampPreservationGrant(machine,state){
+    const level=perkLevel(state,"preservation");
+    if(level>0)machine.preservationLevelAtPurchase=level;
+}
+function developmentStartingTier(machine,state,cap){
+    const level=Object.hasOwn(machine,"preservationLevelAtPurchase")?machine.preservationLevelAtPurchase:0;
+    if(!Number.isInteger(level)||level<0||level>perkLevel(state,"preservation")||level>25)throw Error("Invalid purchase-time Preservation provenance");
+    const start=Math.min(cap,Math.max(1,level));
+    if(machine.tier<start)throw Error("Machine below its starting tier");
+    return start;
+}
+function validBoundOverallLuck(value,state){
+    const level=Math.round((value-1)/.002);
+    return level>=0&&level<=perkLevel(state,"overallLuck")&&value===PermanentPerkModel.getEffect("overallLuck",level);
+}
+function boundXPLevel(context){return context.factoryXPLevel??0;}
+function xpEffectSnapshot(state){const level=perkLevel(state,"factoryXP");return level?{factoryXPLevel:level}:{};}
+// XP remains the canonical Count. Preserve existing Math.round award semantics,
+// calculating the 0.04% multiplier as an exact fraction before final rounding.
+function developmentXPAward(base,level){
+    PermanentPerkModel.getEffect("factoryXP",level);
+    if(!Number.isInteger(base)||base<0||!Number.isFinite(base))throw Error("Invalid base XP");
+    const exact=(BigInt(base)*BigInt(10000+4*level)+5000n)/10000n,award=Number(exact);
+    if(!Number.isFinite(award)||BigInt(award)!==exact)throw Error("XP precision exhausted");
+    return award;
+}
+function developmentXPAdd(before,award){
+    return exactDevelopmentAdd(before,award);
+}
+function buyPermanentPerk(id,mode=1){
+    const ok=developmentCommand(next=>{
+        const quote=PermanentPerkModel.quote(id,next.permanentPerks[id],mode,stardustHundredths(next.stardust));
+        if(!quote.levels)throw Error(next.permanentPerks[id]===PermanentPerkModel.definitions[id].max?"Max Level reached.":"Insufficient Stardust.");
+        next.stardust=stardustFromHundredths(stardustHundredths(next.stardust)-quote.costCents);
+        next.permanentPerks[id]=quote.target;
+    },{permanentPerk:true,message:"Permanent upgrade saved. Active work keeps its captured effects."});
+    document.getElementById("permanentPerkFeedback").textContent=ok?"Permanent upgrade saved. Future work uses the new level.":document.getElementById("minerFeedback").textContent;
+    return ok;
+}
+function permanentEffectText(id,level){
+    const value=PermanentPerkModel.getEffect(id,level);
+    if(id==="preservation")return "Starting tier "+value+" (machine caps apply)";
+    if(id==="refinerValue")return "+"+(value*100).toFixed(2)+"% first-pass bonus";
+    if(id==="dustChance")return "+"+(value*100).toFixed(1)+" points base chance (25% cap)";
+    if(id==="stability")return "−"+(value*100).toFixed(1)+" points destruction (5% floor)";
+    if(id==="dustYield")return value.toFixed(2)+" Dust per success in expectation";
+    if(id.endsWith("Speed"))return value.toFixed(2)+"× duration (minimum applies)";
+    return value.toFixed(4).replace(/0+$/,"").replace(/\.$/,"")+"×";
+}
+function openPermanentPerks(){
+    if(!isMinerDevelopment())return;
+    document.getElementById("permanentPerksModal").style.display="block";
+    renderPermanentPerks();document.getElementById("closePermanentPerks").focus();
+}
+function closePermanentPerks(){document.getElementById("permanentPerksModal").style.display="none";document.getElementById("permanentPerksButton").focus();}
+function renderPermanentPerks(){
+    const button=document.getElementById("permanentPerksButton");button.hidden=!isMinerDevelopment();
+    if(!isMinerDevelopment())return;
+    button.onclick=openPermanentPerks;
+    document.getElementById("closePermanentPerks").onclick=closePermanentPerks;
+    const modal=document.getElementById("permanentPerksModal");
+    modal.onkeydown=event=>{
+        if(event.key==="Escape"){event.preventDefault();closePermanentPerks();}
+        if(event.key==="Tab"){
+            const controls=[...modal.querySelectorAll("button:not(:disabled)")],first=controls[0],last=controls.at(-1);
+            if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+            else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+        }
+    };
+    document.getElementById("permanentPerksBalance").textContent=stardustText(save.stardust)+" Stardust · "+save.rebirthCount+" Rebirths";
+    const signature=JSON.stringify([save.permanentPerks,save.stardust,!!pendingDevelopmentWrite,recoveryState.active]);
+    if(renderPermanentPerks.signature===signature)return;
+    renderPermanentPerks.signature=signature;
+    const container=document.getElementById("permanentPerkItems");container.innerHTML="";
+    for(const group of ["Mining","Processing","Factory","Rebirth"]){
+        const section=document.createElement("section"),heading=document.createElement("h3");heading.textContent=group;section.appendChild(heading);
+        for(const [id,d] of Object.entries(PermanentPerkModel.definitions).filter(([,d])=>d.group===group)){
+            const level=save.permanentPerks[id],row=document.createElement("article");row.className="perk-row";row.id="perk-"+id;
+            const name=document.createElement("h4");name.textContent=d.name+" · "+level+" / "+d.max;row.appendChild(name);
+            const effect=document.createElement("p");effect.textContent="Current: "+permanentEffectText(id,level)+(level<d.max?" · Next: "+permanentEffectText(id,level+1):" · Max Level");row.appendChild(effect);
+            const note=document.createElement("p");note.className="shop-note";row.appendChild(note);
+            if(d.gated)note.textContent="Unavailable until usable durable Pickaxes are integrated. No Stardust spending.";
+            else if(level===d.max)note.textContent="Max Level";
+            else{
+                note.textContent="Next level: "+PermanentPerkModel.getPrice(id,level+1).toLocaleString()+" Stardust. Bulk buys the affordable sequential levels.";
+                const actions=document.createElement("div");actions.className="perk-actions";
+                for(const mode of [1,10,"max"]){
+                    const quote=PermanentPerkModel.quote(id,level,mode,stardustHundredths(save.stardust));
+                    const buy=document.createElement("button");buy.id="perk-"+id+"-"+mode;
+                    buy.textContent=mode==="max"?"Buy Max Affordable":"Buy "+mode;
+                    buy.disabled=!quote.levels||!!pendingDevelopmentWrite||recoveryState.active;
+                    buy.title=quote.levels?quote.levels+" levels · "+(quote.costCents/100n).toLocaleString()+" Stardust":"Insufficient Stardust";
+                    buy.onclick=()=>{buyPermanentPerk(id,mode);const target=document.getElementById(buy.id);(target&&!target.disabled?target:document.getElementById("closePermanentPerks")).focus();};actions.appendChild(buy);
+                }
+                row.appendChild(actions);
+            }
+            section.appendChild(row);
+        }
+        container.appendChild(section);
+    }
 }

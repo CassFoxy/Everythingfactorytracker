@@ -5767,3 +5767,125 @@ test('GAME15 repeated rebuilding preserves slots and global IDs and cannot repla
 test('GAME15 milestones track before reveal and permanent claims are not reawarded',()=>{
  const a=canonicalFurnaceGame();assert.equal(a.elements.get('milestonesButton').hidden,true);a.run('developmentCommand(n=>{n.factoryXP=10000;prepareDevelopmentProgress(n);for(const p of Object.values(n.achievements))p.claimed=true});addDeveloperCash(1000000)');const before=a.state();assert.equal(before.factoryMilestones[10],true);assert.notEqual(a.elements.get('milestonePopup').style.display,'block');assert.equal(rebirthForTest(a),true);assert.deepEqual(a.state().achievements,before.achievements);assert.deepEqual(a.state().factoryMilestones,before.factoryMilestones);assert.equal(a.state().factoryXP,10000);assert.equal(a.state().factoryLevel,10);assert.equal(a.elements.get('milestonesButton').hidden,false);a.run('openMilestones()');assert.equal(a.elements.get('milestonesModal').style.display,'block');
 });
+
+function perkGame(){const a=canonicalFurnaceGame();a.run('save.stardust=10000000000;save.cash=1000000000000000;save.factory.furnace.autoEnabled=false');return a;}
+function perkBuy(a,id,mode='max'){assert.equal(a.run(`buyPermanentPerk(${JSON.stringify(id)},${JSON.stringify(mode)})`),true,a.elements.get('permanentPerkFeedback').textContent);}
+test('GAME16 all Reference J target prices, caps and independently accumulated totals',()=>{
+ const a=perkGame(),defs=JSON.parse(a.run('JSON.stringify(PermanentPerkModel.definitions)'));
+ const totals={overallLuck:12502500,oreLuck:12502500,furnaceValue:12502500,polisherValue:12502500,refinerValue:12502500,preservation:299999997,dustChance:930,dustYield:298482964,stability:107025,factoryXP:1000100000,stardustGain:506317500,minerSpeed:250000002,furnaceSpeed:250000002,pickaxeDurability:137796124};
+ for(const [id,d] of Object.entries(defs)){
+  let sum=0,stability=5;
+  const prices=JSON.parse(a.run(`JSON.stringify(Array.from({length:${d.max}},(_,i)=>PermanentPerkModel.getPrice('${id}',i+1)))`));
+  for(let l=1;l<=d.max;l++){
+   if(l>1)stability+=Math.ceil(l/10);
+   const expected=id==='preservation'?Math.round(7500*Math.pow(1.484168297348115,l-1)):id==='dustYield'?Math.round(50*Math.pow(1.3368,l-1)):id==='stability'?stability:id==='factoryXP'?20*l:id==='stardustGain'?18*l:id==='dustChance'?2*l:id.endsWith('Speed')?Math.round(100000*Math.pow(1.121118909,l-1)):id==='pickaxeDurability'?Math.round(1000*Math.pow(1.1,l-1)):l;
+   assert.equal(prices[l-1],expected,`${id} ${l}`);sum+=expected;
+  }
+  assert.equal(sum,totals[id]);assert.equal(a.run(`Number(PermanentPerkModel.getTotal('${id}'))`),sum);
+  assert.throws(()=>a.run(`PermanentPerkModel.getPrice('${id}',0)`));assert.throws(()=>a.run(`PermanentPerkModel.getPrice('${id}',${d.max+1})`));
+ }
+});
+test('GAME16 all thirteen trees buy sequential affordable bulk ranges, caps, reload and exact fractional balance',()=>{
+ const a=perkGame(),defs=JSON.parse(a.run('JSON.stringify(PermanentPerkModel.definitions)'));
+ for(const [id,d] of Object.entries(defs))if(!d.gated){
+  const before=a.state().stardust;perkBuy(a,id,1);assert.equal(a.state().permanentPerks[id],1);
+  perkBuy(a,id,10);assert.equal(a.state().permanentPerks[id],11);perkBuy(a,id);
+  assert.equal(a.state().permanentPerks[id],d.max);assert.equal(before-a.state().stardust,a.run(`Number(PermanentPerkModel.getTotal('${id}'))`));
+  const state=a.state();assert.equal(a.run(`buyPermanentPerk('${id}')`),false);assert.deepEqual(a.state(),state);
+ }
+ assert.deepEqual(ready(a.stored()).state(),a.state());
+ const b=perkGame();b.run('save.stardust=6.25');perkBuy(b,'overallLuck',10);assert.equal(b.state().permanentPerks.overallLuck,3);assert.equal(b.state().stardust,.25);
+ const before=b.state();assert.equal(b.run('buyPermanentPerk("overallLuck")'),false);assert.equal(b.run('buyPermanentPerk("discount")'),false);assert.equal(b.run('buyPermanentPerk("pickaxeDurability")'),false);assert.deepEqual(b.state(),before);
+});
+test('GAME16 missing ownership completes only known absence; collisions, caps and gated ownership reject',()=>{
+ const a=perkGame(),state=a.state();delete state.permanentPerks;const old=JSON.stringify(state),b=ready(old);assert.equal(b.writes.length,0);assert.equal(b.stored(),old);assert.ok(Object.values(b.state().permanentPerks).every(l=>l===0));
+ for(const bad of [null,{},[],{...b.state().permanentPerks,unknown:1},{...b.state().permanentPerks,overallLuck:-1},{...b.state().permanentPerks,oreLuck:5001},{...b.state().permanentPerks,stability:.5},{...b.state().permanentPerks,pickaxeDurability:1}]){
+  const raw=JSON.stringify({...state,permanentPerks:bad}),c=boot(raw);assert.ok(c.error);assert.equal(c.stored(),raw);
+ }
+ const legacy=legacyFixture();legacy.permanentPerks={unrelated:'inert'};assert.deepEqual(ready(JSON.stringify(legacy)).state().permanentPerks,legacy.permanentPerks);
+});
+test('GAME16 bulk failed write retains exact candidate and bytes and blocks conflicting actions',()=>{
+ const a=perkGame();a.run('developmentCommand(()=>{})');const before=a.state(),stored=a.stored();a.faults.write=true;
+ assert.equal(a.run('buyPermanentPerk("oreLuck",10)'),false);assert.deepEqual(a.state(),before);assert.equal(a.stored(),stored);
+ const bytes=a.run('pendingDevelopmentWrite.serialized');assert.equal(a.run('buyPermanentPerk("overallLuck",10)'),false);assert.equal(a.run('addDeveloperCash(1)'),false);assert.equal(a.run('retryDevelopmentWrite()'),false);
+ a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.state().permanentPerks.oreLuck,10);assert.equal(a.state().stardust,before.stardust-55);const after=a.state();a.run('retryDevelopmentWrite()');assert.deepEqual(a.state(),after);
+ a.run('save.stardust=2**60');const imprecise=a.state();assert.equal(a.run('buyPermanentPerk("overallLuck")'),false);assert.deepEqual(a.state(),imprecise);
+});
+test('GAME16 Preservation every grant level uses capped starting tier, actual ledgers and unchanged existing owners',()=>{
+ for(let l=1;l<=25;l++){
+  const a=perkGame();a.run('buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner(1)');const old=a.state().factory.miners[0];
+  a.run(`save.stardust=Number(PermanentPerkModel.quote('preservation',0,'max',1000000000000n).costCents/100n)`);
+  // Buy exact prefix through real one-level commands (25 small levels only).
+  for(let n=1;n<=l;n++)perkBuy(a,'preservation',1);
+  assert.deepEqual(a.state().factory.miners[0],old);a.run('unlockDevelopmentMinerSlot(3);buyDevelopmentMiner(3);buyDevelopmentPolisher(2);buyDevelopmentRefiner()');
+  const state=a.state(),machines=[state.factory.miners[1],state.factory.polishers[0],state.factory.refiner];
+  for(const [i,m] of machines.entries()){assert.equal(m.preservationLevelAtPurchase,l);assert.equal(m.tier,Math.min(i?10:25,Math.max(1,l)));assert.equal(m.investment.entries.length,1);}
+  assert.equal(machines[0].investment.entries[0].cashPaid,100);assert.equal(machines[1].investment.entries[0].cashPaid,100000);assert.equal(machines[2].investment.entries[0].cashPaid,25000);
+  if(l<25){a.run(`save.cash=MinerTierModel.getTierUpgradePrice(${l+1},0)`);assert.equal(a.run(`upgradeDevelopmentMiner('${machines[0].id}')`),true);assert.equal(a.state().factory.miners[1].investment.entries[1].targetLevel,l+1);}
+  assert.equal(ready(a.run('JSON.stringify(save)')).state().factory.miners[1].tier,a.state().factory.miners[1].tier);
+  const bad=a.state();bad.factory.miners[1].preservationLevelAtPurchase=26;assert.ok(boot(JSON.stringify(bad)).error);
+ }
+});
+test('GAME16 preserved replacements refund only paid investment and Rebirth restores Furnace without changing IDs',()=>{
+ const a=perkGame();perkBuy(a,'preservation');a.run('buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner(1);buyDevelopmentPolisher(1);buyDevelopmentRefiner()');
+ const state=a.state();assert.equal(a.run('developmentMinerSaleQuote(save.factory.miners[0],save.cash).refund'),50);assert.equal(a.run('developmentPolisherSaleQuote(save.factory.polishers[0],save).refund'),2500);assert.equal(a.run('developmentRefinerSaleQuote(save.factory.refiner,save).refund'),12500);
+ const id=state.factory.refiner.id;assert.equal(sellRefiner(a),true);assert.equal(a.run('buyDevelopmentRefiner()'),true);assert.notEqual(a.state().factory.refiner.id,id);assert.equal(a.state().factory.refiner.tier,10);assert.equal(a.state().factory.refiner.investment.entries.length,1);
+ const f=a.state().factory.furnace,perks=a.state().permanentPerks,seq=a.state().identity;assert.equal(rebirthForTest(a),true);assert.equal(a.state().factory.furnace.tier,20);assert.equal(a.state().factory.furnace.id,f.id);assert.equal(a.state().factory.furnace.nextCycleSequence,f.nextCycleSequence);assert.deepEqual(a.state().identity,seq);assert.deepEqual(a.state().permanentPerks,perks);
+});
+test('GAME16 Miner luck speed and XP bind at reservation, keep old resolved work and obey tier gates',()=>{
+ const a=perkGame();a.run('buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner(1);advanceDevelopmentMiner("miner:1",Date.now())');const old=a.state().factory.miners[0].cycle;
+ for(const id of ['overallLuck','oreLuck','minerSpeed','factoryXP'])perkBuy(a,id);
+ assert.deepEqual(a.state().factory.miners[0].cycle,old);a.advance(5000);a.run('Math.random=()=>0;advanceDevelopmentMiner("miner:1",Date.now())');assert.equal(a.state().factory.miners[0].cycle.result.factoryXPDelta,1);
+ const b=ready(a.run('JSON.stringify(save)'));assert.equal(b.state().factoryXP,1);b.run('advanceDevelopmentMiner("miner:1",Date.now())');const c=b.state().factory.miners[0].cycle;assert.equal(c.durationMs,2500);assert.equal(c.effectContext.overallLuck,11);assert.equal(c.effectContext.rebirthOreLuckLevel,5000);assert.equal(c.effectContext.factoryXPLevel,10000);
+ b.advance(2500);b.run('Math.random=()=>0;advanceDevelopmentMiner("miner:1",Date.now());advanceDevelopmentMiner("miner:1",Date.now())');assert.equal(b.state().factoryXP,6);assert.equal(b.state().inventory.stone,2);assert.equal(b.state().achievementStats.totalOresMined,0);
+ for(const tier of [1,5,6,25])for(const level of [0,1234,5000]){const p=JSON.parse(b.run(`JSON.stringify(MinerTierModel.getTierProbabilities(${tier},PermanentPerkModel.getEffect('overallLuck',${level})))`));assert.ok(p.stone>=.25);if(tier<6)assert.equal(p.tier4,0);assert.ok(Math.abs(Object.values(p).reduce((x,y)=>x+y,0)-1)<1e-12);}
+ assert.equal(b.run('MinerOreLuckModel.getFinalOreLuck(5000,50)'),22);
+});
+test('GAME16 XP retains Count rounding and precise multipliers; manual mining odds unchanged',()=>{
+ const a=perkGame();perkBuy(a,'factoryXP',1);a.run('Math.random=()=>.99;mineDevelopmentOre()');assert.equal(a.state().factoryXP,1);a.run('mineDevelopmentOre()');assert.equal(a.state().factoryXP,2);
+ assert.equal(a.run('developmentXPAward(10,10000)'),50);assert.equal(a.run('developmentXPAward(2500,1)'),2501);
+ assert.throws(()=>a.run('developmentXPAdd(2**60,.0004)'));
+ const before=a.state().factoryXP;perkBuy(a,'overallLuck');perkBuy(a,'oreLuck');a.run('mineDevelopmentOre()');assert.equal(a.state().factoryXP,3);assert.equal(a.state().inventory.stone,3);assert.ok(a.state().factoryXP>before);
+});
+test('GAME16 Furnace snapshots value speed and XP and never multiplies smelt count',()=>{
+ const a=perkGame();a.run('save.inventory.stone=10;prepareDevelopmentSmelt("stone",1);confirmSmelt()');const old=a.state().factory.furnace.cycle;
+ for(const id of ['furnaceValue','furnaceSpeed','factoryXP'])perkBuy(a,id);
+ assert.deepEqual(a.state().factory.furnace.cycle,old);a.advance(10000);a.run('advanceCanonicalFurnace(Date.now());advanceCanonicalFurnace(Date.now())');assert.equal(a.state().factoryXP,10);assert.equal(a.state().achievementStats.oresSmelted,10);
+ a.run('save.inventory.stone=10;prepareDevelopmentSmelt("stone",1);confirmSmelt()');const c=a.state().factory.furnace.cycle;assert.equal(c.durationMs,5000);assert.equal(c.saleUnitValues[0],6);assert.equal(c.effectContext.factoryXPLevel,10000);
+ a.advance(5000);a.run('advanceCanonicalFurnace(Date.now());advanceCanonicalFurnace(Date.now())');assert.equal(a.state().factoryXP,60);assert.equal(a.state().achievementStats.oresSmelted,20);
+ a.run('setDeveloperFurnace(true);save.inventory.stone=100;prepareDevelopmentSmelt("stone",1);confirmSmelt()');assert.equal(a.state().factory.furnace.cycle.saleUnitValues[0],6000);assert.equal(a.run('furnaceResult(save.factory.furnace.cycle).factoryXPDelta'),500);
+ assert.equal(a.run('FurnaceModel.getFinalInterval(20,50)'),.5);assert.ok(a.run('MinerTierModel.getProductionInterval(25,50)')>=.1);
+});
+test('GAME16 Polisher value snapshots stay historical through purchase, resolution, reload and commit',()=>{
+ const a=perkGame();a.run('buyDevelopmentPolisher(1);save.inventory.ruby=2;setDevelopmentPolisherOre("polisher:1","ruby");reserveDevelopmentPolisher("polisher:1",{kind:"inventory"},Date.now())');const old=a.state().factory.polishers[0].cycle;
+ perkBuy(a,'polisherValue');assert.deepEqual(a.state().factory.polishers[0].cycle,old);finishPolisher(a);const first=a.state().processedInventory.polished[0];
+ a.run('reserveDevelopmentPolisher("polisher:1",{kind:"inventory"},Date.now())');assert.equal(a.state().factory.polishers[0].cycle.effectContext.valueLevel,5000);finishPolisher(a);
+ assert.equal(a.state().processedInventory.polished.length,2);assert.equal(a.state().processedInventory.polished[1].polishedValue,first.polishedValue*1.5);assert.equal(a.state().factoryXP,0);assert.deepEqual(ready(a.stored()).state(),a.state());
+});
+test('GAME16 Refiner captured value Dust yield chance and Stability survive future purchases and reload',()=>{
+ const a=perkGame();a.run('buyDevelopmentRefiner();const l=PolisherModel.createPolishedLot("ruby",2,20);save.processedInventory.polished=[l];save.factory.refiner.selection=processedSelection(l)');reserveRefiner(a);const old=a.state().factory.refiner.cycle;
+ for(const id of ['dustChance','dustYield','stability','refinerValue'])perkBuy(a,id);
+ assert.deepEqual(a.state().factory.refiner.cycle,old);resolveRefiner(a,[0,.1,.99]);assert.equal(a.state().factory.refiner.cycle.result.itemOutcomes[0].dust,1);commitRefiner(a);
+ reserveRefiner(a);const c=a.state().factory.refiner.cycle;assert.equal(c.effectContext.yieldLevel,50);assert.equal(c.effectContext.valueLevel,5000);resolveRefiner(a,[0,.1,0]);const result=a.state().factory.refiner.cycle.result;assert.equal(result.gemDustDelta,4);assert.equal(result.outputs.length,0);
+ const b=ready(a.stored());b.run('Math.random=()=>{throw Error("reroll")};advanceDevelopmentRefiner("refiner:1",Date.now())');assert.equal(b.state().gemDust,5);assert.equal(b.state().factoryXP,0);
+ for(let pass=1;pass<=15;pass++){assert.equal(a.run(`RefinerModel.getRefineBonus(${pass},5000)`),pass<=5?7.5*(5-pass)/4:-.09*(pass-5));}
+ assert.equal(a.run('RefinerModel.getDustChance(10,14,30)'),.95);assert.equal(a.run('RefinerModel.getDestructionChance(14,180)'),.05);assert.equal(a.run('RefinerModel.getExpectedDustYield(50)'),3.5);
+ const corrupted=a.state();corrupted.factory.refiner.cycle.result.itemOutcomes[0].dust=2;assert.ok(boot(JSON.stringify(corrupted)).error);
+});
+test('GAME16 Stardust Gain multiplies only new Rebirths and permanent levels survive repeats',()=>{
+ const a=perkGame();perkBuy(a,'stardustGain');a.run('save.cash=1000000');const before=a.state().stardust;assert.equal(rebirthForTest(a),true);assert.equal(a.state().stardust,before+50);assert.equal(a.state().permanentPerks.stardustGain,7500);
+ a.run('addDeveloperCash(3000000)');assert.equal(a.run('developmentRebirthQuote(save).award'),89.62);assert.equal(rebirthForTest(a),true);assert.equal(a.state().rebirthCount,2);assert.deepEqual(ready(a.stored()).state(),a.state());
+ assert.equal(a.run('PermanentPerkModel.getDurability(500,0)'),500);assert.equal(a.run('PermanentPerkModel.getDurability(500,100)'),3000);assert.equal(a.run('PermanentPerkModel.getDurability(500,1)'),500);
+});
+test('GAME16 purchases preserve every resolved machine result and reject unowned captured effects',()=>{
+ const a=rebirthFactoryFixture(true);a.run('save.stardust=10000000000');
+ const before=a.state(),cycles=s=>[...s.factory.miners,...s.factory.polishers,s.factory.refiner,s.factory.furnace].map(m=>m.cycle);
+ for(const [id,d] of Object.entries(JSON.parse(a.run('JSON.stringify(PermanentPerkModel.definitions)'))))if(!d.gated)perkBuy(a,id);
+ assert.deepEqual(cycles(a.state()),cycles(before));assert.equal(a.state().gemDust,before.gemDust);assert.deepEqual(a.state().processedInventory,before.processedInventory);
+ const b=ready(a.stored());assert.equal(b.state().gemDust,before.gemDust+before.factory.refiner.cycle.result.gemDustDelta);assert.equal(b.state().permanentPerks.stardustGain,7500);
+ const low=perkGame();low.run('buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner(1);advanceDevelopmentMiner("miner:1",Date.now())');
+ for(const [key,value] of [['overallLuck',1.002],['rebirthOreLuckLevel',1],['speedLevel',1],['factoryXPLevel',1]]){
+  const bad=low.state();bad.factory.miners[0].cycle.effectContext[key]=value;assert.ok(boot(JSON.stringify(bad)).error,key);
+ }
+ const malformed=low.state();malformed.factory.miners[0].preservationLevelAtPurchase=1;delete malformed.permanentPerks;assert.ok(boot(JSON.stringify(malformed)).error);
+});
