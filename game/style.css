@@ -160,3 +160,10 @@ h1 { font-size:20px; line-height:1.25; } h1 span { display:block; color:var(--te
 #rebirthProgress::-webkit-progress-value { background:var(--progress); }
 #rebirthProgress::-moz-progress-bar { background:var(--progress); }
 #stardustBalance, #rebirthAward { color:var(--progress-highlight); }
+.perk-modal { max-width:760px; }
+.perk-row { border:1px solid var(--border); background:var(--bg-secondary); padding:10px; margin:8px 0; }
+.perk-row h4 { margin:0 0 6px; }
+.perk-row p { margin:5px 0; overflow-wrap:anywhere; }
+.perk-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.perk-actions button { flex:1 1 110px; }
+#permanentPerksBalance { color:var(--progress-highlight); overflow-wrap:anywhere; }

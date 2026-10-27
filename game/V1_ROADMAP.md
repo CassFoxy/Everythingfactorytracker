@@ -1,5 +1,15 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME16 — Complete Permanent Stardust Upgrade Integration
+
+**Status: COMPLETE — thirteen playable private perk trees.** One Reference J schedule and atomic Buy 1 / Buy 10 / Max Affordable pathway activates Overall Luck, Ore Luck, Furnace Value, Polisher Value, Refiner Value, Machine Tier Preservation, Refiner Dust Chance, Gem Dust Yield, Refiner Stability, Factory XP Gain, Stardust Gain, Miner Speed and Furnace Speed through their full approved ranges. Immutable cached prices preserve per-level rounding and frozen Preservation schedule v1.
+
+Actual machine reservations capture effects; historical results and inventory never reprice. Purchase-time Preservation provenance grants free starting tiers without fictitious payments, preserves existing machine ownership and supports correct resale/replacement. Rebirth retains perks and applies capped Furnace restoration. Stardust spending uses exact hundredths and the existing persist-before-publish/retry boundary. The compact earthy grouped shop displays levels, effects, prices, affordability and max states.
+
+Verification: four syntax checks, a 503-test full Node pass plus the final resolved-work regression (504 total cases), and 91 browser scenarios passed locally. All target-level prices and Reference J totals are checked by table-driven tests. Shop screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844; no overflow, duplicate IDs or browser errors. Exact-head GitHub Actions results are recorded on the PR.
+
+Pickaxe Durability has tested pricing/effect calculation but no spending while its genuine consumer is absent. Recommended Discount pricing, unresolved Furnace Capacity, broader statistics, challenges, grid/conveyors, Inscriptions and public V2 remain outstanding. Next consolidated playable improvement: approved Pickaxe crafting, durable ownership/use and repair integration, then activate the already-defined Durability perk consumer; resolve any remaining material/recipe gates before implementation. No follow-up work is included here.
+
 ## V1-GAME15 — Complete Playable Rebirth and Stardust Integration
 
 **Status: COMPLETE — bounded private core Rebirth.** Current unspent Cash of at least $1,000,000 enables a signature-bound confirmation. Reference H awards Stardust at effective Gain Level 0, rounded once to hundredths and accumulated with exact internal hundredth arithmetic. One durable candidate increments the completed count, resets Cash and normal Shop progression, removes machine ownership and all unfinished work without rewards/refunds, clears raw/processed stock, and resets current-Rebirth Polished counts.

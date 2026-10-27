@@ -637,6 +637,18 @@ const CashPricingModel = (() => {
 })();
 
 // V1-050B: recorded-payment models only; no quote lookup, debit, resale or persistence.
+// GAME16 optional immutable purchase-time grant. Absence means historical Level 0.
+const MachinePurchaseGrantModel = Object.freeze({
+    fields(machine, fields, cap){
+        if(!machine || typeof machine!=="object" || !Object.hasOwn(machine,"preservationLevelAtPurchase")) return fields;
+        const descriptor=Object.getOwnPropertyDescriptor(machine,"preservationLevelAtPurchase");
+        if(!descriptor.enumerable || !("value" in descriptor)) throw Error("Invalid purchase-time Preservation data field");
+        const level=descriptor.value;
+        if(!Number.isInteger(level) || level<0 || level>25 || machine.tier<Math.min(cap,Math.max(1,level)))
+            throw Error("Invalid purchase-time Preservation grant");
+        return [...fields,"preservationLevelAtPurchase"];
+    }
+});
 const InvestmentModel = (() => {
     const tierCaps = Object.freeze({ miner: 25, polisher: 10, refiner: 10 });
     const paymentFields = ["kind", "targetLevel", "cashPaid", "basis"];
@@ -842,7 +854,7 @@ const MinerCandidateModel = (() => {
     }
 
     function validateIdleMiner(miner){
-        record(miner, minerFields, "miner");
+        record(miner, MachinePurchaseGrantModel.fields(miner, minerFields, 25), "miner");
         entitySequence(miner.id, ["miner"]);
         integer(miner.slot, 1, 5, "slot");
         integer(miner.tier, 1, 25, "tier");
@@ -1493,7 +1505,7 @@ const PolisherCandidateModel = (() => {
         return Number(match[2]);
     }
     function validateIdlePolisher(machine){
-        record(machine, fields);
+        record(machine, MachinePurchaseGrantModel.fields(machine, fields, 10));
         sequence(machine.id, ["polisher"]);
         integer(machine.slot, 1, 3, "slot"); integer(machine.tier, 1, 10, "tier");
         integer(machine.nextCycleSequence, 1, Number.MAX_SAFE_INTEGER, "nextCycleSequence");
@@ -1632,7 +1644,7 @@ const RefinerCandidateModel = (() => {
         RefinerModel.validateInputLot({ ...selection, amount: 1 });
     }
     function validateIdleRefiner(machine){
-        record(machine, ["id", "tier", "selection", "investment", "nextCycleSequence", "cycle"]);
+        record(machine, MachinePurchaseGrantModel.fields(machine, ["id", "tier", "selection", "investment", "nextCycleSequence", "cycle"], 10));
         sequence(machine.id, ["refiner"]); integer(machine.tier, 1, 10, "tier");
         integer(machine.nextCycleSequence, 1, Number.MAX_SAFE_INTEGER, "nextCycleSequence");
         if(machine.cycle !== null) invalid("active cycles unsupported");
@@ -1809,7 +1821,9 @@ const CycleEffectContextModel = (() => {
         if(!["miner", "polisher", "refiner", "furnace"].includes(owner)) invalid("owning machine type");
         const kind = legacy ? "legacyFurnaceV1" : owner;
         if(legacy && owner !== "furnace") invalid("legacy Furnace owner required");
-        record(value, ["version", "kind", ...fields[kind]]);
+        const xp = (kind === "miner" || kind === "furnace") && Object.hasOwn(value,"factoryXPLevel");
+        record(value, ["version", "kind", ...fields[kind], ...(xp ? ["factoryXPLevel"] : [])]);
+        if(xp && (!Number.isInteger(value.factoryXPLevel) || value.factoryXPLevel < 0 || value.factoryXPLevel > 10000)) invalid("Factory XP level");
         if(value.version !== 1 || value.kind !== kind) invalid("version or owner mismatch");
         if(kind === "miner"){
             MinerTierModel.getTierProbabilities(value.tier, value.overallLuck);
@@ -1931,7 +1945,7 @@ const PolisherReservationCandidateModel = (() => {
     function validateCandidate(state){
         record(state, ["polisher", "inventory"]);
         const machine = state.polisher;
-        record(machine, ["id", "slot", "tier", "selectedOreId", "queue", "investment", "nextCycleSequence", "cycle"]);
+        record(machine, MachinePurchaseGrantModel.fields(machine, ["id", "slot", "tier", "selectedOreId", "queue", "investment", "nextCycleSequence", "cycle"], 10));
         array(machine.queue);
         // Validate base ownership through the established model, then validate
         // every supplied queue below. Never strip/reset an active cycle.
@@ -2044,7 +2058,7 @@ const PolisherResolutionCandidateModel = (() => {
     function validateCycleCandidate(state, phase){
         record(state, ["polisher", "inventory"]);
         const m = state.polisher;
-        record(m, ["id", "slot", "tier", "selectedOreId", "queue", "investment", "nextCycleSequence", "cycle"]);
+        record(m, MachinePurchaseGrantModel.fields(m, ["id", "slot", "tier", "selectedOreId", "queue", "investment", "nextCycleSequence", "cycle"], 10));
         if(typeof m.id !== "string" || !/^polisher:[1-9][0-9]*$/.test(m.id)) invalid("Polisher ID");
         const n = Number(m.id.slice(9));
         if(!Number.isSafeInteger(n) || String(n) !== m.id.slice(9)) invalid("Polisher ID sequence");
@@ -2221,4 +2235,56 @@ const PolishedOutputStatisticsCandidateModel = (() => {
         return candidate;
     }
     return Object.freeze({ createStatistics, validateStatistics, validateEvent, prepareIncrement });
+})();
+
+// GAME16 Reference J schedule v1. Immutable tables freeze per-level rounding.
+const PermanentPerkModel = (() => {
+    const definitions={
+        overallLuck:{name:"Overall Luck",group:"Mining",max:5000,price:l=>l,effect:l=>1+.002*l},
+        oreLuck:{name:"Ore Luck",group:"Mining",max:5000,price:l=>l,effect:l=>1+.002*l},
+        furnaceValue:{name:"Furnace Value",group:"Processing",max:5000,price:l=>l,effect:l=>1+.001*l},
+        polisherValue:{name:"Polisher Value",group:"Processing",max:5000,price:l=>l,effect:l=>1+.0001*l},
+        refinerValue:{name:"Refiner Value",group:"Processing",max:5000,price:l=>l,effect:l=>.50+.0014*l},
+        preservation:{name:"Machine Tier Preservation",group:"Factory",max:25,price:l=>Math.round(7500*1.484168297348115**(l-1)),effect:l=>Math.max(1,l)},
+        dustChance:{name:"Refiner Dust Chance",group:"Processing",max:30,price:l=>2*l,effect:l=>.005*l},
+        dustYield:{name:"Gem Dust Yield",group:"Processing",max:50,price:l=>Math.round(50*1.3368**(l-1)),effect:l=>1+.05*l},
+        stability:{name:"Refiner Stability",group:"Processing",max:180,price:l=>{let p=5;for(let i=2;i<=l;i++)p+=Math.ceil(i/10);return p;},effect:l=>.005*l},
+        factoryXP:{name:"Factory XP Gain",group:"Factory",max:10000,price:l=>20*l,effect:l=>1+.0004*l},
+        stardustGain:{name:"Stardust Gain",group:"Rebirth",max:7500,price:l=>18*l,effect:l=>1+4*l/7500},
+        minerSpeed:{name:"Miner Speed",group:"Mining",max:50,price:l=>Math.round(100000*1.121118909**(l-1)),effect:l=>1-.01*l},
+        furnaceSpeed:{name:"Furnace Speed",group:"Processing",max:50,price:l=>Math.round(100000*1.121118909**(l-1)),effect:l=>1-.01*l},
+        pickaxeDurability:{name:"Pickaxe Durability",group:"Mining",max:100,price:l=>Math.round(1000*1.1**(l-1)),effect:l=>1+.05*l,gated:true}
+    };
+    const tables={},prefixes={};
+    for(const [id,d] of Object.entries(definitions)){
+        tables[id]=Object.freeze(Array.from({length:d.max+1},(_,l)=>l?d.price(l):0));
+        let total=0n;prefixes[id]=Object.freeze(tables[id].map(price=>{total+=BigInt(price);return total;}));
+        Object.freeze(d);
+    }
+    Object.freeze(definitions);
+    function definition(id){if(!Object.hasOwn(definitions,id))throw Error("Unknown permanent perk");return definitions[id];}
+    function level(id,l){const d=definition(id);if(!Number.isInteger(l)||l<0||l>d.max)throw Error("Invalid permanent perk level");return d;}
+    function getPrice(id,l){level(id,l);if(l===0)throw Error("Target level starts at 1");return tables[id][l];}
+    function getEffect(id,l){return level(id,l).effect(l);}
+    function createOwnership(){return Object.fromEntries(Object.keys(definitions).map(id=>[id,0]));}
+    function validateOwnership(p){
+        if(!p||typeof p!=="object"||Array.isArray(p)||Reflect.ownKeys(p).length!==Object.keys(definitions).length)throw Error("Invalid permanent perk ownership");
+        for(const id of Object.keys(definitions)){
+            const d=Object.getOwnPropertyDescriptor(p,id);
+            if(!d||!d.enumerable||!("value" in d))throw Error("Missing permanent perk");
+            level(id,d.value);if(definitions[id].gated&&d.value!==0)throw Error("Pickaxe Durability consumer unavailable");
+        }
+    }
+    function quote(id,owned,mode,balanceCents){
+        const d=level(id,owned);
+        if(d.gated)throw Error("Pickaxe Durability requires durable Pickaxe integration");
+        if(![1,10,"max"].includes(mode)||typeof balanceCents!=="bigint"||balanceCents<0n)throw Error("Invalid purchase request");
+        const limit=Math.min(d.max,owned+(mode==="max"?d.max:mode));
+        let lo=owned,hi=limit;
+        while(lo<hi){const mid=Math.ceil((lo+hi)/2);if((prefixes[id][mid]-prefixes[id][owned])*100n<=balanceCents)lo=mid;else hi=mid-1;}
+        return {target:lo,levels:lo-owned,costCents:(prefixes[id][lo]-prefixes[id][owned])*100n};
+    }
+    function getDurability(base,l){level("pickaxeDurability",l);if(!Number.isFinite(base)||base<0)throw Error("Invalid base durability");return Math.floor(base*getEffect("pickaxeDurability",l)/100)*100;}
+    return Object.freeze({version:1,definitions,getPrice,getEffect,createOwnership,validateOwnership,quote,getDurability,
+        getTotal:id=>prefixes[id][definition(id).max]});
 })();

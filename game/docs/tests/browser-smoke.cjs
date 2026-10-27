@@ -91,6 +91,49 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
 
 
         // GAME15 real controls, timed Furnace earnings and repeatable Rebirth.
+        // GAME16: actual UI purchases and rebuilt production, controlled clocks only.
+        for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
+            await page.evaluate(()=>addDeveloperCash(1000000));await page.locator('#rebirthButton').click();await page.locator('#confirmRebirth').click();
+            await page.locator('#permanentPerksButton').click();assert.match(await page.locator('#permanentPerksBalance').textContent(),/10.00 Stardust/);
+            await page.locator('#perk-overallLuck-1').click();assert.equal(await page.evaluate(()=>save.permanentPerks.overallLuck),1);assert.equal(await page.evaluate(()=>save.stardust),9);
+            await page.locator('#perk-oreLuck-10').click();assert.equal(await page.evaluate(()=>save.permanentPerks.oreLuck),3);assert.equal(await page.evaluate(()=>save.stardust),3);
+            assert.equal(await page.locator('#perk-oreLuck-1').isDisabled(),true);assert.equal(await page.locator('#perk-pickaxeDurability button').count(),0);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.locator('.perk-modal').evaluate(el=>el.scrollTop=0);await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game16-shop-'+width+'.png')});}
+            await page.keyboard.press('Escape');assert.equal(await page.locator('#permanentPerksModal').isVisible(),false);
+            await page.evaluate(()=>addDeveloperCash(450));await page.locator('#buyMiningPower').click();await page.locator('#unlockMiner').click();await page.locator('#buyMiner').click();
+            await page.evaluate(()=>updateDevelopmentMiner());const old=await page.evaluate(()=>JSON.parse(JSON.stringify(save.factory.miners[0].cycle)));assert.equal(old.effectContext.overallLuck,1.002);assert.equal(old.effectContext.rebirthOreLuckLevel,3);
+            await page.locator('#permanentPerksButton').click();await page.locator('#perk-overallLuck-1').click();assert.deepEqual(await page.evaluate(()=>save.factory.miners[0].cycle),old);
+            await page.keyboard.press('Escape');await page.evaluate(()=>{Math.random=()=>0;testNow+=5000;updateDevelopmentMiner()});assert.equal(await page.evaluate(()=>save.inventory.stone),1);assert.equal(await page.evaluate(()=>save.factory.miners[0].cycle.effectContext.overallLuck),1.004);
+            await page.evaluate(()=>addDeveloperCash(1000000));await page.locator('#rebirthButton').click();await page.locator('#confirmRebirth').click();await page.reload();
+            assert.deepEqual(await page.evaluate(()=>[save.rebirthCount,save.permanentPerks.overallLuck,save.permanentPerks.oreLuck,save.stardust]),[2,2,3,11]);
+            await page.locator('#permanentPerksButton').click();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+            assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return ids.length!==new Set(ids).size}),false);
+            const modal=await page.locator('.perk-modal').boundingBox();assert.ok(modal.x>=0&&modal.x+modal.width<=width+1);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME16 '+width+'×'+height+': Rebirth, shop bulk purchase, actual bound Miner output, repeat retention and responsive controls.');
+        }
+        {
+            const app=await session(null,true),{page}=app;
+            await page.evaluate(()=>developmentCommand(n=>{n.stardust=10000000000;n.cash=1000000000000000;n.factory.furnace.autoEnabled=false}));await page.locator('#permanentPerksButton').click();
+            for(const id of await page.evaluate(()=>Object.keys(PermanentPerkModel.definitions).filter(id=>!PermanentPerkModel.definitions[id].gated)))await page.locator('#perk-'+id+'-max').click();
+            assert.match(await page.locator('#perk-preservation').textContent(),/25 \/ 25.*Max Level/s);assert.equal(await page.locator('#perk-preservation button').count(),0);await page.keyboard.press('Escape');
+            await page.evaluate(()=>{buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner(1);buyDevelopmentPolisher(1);buyDevelopmentRefiner();save.inventory.ruby=10;setDevelopmentPolisherOre(save.factory.polishers[0].id,'ruby');reserveDevelopmentPolisher(save.factory.polishers[0].id,{kind:'inventory'},Date.now())});
+            assert.deepEqual(await page.evaluate(()=>[save.factory.miners[0].tier,save.factory.polishers[0].tier,save.factory.refiner.tier]),[25,10,10]);assert.equal(await page.evaluate(()=>save.factory.polishers[0].investment.entries.length),1);
+            await page.evaluate(()=>{testNow+=10000;updateDevelopmentMiner()});assert.equal(await page.evaluate(()=>save.processedInventory.polished[0].polishedValue),45000);
+            await page.evaluate(()=>{setDevelopmentRefinerSelection(save.factory.refiner.id,processedSelection(save.processedInventory.polished[0]));updateDevelopmentMiner();window.rolls=[0,.1,.99];window.ri=0;Math.random=()=>rolls[(ri++)%3];testNow+=3000;advanceDevelopmentRefiner(save.factory.refiner.id,Date.now());advanceDevelopmentRefiner(save.factory.refiner.id,Date.now())});
+            assert.equal(await page.evaluate(()=>save.gemDust),40);const lot=await page.evaluate(()=>save.processedInventory.refined[0]);assert.equal(lot.preRefinerValue,45000);assert.equal(lot.refineBonus,7.5);
+            await page.evaluate(()=>{setDeveloperFurnace(true);prepareDevelopmentPolishedSmelt(save.processedInventory.refined[0],1);confirmSmelt()});const c=await page.evaluate(()=>save.factory.furnace.cycle);assert.equal(c.saleUnitValues[0],lot.preRefinerValue*8.5*6*1000);assert.equal(c.durationMs,5000);
+            await page.evaluate(()=>{testNow+=5000;advanceCanonicalFurnace(testNow);advanceCanonicalFurnace(testNow)});assert.equal(await page.evaluate(()=>save.achievementStats.oresSmelted),10);await page.reload();assert.equal(await page.evaluate(()=>save.permanentPerks.preservation),25);assert.equal(await page.evaluate(()=>save.gemDust),40);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME16 all thirteen max purchases, preserved machines, Polisher/Refiner effects, Developer Furnace Cash and reload.');
+        }
+        {
+            const app=await session(null,true),{page}=app;await page.evaluate(()=>developmentCommand(n=>n.stardust=100));await page.locator('#permanentPerksButton').click();
+            const before=await page.evaluate(()=>JSON.stringify(save));await page.evaluate(()=>{window.realWrite=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('test failure')}});
+            await page.locator('#perk-overallLuck-10').click();assert.equal(await page.evaluate(()=>JSON.stringify(save)),before);const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);await page.evaluate(()=>retryDevelopmentWrite());assert.equal(await page.evaluate(()=>pendingDevelopmentWrite.serialized),bytes);
+            await page.evaluate(()=>{Storage.prototype.setItem=realWrite;retryDevelopmentWrite()});assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);assert.equal(await page.evaluate(()=>save.permanentPerks.overallLuck),10);assert.equal(await page.evaluate(()=>save.stardust),45);await page.reload();assert.equal(await page.evaluate(()=>save.stardust),45);assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME16 failed bulk purchase stays unpublished; exact retry and reload debit once.');
+        }
+        if(process.env.TEFI_BROWSER_SCOPE==='game16')return;
+
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
             assert.equal(await page.locator('#milestonesButton').isVisible(),false);assert.equal(await page.locator('#rebirthButton').isDisabled(),true);
