@@ -41,6 +41,7 @@
   <section class="game-panel mining-panel" aria-labelledby="miningTitle">
    <div class="section-heading"><span class="eyebrow">01 / The mine</span><h2 id="miningTitle">Strike something good.</h2><p>Every factory starts with a little digging.</p></div>
    <div class="mine-scene" aria-hidden="true"><span class="rock rock-one"></span><span class="rock rock-two"></span><span class="ore-chunk ore-amber"></span><span class="ore-chunk ore-violet"></span><span class="ore-chunk ore-cyan"></span><span class="pickaxe">⛏</span></div>
+   <p id="equippedPickaxeSummary"></p><p id="materialsSummary"></p><button id="pickaxesButton" onclick="openDevelopmentPickaxes()">Crafting &amp; Pickaxes</button>
    <button id="mineButton" class="mine-button">⛏ Produce Ore</button>
    <p id="manualPowerStatus" class="mining-power-status" hidden><a id="manualPowerLink" href="#miningPowerCard">Mining Power I · available in the Shop</a></p>
    <div class="mining-feedback" aria-live="polite"><span class="eyebrow">Last find</span><strong id="lastOre">None</strong><span>Base value <span id="lastOreValue">$0</span></span></div>
@@ -118,6 +119,11 @@
    <div class="furnace-actions"><button id="confirmRefinerSale">Confirm Sale</button><button id="cancelRefinerSale">Cancel</button></div>
   </div>
  </div>
+ <div id="pickaxesModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pickaxesTitle">
+ <div class="modal-content pickaxe-modal"><h2 id="pickaxesTitle">Crafting &amp; Pickaxes</h2><button id="closePickaxes" onclick="closeDevelopmentPickaxes()">Close</button>
+ <p id="pickaxeMaterials"></p><p class="shop-note">Crafting uses available raw ore. Each click uses one hit. Only broken copies can be repaired. Materials and Pickaxes survive Rebirth; material-specific XP awaits balance approval.</p>
+ <p id="pickaxeFeedback" role="status"></p><h3>Craft a Pickaxe</h3><div id="pickaxeRecipes" class="pickaxe-grid"></div>
+ <h3>Owned Pickaxes</h3><div id="ownedPickaxes" class="pickaxe-grid"></div></div></div>
  <div id="permanentPerksModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="permanentPerksTitle">
   <div class="modal-content perk-modal">
    <h2 id="permanentPerksTitle">Permanent Stardust Shop</h2><button id="closePermanentPerks">Close</button>

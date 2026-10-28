@@ -160,10 +160,12 @@ h1 { font-size:20px; line-height:1.25; } h1 span { display:block; color:var(--te
 #rebirthProgress::-webkit-progress-value { background:var(--progress); }
 #rebirthProgress::-moz-progress-bar { background:var(--progress); }
 #stardustBalance, #rebirthAward { color:var(--progress-highlight); }
-.perk-modal { max-width:760px; }
+.perk-modal,.pickaxe-modal { max-width:760px; }
 .perk-row { border:1px solid var(--border); background:var(--bg-secondary); padding:10px; margin:8px 0; }
 .perk-row h4 { margin:0 0 6px; }
 .perk-row p { margin:5px 0; overflow-wrap:anywhere; }
 .perk-actions { display:flex; flex-wrap:wrap; gap:6px; }
 .perk-actions button { flex:1 1 110px; }
 #permanentPerksBalance { color:var(--progress-highlight); overflow-wrap:anywhere; }
+
+.pickaxe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pickaxe-card{background:var(--bg-secondary);border:1px solid var(--border);padding:10px;min-width:0;overflow-wrap:anywhere}.pickaxe-card h4,.pickaxe-card p{margin:4px 0}.pickaxe-card p{font-size:.85rem;color:var(--text-secondary)}.pickaxe-card progress{width:100%;accent-color:var(--progress)}.pickaxe-card button{margin:4px 4px 0 0}.pickaxe-card button:disabled{opacity:1;color:var(--text-secondary);background:var(--bg-raised)}#equippedPickaxeSummary,#materialsSummary{font-size:.85rem;overflow-wrap:anywhere}@media(max-width:600px){.pickaxe-grid{grid-template-columns:1fr}}

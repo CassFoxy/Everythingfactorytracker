@@ -2253,7 +2253,7 @@ const PermanentPerkModel = (() => {
         stardustGain:{name:"Stardust Gain",group:"Rebirth",max:7500,price:l=>18*l,effect:l=>1+4*l/7500},
         minerSpeed:{name:"Miner Speed",group:"Mining",max:50,price:l=>Math.round(100000*1.121118909**(l-1)),effect:l=>1-.01*l},
         furnaceSpeed:{name:"Furnace Speed",group:"Processing",max:50,price:l=>Math.round(100000*1.121118909**(l-1)),effect:l=>1-.01*l},
-        pickaxeDurability:{name:"Pickaxe Durability",group:"Mining",max:100,price:l=>Math.round(1000*1.1**(l-1)),effect:l=>1+.05*l,gated:true}
+        pickaxeDurability:{name:"Pickaxe Durability",group:"Mining",max:100,price:l=>Math.round(1000*1.1**(l-1)),effect:l=>1+.05*l}
     };
     const tables={},prefixes={};
     for(const [id,d] of Object.entries(definitions)){
@@ -2287,4 +2287,26 @@ const PermanentPerkModel = (() => {
     function getDurability(base,l){level("pickaxeDurability",l);if(!Number.isFinite(base)||base<0)throw Error("Invalid base durability");return Math.floor(base*getEffect("pickaxeDurability",l)/100)*100;}
     return Object.freeze({version:1,definitions,getPrice,getEffect,createOwnership,validateOwnership,quote,getDurability,
         getTotal:id=>prefixes[id][definition(id).max]});
+})();
+
+// Reference A: pure manual calculations; no automated Luck or material XP consumer.
+const PickaxeModel = (() => {
+    const recipes = [null, ['amber','wood',8], ['malachite','wood',16], ['citrine','wood',32],
+        ['aquamarine','scrap',12], ['spinel','scrap',24], ['emerald','scrap',48], ['onyx','metal',16], ['diamond','metal',32]];
+    function tier(k){if(!Number.isInteger(k)||k<0||k>8)throw Error("Invalid Pickaxe tier");return k;}
+    function stats(k){tier(k);return {tier:k,power:4*1.75**k,luck:1+2.5*k,baseDurability:500*k,maxOreTier:Math.min(4,k+2)};}
+    function recipe(k,repair=false){tier(k);if(!k)throw Error("Default needs no recipe");const [ore,material,amount]=recipes[k];
+        return {ore,oreAmount:repair?31:32,material,materialAmount:repair?Math.ceil(amount*.95):amount};}
+    function maximum(k,level){if(!tier(k))throw Error("Default has no finite durability");return PermanentPerkModel.getDurability(500*k,level);}
+    function probabilities(k){const st=stats(k);const weights=[239744,10000,250,5,1].map((w,i)=>i>st.maxOreTier?0:w*st.luck**(.35*i));
+        const total=weights.reduce((a,b)=>a+b,0);return weights.map(w=>w/total);}
+    function selectTier(k,roll){if(!Number.isFinite(roll)||roll<0||roll>=1)throw Error("Invalid manual roll");
+        const ps=probabilities(k);let sum=0;for(let i=4;i>=0;i--){sum+=ps[i];if(ps[i]&&roll<sum)return i;}return 0;}
+    function oreWeights(k){const luck=stats(k).luck;const weights=Array.from({length:5},(_,i)=>.65**i*luck**(.1*i));
+        const total=weights.reduce((a,b)=>a+b,0);return weights.map(w=>w/total);}
+    function selectOre(k,oreTier,roll){tier(k);if(!Number.isInteger(oreTier)||oreTier<1||oreTier>stats(k).maxOreTier||!Number.isFinite(roll)||roll<0||roll>=1)throw Error("Invalid manual ore roll");
+        const ids=[TIER_1_ORES,TIER_2_ORES,TIER_3_ORES,TIER_4_ORES][oreTier-1],weights=oreWeights(k);let sum=0;
+        for(let i=0;i<5;i++){sum+=weights[i];if(roll<sum)return ids[i];}return ids[4];}
+    function fallback(copies){return copies.filter(c=>c.remainingDurability>0).slice().sort((a,b)=>b.tier-a.tier||b.remainingDurability-a.remainingDurability||b.lastManualEquipOrder-a.lastManualEquipOrder||Number(a.id.slice(8))-Number(b.id.slice(8)))[0]?.id||"pickaxe:default";}
+    return Object.freeze({stats,recipe,maximum,probabilities,oreWeights,selectTier,selectOre,fallback});
 })();
