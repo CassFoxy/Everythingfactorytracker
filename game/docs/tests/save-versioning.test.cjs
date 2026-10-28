@@ -4004,6 +4004,7 @@ function boot(raw = null, beforeLoad = "", storageFaults = {}, now = 17000000000
             style: {}, dataset: {}, parentElement: {}, children: [],
             classList: { add() {}, remove() {} },
             appendChild(child) { this.children.push(child); },
+            setAttribute(name, value) { this[name] = value; },
             focus() {}
         };
         let markup = "";
@@ -4795,7 +4796,7 @@ test('GAME05 Luck II uses bound within-tier weights without altering tier, timin
         for(let t=1;t<tier;t++)app.run('upgradeDevelopmentMiner("miner:1");');
         if(oldLuck)app.run('upgradeDevelopmentMinerOreLuck("miner:1");');
         app.tick(100);const old=app.state().factory.miners[0].cycle;
-        while(app.state().factory.miners[0].oreLuckLevel<2)app.run('upgradeDevelopmentMinerOreLuck("miner:1");');
+        while(app.state().factory.miners[0].oreLuckLevel<2)assert.equal(app.run('upgradeDevelopmentMinerOreLuck("miner:1");'),true,app.elements.get("minerFeedback").textContent);
         assert.deepEqual(app.state().factory.miners[0].cycle,old);
         const probabilities=app.run('JSON.stringify(MinerTierModel.getTierProbabilities('+tier+',1))');
         const roll=app.run('(MinerOreLuckModel.getOreProbabilities(1,0,'+oldLuck+')[0].probability+MinerOreLuckModel.getOreProbabilities(1,0,2)[0].probability)/2');
@@ -5364,7 +5365,7 @@ test('GAME09 every ore and tier converts conserved partial batches with atomic q
  const a=ownedPolisher();const ids=Array.from(a.run('ORE_KEYS'));
  for(let i=0;i<ids.length;i++){
   const ore=ids[i],tier=Math.min(10,1+Math.floor(i/2));
-  while(a.state().factory.polishers[0].tier<tier)a.run(`addDeveloperCash(PolisherModel.getTierUpgradePrice(save.factory.polishers[0].tier+1,0));upgradeDevelopmentPolisher('polisher:1')`);
+  while(a.state().factory.polishers[0].tier<tier)assert.equal(a.run(`addDeveloperCash(PolisherModel.getTierUpgradePrice(save.factory.polishers[0].tier+1,0));upgradeDevelopmentPolisher('polisher:1')`),true,a.elements.get("minerFeedback").textContent);
   a.run(`developmentCommand(n=>{n.inventory.${ore}=3});setDevelopmentPolisherOre('polisher:1','${ore}');`);
   const before=a.state(),cap=a.run(`PolisherModel.getBatchSize(${tier})`),amount=Math.min(cap,3);
   assert.equal(a.run("advanceDevelopmentPolisher('polisher:1',Date.now())"),true);
@@ -5799,7 +5800,7 @@ test('GAME16 all thirteen trees buy sequential affordable bulk ranges, caps, rel
 });
 test('GAME16 missing ownership completes only known absence; collisions, caps and gated ownership reject',()=>{
  const a=perkGame(),state=a.state();delete state.permanentPerks;const old=JSON.stringify(state),b=ready(old);assert.equal(b.writes.length,0);assert.equal(b.stored(),old);assert.ok(Object.values(b.state().permanentPerks).every(l=>l===0));
- for(const bad of [null,{},[],{...b.state().permanentPerks,unknown:1},{...b.state().permanentPerks,overallLuck:-1},{...b.state().permanentPerks,oreLuck:5001},{...b.state().permanentPerks,stability:.5},{...b.state().permanentPerks,pickaxeDurability:1}]){
+ for(const bad of [null,{},[],{...b.state().permanentPerks,unknown:1},{...b.state().permanentPerks,overallLuck:-1},{...b.state().permanentPerks,oreLuck:5001},{...b.state().permanentPerks,stability:.5},{...b.state().permanentPerks,pickaxeDurability:101}]){
   const raw=JSON.stringify({...state,permanentPerks:bad}),c=boot(raw);assert.ok(c.error);assert.equal(c.stored(),raw);
  }
  const legacy=legacyFixture();legacy.permanentPerks={unrelated:'inert'};assert.deepEqual(ready(JSON.stringify(legacy)).state().permanentPerks,legacy.permanentPerks);
@@ -5888,4 +5889,81 @@ test('GAME16 purchases preserve every resolved machine result and reject unowned
   const bad=low.state();bad.factory.miners[0].cycle.effectContext[key]=value;assert.ok(boot(JSON.stringify(bad)).error,key);
  }
  const malformed=low.state();malformed.factory.miners[0].preservationLevelAtPurchase=1;delete malformed.permanentPerks;assert.ok(boot(JSON.stringify(malformed)).error);
+});
+
+function pickaxeGame(){const a=perkGame();a.run('for(const id of ORE_KEYS)save.inventory[id]=10000;save.materials={wood:10000,scrap:10000,metal:10000}');return a;}
+function pickaxeRolls(a,rolls){a.run(`{let rolls=${JSON.stringify(rolls)};Math.random=()=>{if(!rolls.length)throw Error("Unexpected RNG");return rolls.shift();};mineDevelopmentOre();}`);}
+test('GAME17 all crafting and repair recipes, copies, identities and ingredient protection',()=>{
+ const ores=['amber','malachite','citrine','aquamarine','spinel','emerald','onyx','diamond'],mats=['wood','wood','wood','scrap','scrap','scrap','metal','metal'],costs=[8,16,32,12,24,48,16,32],repairs=[8,16,31,12,23,46,16,31];
+ const a=pickaxeGame();
+ for(let k=1;k<=8;k++){
+  const before=a.state();assert.equal(a.run(`craftDevelopmentPickaxe(${k})`),true);const c=a.state().manual.pickaxes.at(-1);
+  assert.equal(c.id,'pickaxe:'+k);assert.equal(c.remainingDurability,500*k);assert.equal(c.lastManualEquipOrder,0);
+  assert.equal(a.state().inventory[ores[k-1]],before.inventory[ores[k-1]]-32);assert.equal(a.state().materials[mats[k-1]],before.materials[mats[k-1]]-costs[k-1]);
+  assert.equal(a.run(`repairDevelopmentPickaxe("${c.id}")`),false);a.run(`save.manual.pickaxes[${k-1}].remainingDurability=0`);const damaged=a.state();
+  assert.equal(a.run(`repairDevelopmentPickaxe("${c.id}")`),true);assert.equal(a.state().inventory[ores[k-1]],damaged.inventory[ores[k-1]]-31);assert.equal(a.state().materials[mats[k-1]],damaged.materials[mats[k-1]]-repairs[k-1]);assert.deepEqual(a.state().manual.pickaxes.at(-1),c);
+ }
+ assert.equal(a.run('craftDevelopmentPickaxe(1)'),true);assert.equal(a.state().manual.pickaxes.at(-1).id,'pickaxe:9');
+ a.run('save.inventory.amber=0');const before=a.state();assert.equal(a.run('craftDevelopmentPickaxe(1)'),false);assert.deepEqual(a.state(),before);
+ assert.equal(a.run('craftDevelopmentPickaxe(0)'),false);assert.equal(a.run('craftDevelopmentPickaxe(9)'),false);
+});
+test('GAME17 manual probability gates, full Power and independent Luck formulas',()=>{
+ const a=pickaxeGame();for(let k=0;k<=8;k++){
+  const st=JSON.parse(a.run(`JSON.stringify(PickaxeModel.stats(${k}))`));assert.equal(st.power,4*1.75**k);assert.equal(st.luck,1+2.5*k);
+  const ps=JSON.parse(a.run(`JSON.stringify(PickaxeModel.probabilities(${k}))`));const weights=[239744,10000,250,5,1].map((w,i)=>i>Math.min(4,k+2)?0:w*(1+2.5*k)**(.35*i)),sum=weights.reduce((a,b)=>a+b);
+  assert.deepEqual(ps,weights.map(w=>w/sum));assert.equal(a.run(`PickaxeModel.selectTier(${k},0)`),Math.min(4,k+2));
+  const ow=Array.from({length:5},(_,i)=>.65**i*(1+2.5*k)**(.1*i)),total=ow.reduce((a,b)=>a+b);
+  assert.deepEqual(JSON.parse(a.run(`JSON.stringify(PickaxeModel.oreWeights(${k}))`)),ow.map(w=>w/total));
+ }
+ const before=a.run('JSON.stringify(PickaxeModel.probabilities(8))');perkBuy(a,'overallLuck');perkBuy(a,'oreLuck');assert.equal(a.run('JSON.stringify(PickaxeModel.probabilities(8))'),before);
+ a.run('craftDevelopmentPickaxe(1);equipDevelopmentPickaxe("pickaxe:1")');pickaxeRolls(a,[0]);assert.equal(a.state().inventory.stone,2);assert.equal(a.state().manual.pickaxes[0].remainingDurability,499);
+ pickaxeRolls(a,[.99,.99,.99]);assert.equal(a.state().inventory.stone,3);assert.equal(a.state().manual.pickaxes[0].remainingDurability,498);
+});
+test('GAME17 one substitution per click, material boundaries and no replaced ore XP or discovery',()=>{
+ for(const [roll,material] of [[0,'wood'],[.5999,'wood'],[.6,'scrap'],[.8999,'scrap'],[.9,'metal'],[.9999,'metal']]){
+  const a=canonicalFurnaceGame();pickaxeRolls(a,[]);assert.equal(a.state().inventory.stone,1);assert.equal(a.state().factoryXP,1);
+  pickaxeRolls(a,[.99,0,roll]);assert.equal(a.state().inventory.stone,1);assert.equal(a.state().materials[material],1);assert.equal(a.state().factoryXP,1);assert.equal(a.state().achievementStats.totalOresMined,2);
+  assert.equal(a.state().totalOres,1);assert.equal(a.state().manual.equippedPickaxeId,'pickaxe:default');
+ }
+ const a=pickaxeGame();a.run('craftDevelopmentPickaxe(8);equipDevelopmentPickaxe("pickaxe:1");save.manual.firstActionCompleted=true');
+ const before=a.state();pickaxeRolls(a,[.99,0,0,.95]);assert.equal(a.state().inventory.stone,87);assert.equal(a.state().materials.metal,before.materials.metal+1);assert.equal(a.state().manual.pickaxes[0].remainingDurability,3999);assert.equal(a.state().factoryXP,87);
+});
+test('GAME17 deterministic break fallback and manual order are persisted atomically',()=>{
+ const a=pickaxeGame();a.run('craftDevelopmentPickaxe(1);craftDevelopmentPickaxe(2);craftDevelopmentPickaxe(2);equipDevelopmentPickaxe("pickaxe:2");equipDevelopmentPickaxe("pickaxe:3");equipDevelopmentPickaxe("pickaxe:1");save.manual.pickaxes[0].remainingDurability=1');
+ const order=a.state().identity.nextManualEquipSequence;pickaxeRolls(a,[.99]);assert.equal(a.state().manual.equippedPickaxeId,'pickaxe:3');assert.equal(a.state().manual.pickaxes[0].remainingDurability,0);assert.equal(a.state().identity.nextManualEquipSequence,order);
+ assert.equal(a.run('equipDevelopmentPickaxe("pickaxe:1")'),false);assert.equal(a.run('equipDevelopmentPickaxe("pickaxe:999")'),false);
+ assert.equal(a.run('PickaxeModel.fallback([{id:"pickaxe:10",tier:2,remainingDurability:5,lastManualEquipOrder:0},{id:"pickaxe:2",tier:2,remainingDurability:5,lastManualEquipOrder:0}])'),'pickaxe:2');
+ assert.equal(a.run('PickaxeModel.fallback([{id:"pickaxe:1",tier:2,remainingDurability:6,lastManualEquipOrder:0},{id:"pickaxe:2",tier:2,remainingDurability:5,lastManualEquipOrder:10}])'),'pickaxe:1');
+ a.run('save.manual.pickaxes[1].remainingDurability=0;save.manual.pickaxes[2].remainingDurability=1');pickaxeRolls(a,[.99,.99,.99]);assert.equal(a.state().manual.equippedPickaxeId,'pickaxe:default');
+ assert.deepEqual(ready(a.stored()).state(),a.state());
+});
+test('GAME17 all durability levels preserve damage, broken copies and canonical costs',()=>{
+ const a=pickaxeGame();a.run('craftDevelopmentPickaxe(1);craftDevelopmentPickaxe(8);craftDevelopmentPickaxe(1);save.manual.pickaxes[0].remainingDurability=400;save.manual.pickaxes[2].remainingDurability=0');
+ let sum=0;for(let l=1;l<=100;l++){
+  const before=a.state().stardust;assert.equal(a.run('buyPermanentPerk("pickaxeDurability",1)'),true);const price=Math.round(1000*1.1**(l-1));sum+=price;assert.equal(a.state().stardust,before-price);
+  assert.equal(a.state().manual.pickaxes[0].remainingDurability,Math.floor(500*(1+.05*l)/100)*100-100);assert.equal(a.state().manual.pickaxes[1].remainingDurability,Math.floor(4000*(1+.05*l)/100)*100);assert.equal(a.state().manual.pickaxes[2].remainingDurability,0);
+ }
+ assert.equal(sum,137796124);assert.equal(a.run('buyPermanentPerk("pickaxeDurability")'),false);assert.equal(a.run('repairDevelopmentPickaxe("pickaxe:3")'),true);assert.equal(a.state().manual.pickaxes[2].remainingDurability,3000);
+ const b=pickaxeGame();b.run('craftDevelopmentPickaxe(1);save.manual.pickaxes[0].remainingDurability=400');assert.equal(b.run('buyPermanentPerk("pickaxeDurability",10)'),true);assert.equal(b.state().manual.pickaxes[0].remainingDurability,600);assert.equal(b.run('buyPermanentPerk("pickaxeDurability","max")'),true);assert.equal(b.state().manual.pickaxes[0].remainingDurability,2900);
+});
+test('GAME17 crafting, equipment, repair, mining and perk failed writes retry exact candidates',()=>{
+ for(const command of ['craftDevelopmentPickaxe(1)','equipDevelopmentPickaxe("pickaxe:1")','repairDevelopmentPickaxe("pickaxe:2")','mineDevelopmentOre()','buyPermanentPerk("pickaxeDurability",10)']){
+  const a=pickaxeGame();a.run('craftDevelopmentPickaxe(1);craftDevelopmentPickaxe(2);save.manual.pickaxes[1].remainingDurability=0;Math.random=()=>.99;saveGame()');const before=a.state(),stored=a.stored();a.faults.write=true;
+  assert.equal(a.run(command),false,command);assert.deepEqual(a.state(),before);assert.equal(a.stored(),stored);const bytes=a.run('pendingDevelopmentWrite.serialized');assert.ok(bytes);assert.equal(a.run('craftDevelopmentPickaxe(1)'),false);
+  a.run('Math.random=()=>{throw Error("retry rerolled") }');assert.equal(a.run('retryDevelopmentWrite()'),false);a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.run('retryDevelopmentWrite()'),false);assert.deepEqual(ready(a.stored()).state(),a.state());
+ }
+});
+test('GAME17 Rebirth retains damaged and broken copies materials equipment and both sequences',()=>{
+ const a=pickaxeGame();a.run('craftDevelopmentPickaxe(1);craftDevelopmentPickaxe(2);equipDevelopmentPickaxe("pickaxe:1");save.manual.pickaxes[0].remainingDurability=3;save.manual.pickaxes[1].remainingDurability=0;save.manual.firstActionCompleted=true;buyPermanentPerk("pickaxeDurability",10)');const before=a.state();assert.equal(rebirthForTest(a),true);
+ for(const key of ['manual','materials','identity','permanentPerks'])assert.deepEqual(a.state()[key],before[key]);assert.deepEqual(ready(a.stored()).state(),a.state());
+ a.run('save.inventory.amber=32');assert.equal(a.run('craftDevelopmentPickaxe(1)'),true);assert.equal(a.state().manual.pickaxes.at(-1).id,'pickaxe:3');
+});
+test('GAME17 older absent materials complete safely; malformed ownership and collisions recover',()=>{
+ const a=canonicalFurnaceGame(),old=a.state();delete old.materials;const b=ready(JSON.stringify(old));assert.deepEqual(b.state().materials,{wood:0,scrap:0,metal:0});assert.equal(b.state().manual.firstActionCompleted,false);
+ const c=pickaxeGame();c.run('craftDevelopmentPickaxe(1);equipDevelopmentPickaxe("pickaxe:1")');const base=c.state();
+ for(const mutate of [s=>s.materials=null,s=>delete s.materials,s=>s.materials.wood=-1,s=>s.materials.wood=.5,s=>s.materials.extra=0,s=>s.manual.pickaxes.push({...s.manual.pickaxes[0]}),s=>s.manual.pickaxes[0].tier=9,s=>s.manual.pickaxes[0].remainingDurability=501,s=>s.manual.pickaxes[0].remainingDurability=.5,s=>s.manual.pickaxes[0].remainingDurability=0,s=>s.manual.pickaxes[0].id='pickaxe:01',s=>s.manual.pickaxes[0].isBroken=false,s=>s.manual.pickaxes[0].lastManualEquipOrder=2,s=>s.identity.nextEntitySequence=1,s=>s.manual.equippedPickaxeId='pickaxe:9']){
+  const bad=JSON.parse(JSON.stringify(base));mutate(bad);assert.ok(boot(JSON.stringify(bad)).error);
+ }
+ c.run('buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner(1);buyDevelopmentPolisher(1);buyDevelopmentRefiner()');assert.deepEqual(c.state().factory.miners.map(m=>m.id),['miner:2']);assert.equal(c.state().factory.polishers[0].id,'polisher:3');assert.equal(c.state().factory.refiner.id,'refiner:4');
+ const collision=c.state();collision.factory.miners[0].id='miner:1';assert.ok(boot(JSON.stringify(collision)).error);
 });

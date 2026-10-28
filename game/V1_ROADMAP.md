@@ -1,5 +1,15 @@
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
+## V1-GAME17 — Complete Pickaxe Crafting, Durability and Repair Integration
+
+**Status: COMPLETE — bounded private gameplay implementation.** All eight Reference A Pickaxes use shared recipes and independent canonical copies. Manual mining uses full raw Power, probabilistic whole quantities, Pickaxe-only Luck, tier locks and one material substitution per click. Materials remain separate from ore Collection; their specific XP consumer awaits approval. One persisted click also consumes one hit and selects the deterministic fallback when broken.
+
+Crafting, manual equipment, broken-only repair and all 100 Durability perk levels use the existing atomic transaction/retry pathway. Bulk perk purchases preserve damage through net rounded-capacity increases and never repair broken copies. Pickaxes, materials, equipment history and counters survive Rebirth. Shared global allocation includes all machine and Pickaxe identities. Earlier supported material-free saves receive documented zero defaults without reconstructing history.
+
+The earthy Crafting & Pickaxes interface shows all recipes, individual copies, ingredients, equipment and durability; the existing Stardust Shop now activates its Durability row. V1-027/028/029 and applicable V1-041 ownership/consumer work are delivered for this private profile, not public V2 certification. Validation: four syntax checks, 512 Node tests and 97 browser scenarios passed. Screenshots inspected at 1920×1080, 1366×768, 768×1024 and 390×844; no horizontal overflow, duplicate IDs or browser errors. Exact-head CI is reported on the implementation PR.
+
+Remaining: material XP approval, remaining normal Cash Shop progression, broader statistics/challenges, Discount/Capacity pricing, grid/conveyors and public V2. Recommended next consolidated playable ticket: remaining approved Cash Shop Mining Power, Mining Luck and Mining Duplication ranges with their actual manual consumers; keep unresolved Stone/Ore Value rules out of that ticket.
+
 ## V1-GAME16 — Complete Permanent Stardust Upgrade Integration
 
 **Status: COMPLETE — thirteen playable private perk trees.** One Reference J schedule and atomic Buy 1 / Buy 10 / Max Affordable pathway activates Overall Luck, Ore Luck, Furnace Value, Polisher Value, Refiner Value, Machine Tier Preservation, Refiner Dust Chance, Gem Dust Yield, Refiner Stability, Factory XP Gain, Stardust Gain, Miner Speed and Furnace Speed through their full approved ranges. Immutable cached prices preserve per-level rounding and frozen Preservation schedule v1.

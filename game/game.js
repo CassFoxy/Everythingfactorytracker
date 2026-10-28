@@ -630,6 +630,7 @@ function readVersionedSave(serializedSave){
         completeDevelopmentRefinerFields(migrated);
         completeDevelopmentRebirthFields(migrated);
         completeDevelopmentPerkFields(migrated);
+        completeDevelopmentPickaxeFields(migrated);
         validateDevelopmentSave(migrated);
     }catch(error){
         throw error?.code ? error : saveLoadError("VALIDATION_ERROR", "Save validation failed. Stored data was not changed.", error);
@@ -2424,6 +2425,7 @@ document.getElementById(
 }
 
 function updateUI(){
+    renderDevelopmentPickaxes();
     renderDevelopmentRebirth();
     renderPermanentPerks();
     renderDevelopmentMiner();
@@ -4221,6 +4223,7 @@ function createMinerDevelopmentSave(){
         developmentProfile: "miner-1",
         developerTools: { furnaceEnabled: false },
         shop: { miningPower: 0, minerUnlocked: false },
+        materials: InventoryModel.createMaterials(),
         manual: { firstActionCompleted: false, equippedPickaxeId: "pickaxe:default", pickaxes: [] },
         factory: { minerSlots: MinerCandidateModel.createSlotAccess(), miners: [], polishers: [], refiner: null },
         gemDust: 0,
@@ -4532,8 +4535,7 @@ function validateDevelopmentSave(state){
         if(![0,1].includes(state.shop.miningPower) || state.shop.minerUnlocked && state.shop.miningPower !== 1)
             throw Error("Invalid Mining Power prerequisite");
         developmentRecord(state.manual, ["firstActionCompleted", "equippedPickaxeId", "pickaxes"]);
-        if(typeof state.manual.firstActionCompleted !== "boolean" || state.manual.equippedPickaxeId !== "pickaxe:default" ||
-            !Array.isArray(state.manual.pickaxes) || state.manual.pickaxes.length) throw Error("Unsupported Pickaxe state");
+        validateDevelopmentPickaxes(state);
         const projection = copySaveData(minerProjection(state));
         if(!Array.isArray(projection.factory.miners) || projection.factory.miners.length > 5 || state.droppers !== 0)
             throw Error("At most five Miners are supported; legacy Droppers are retired");
@@ -5064,11 +5066,21 @@ function renderDevelopmentMinerResale(miner){
 }
 function mineDevelopmentOre(){
     return developmentCommand(next => {
-        const tier = next.manual.firstActionCompleted ? rollManualTier() : 0;
-        const ore = tier === 0 ? developmentOre("stone") : getRandomOre([TIER_1_ORES,TIER_2_ORES,TIER_3_ORES,TIER_4_ORES][tier - 1]);
-        const power = 0.25 * (DEFAULT_PICKAXE.rawPower + 2 * next.shop.miningPower);
-        const amount = Math.floor(power) + (power % 1 > 0 && Math.random() < power % 1 ? 1 : 0);
-        prepareDevelopmentAward(next, ore.key, amount, true);
+        const copy=next.manual.pickaxes.find(c=>c.id===next.manual.equippedPickaxeId), k=copy?.tier||0;
+        const first=!next.manual.firstActionCompleted;
+        const tier=first?0:PickaxeModel.selectTier(k,Math.random());
+        const resource=tier?PickaxeModel.selectOre(k,tier,Math.random()):"stone";
+        const power=.25*(PickaxeModel.stats(k).power+2*next.shop.miningPower);
+        let amount=Math.floor(power)+(power%1>0&&Math.random()<power%1?1:0),material=null;
+        if(!first&&Math.random()<.15){const roll=Math.random();material=roll<.6?"wood":roll<.9?"scrap":"metal";amount--;next.materials[material]=exactDevelopmentAdd(next.materials[material],1);}
+        if(amount)prepareDevelopmentAward(next,resource,amount,false);
+        // One click, including a material-only outcome. Replaced ore earns no XP/discovery.
+        next.achievementStats.totalOresMined=exactDevelopmentAdd(next.achievementStats.totalOresMined,1);
+        next.manual.firstActionCompleted=true;
+        next.lastOre=(amount?developmentOre(resource).name+" ×"+amount:"")+(material?(amount?" + ":"")+material+" ×1":"");
+        next.lastOreValue=amount?developmentOre(resource).value:0;
+        if(copy){copy.remainingDurability--;if(!copy.remainingDurability)next.manual.equippedPickaxeId=PickaxeModel.fallback(next.manual.pickaxes);}
+        prepareDevelopmentProgress(next);
     });
 }
 function updateDevelopmentMiner(){
@@ -5492,7 +5504,7 @@ attemptSaveLoad();
 // GAME12 private activation: per-item outcomes are the approved Refiner-only
 // CycleResult extension. They are pending facts, never awards before commit.
 function developmentOtherIds(state,kind){
-    return [...state.factory.miners,...state.factory.polishers,...(state.factory.refiner ? [state.factory.refiner] : [])]
+    return [...state.manual.pickaxes,...state.factory.miners,...state.factory.polishers,...(state.factory.refiner ? [state.factory.refiner] : [])]
         .filter(m=>!m.id.startsWith(kind+":" )).map(m=>m.id);
 }
 function completeDevelopmentRefinerFields(state){
@@ -5898,6 +5910,8 @@ function buyPermanentPerk(id,mode=1){
         const quote=PermanentPerkModel.quote(id,next.permanentPerks[id],mode,stardustHundredths(next.stardust));
         if(!quote.levels)throw Error(next.permanentPerks[id]===PermanentPerkModel.definitions[id].max?"Max Level reached.":"Insufficient Stardust.");
         next.stardust=stardustFromHundredths(stardustHundredths(next.stardust)-quote.costCents);
+        if(id==="pickaxeDurability")for(const copy of next.manual.pickaxes)if(copy.remainingDurability>0)
+            copy.remainingDurability+=PickaxeModel.maximum(copy.tier,quote.target)-PickaxeModel.maximum(copy.tier,next.permanentPerks[id]);
         next.permanentPerks[id]=quote.target;
     },{permanentPerk:true,message:"Permanent upgrade saved. Active work keeps its captured effects."});
     document.getElementById("permanentPerkFeedback").textContent=ok?"Permanent upgrade saved. Future work uses the new level.":document.getElementById("minerFeedback").textContent;
@@ -5964,4 +5978,87 @@ function renderPermanentPerks(){
         }
         container.appendChild(section);
     }
+}
+
+// GAME17: additive known-absence boundary, never infer materials from past ores.
+function completeDevelopmentPickaxeFields(state){
+    if(!isMinerDevelopment(state)||Object.hasOwn(state,"materials"))return;
+    if(state.manual?.pickaxes?.length || perkLevel(state,"pickaxeDurability")!==0)throw Error("Missing Materials for activated Pickaxe state");
+    state.materials=InventoryModel.createMaterials();
+}
+function validateDevelopmentPickaxes(state){
+    InventoryModel.validateMaterials(state.materials);
+    if(typeof state.manual.firstActionCompleted!=="boolean"||!Array.isArray(state.manual.pickaxes))throw Error("Invalid manual state");
+    const sequences=new Set(),orders=new Set();
+    const entities=[...state.manual.pickaxes,...state.factory.miners,...state.factory.polishers,...(state.factory.refiner?[state.factory.refiner]:[])];
+    for(const entity of entities){const seq=Number(entity.id?.split(":")[1]);if(!Number.isSafeInteger(seq)||seq<1||seq>=state.identity.nextEntitySequence||sequences.has(seq))throw Error("Invalid shared entity sequence");sequences.add(seq);}
+    for(const copy of state.manual.pickaxes){
+        InventoryModel.validatePickaxeCopy(copy,PickaxeModel.maximum(copy.tier,perkLevel(state,"pickaxeDurability")));
+        if(copy.lastManualEquipOrder>=state.identity.nextManualEquipSequence||copy.lastManualEquipOrder&&orders.has(copy.lastManualEquipOrder))throw Error("Invalid manual equip order");
+        if(copy.lastManualEquipOrder)orders.add(copy.lastManualEquipOrder);
+    }
+    if(state.manual.equippedPickaxeId!=="pickaxe:default"&&!state.manual.pickaxes.some(c=>c.id===state.manual.equippedPickaxeId&&c.remainingDurability>0))throw Error("Equipped Pickaxe is unavailable or broken");
+}
+function consumePickaxeRecipe(next,k,repair){
+    const r=PickaxeModel.recipe(k,repair);
+    if(next.inventory[r.ore]<r.oreAmount||next.materials[r.material]<r.materialAmount)throw Error("Insufficient raw ore or materials.");
+    next.inventory[r.ore]=exactDevelopmentAdd(next.inventory[r.ore],-r.oreAmount);
+    next.materials[r.material]=exactDevelopmentAdd(next.materials[r.material],-r.materialAmount);
+}
+function pickaxeCommand(prepare,message){
+    const ok=developmentCommand(prepare);document.getElementById("pickaxeFeedback").textContent=ok?message:document.getElementById("minerFeedback").textContent;return ok;
+}
+function craftDevelopmentPickaxe(k){return pickaxeCommand(next=>{
+    consumePickaxeRecipe(next,k,false);
+    const seq=next.identity.nextEntitySequence;if(!Number.isSafeInteger(seq+1))throw Error("Entity identity exhausted");
+    const maximum=PickaxeModel.maximum(k,perkLevel(next,"pickaxeDurability"));
+    next.manual.pickaxes.push(InventoryModel.createPickaxeCopy({id:"pickaxe:"+seq,tier:k,remainingDurability:maximum,lastManualEquipOrder:0},maximum));next.identity.nextEntitySequence++;
+},"Pickaxe crafted. Equip it from Owned Pickaxes.");}
+function equipDevelopmentPickaxe(id){return pickaxeCommand(next=>{
+    if(id!=="pickaxe:default"){
+        const copy=next.manual.pickaxes.find(c=>c.id===id);if(!copy||!copy.remainingDurability)throw Error("Pickaxe is missing or broken.");
+        const seq=next.identity.nextManualEquipSequence;if(!Number.isSafeInteger(seq+1))throw Error("Equipment sequence exhausted");
+        copy.lastManualEquipOrder=seq;next.identity.nextManualEquipSequence++;
+    }
+    next.manual.equippedPickaxeId=id;
+},"Pickaxe equipped.");}
+function repairDevelopmentPickaxe(id){return pickaxeCommand(next=>{
+    const copy=next.manual.pickaxes.find(c=>c.id===id);if(!copy||copy.remainingDurability!==0)throw Error("Only an owned broken Pickaxe can be repaired.");
+    consumePickaxeRecipe(next,copy.tier,true);copy.remainingDurability=PickaxeModel.maximum(copy.tier,perkLevel(next,"pickaxeDurability"));
+},"Pickaxe repaired. Equipment selection is unchanged.");}
+
+function pickaxeName(k){return k?developmentOre(PickaxeModel.recipe(k).ore).name+" Pickaxe":"Default Pickaxe";}
+function pickaxeRecipeText(k,repair=false){const r=PickaxeModel.recipe(k,repair);return r.oreAmount+" "+developmentOre(r.ore).name+" + "+r.materialAmount+" "+r.material;}
+function canAffordPickaxe(k,repair=false){const r=PickaxeModel.recipe(k,repair);return save.inventory[r.ore]>=r.oreAmount&&save.materials[r.material]>=r.materialAmount;}
+function openDevelopmentPickaxes(){if(!isMinerDevelopment())return;document.getElementById("pickaxesModal").style.display="block";renderDevelopmentPickaxes();document.getElementById("closePickaxes").focus();}
+function closeDevelopmentPickaxes(){document.getElementById("pickaxesModal").style.display="none";document.getElementById("pickaxesButton").focus();}
+function renderDevelopmentPickaxes(){
+    const button=document.getElementById("pickaxesButton");button.hidden=!isMinerDevelopment();if(!isMinerDevelopment())return;
+    const copy=save.manual.pickaxes.find(c=>c.id===save.manual.equippedPickaxeId),k=copy?.tier||0,st=PickaxeModel.stats(k),level=perkLevel(save,"pickaxeDurability");
+    document.getElementById("equippedPickaxeSummary").textContent=pickaxeName(k)+" · Power "+st.power.toFixed(2)+" · Luck "+st.luck+"× · Access T"+st.maxOreTier+(copy?" · "+copy.remainingDurability+"/"+PickaxeModel.maximum(k,level)+" hits":" · Indestructible");
+    const materials=Object.entries(save.materials).map(([id,n])=>id+": "+n.toLocaleString()).join(" · ");
+    document.getElementById("materialsSummary").textContent=materials;document.getElementById("pickaxeMaterials").textContent=materials;
+    const modal=document.getElementById("pickaxesModal");modal.onkeydown=e=>{
+        if(e.key==="Escape"){e.preventDefault();closeDevelopmentPickaxes();}
+        if(e.key==="Tab"){const controls=[...modal.querySelectorAll("button:not(:disabled)")],first=controls[0],last=controls.at(-1);
+            if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}
+    };
+    const signature=JSON.stringify([save.manual,save.materials,save.inventory,level,!!pendingDevelopmentWrite]);
+    if(renderDevelopmentPickaxes.signature===signature)return;renderDevelopmentPickaxes.signature=signature;
+    const focus=document.activeElement?.id,recipes=document.getElementById("pickaxeRecipes"),owned=document.getElementById("ownedPickaxes");recipes.innerHTML="";owned.innerHTML="";
+    function card(parent,title,lines){const el=document.createElement("article");el.className="pickaxe-card";const h=document.createElement("h4");h.textContent=title;el.appendChild(h);
+        for(const line of lines){const p=document.createElement("p");p.textContent=line;el.appendChild(p);}parent.appendChild(el);return el;}
+    function action(parent,id,label,disabled,fn){const b=document.createElement("button");b.id=id;b.textContent=label;b.disabled=disabled||!!pendingDevelopmentWrite;b.onclick=fn;parent.appendChild(b);}
+    for(let tier=1;tier<=8;tier++){
+        const r=PickaxeModel.recipe(tier),st=PickaxeModel.stats(tier),el=card(recipes,pickaxeName(tier)+" · Tier "+tier,[pickaxeRecipeText(tier),"Owned: "+save.inventory[r.ore]+" "+r.ore+", "+save.materials[r.material]+" "+r.material,"Power "+st.power.toFixed(2)+" · Luck "+st.luck+"× · "+PickaxeModel.maximum(tier,level)+" hits"]);
+        action(el,"craft-pickaxe-"+tier,canAffordPickaxe(tier)?"Craft":"Need ingredients",!canAffordPickaxe(tier),()=>craftDevelopmentPickaxe(tier));
+    }
+    const def=card(owned,"Default Pickaxe",["Permanently available · Indestructible"]);action(def,"equip-pickaxe-default",k?"Equip":"Equipped",!k,()=>equipDevelopmentPickaxe("pickaxe:default"));
+    for(const c of save.manual.pickaxes){const maximum=PickaxeModel.maximum(c.tier,level),equipped=save.manual.equippedPickaxeId===c.id;
+        const el=card(owned,pickaxeName(c.tier)+" · Tier "+c.tier+" · "+c.id,[c.remainingDurability+" / "+maximum+" hits · "+(c.remainingDurability?"Usable":"Broken"),...(c.remainingDurability?[]:["Repair: "+pickaxeRecipeText(c.tier,true)])]);
+        const bar=document.createElement("progress");bar.max=maximum;bar.value=c.remainingDurability;bar.setAttribute("aria-label",c.id+" durability");el.appendChild(bar);
+        action(el,"equip-"+c.id.replace(":","-"),equipped?"Equipped":"Equip",equipped||!c.remainingDurability,()=>equipDevelopmentPickaxe(c.id));
+        if(!c.remainingDurability)action(el,"repair-"+c.id.replace(":","-"),canAffordPickaxe(c.tier,true)?"Repair":"Need repair ingredients",!canAffordPickaxe(c.tier,true),()=>repairDevelopmentPickaxe(c.id));
+    }
+    if(focus&&modal.style.display==="block"){const target=document.getElementById(focus);(target&&!target.disabled?target:document.getElementById("closePickaxes")).focus();}
 }

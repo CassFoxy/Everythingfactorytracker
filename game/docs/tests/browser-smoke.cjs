@@ -90,6 +90,40 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
         }
 
 
+        // GAME17: real controls, deterministic mining rolls, shared persistence.
+        for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
+            await page.locator('#mineButton').click();assert.equal(await page.evaluate(()=>save.inventory.stone),1);
+            // Gather all ingredients through actual manual commands (tier roll, ore roll, substitution).
+            await page.evaluate(()=>{for(let i=0;i<8;i++){let rolls=[.5,0,0];Math.random=()=>rolls.shift();mineDevelopmentOre();}
+                for(let i=0;i<96;i++){let rolls=[.002,0,.99];Math.random=()=>rolls.shift();mineDevelopmentOre();}Math.random=()=>.99;});
+            assert.equal(await page.evaluate(()=>save.materials.wood),8);assert.equal(await page.evaluate(()=>save.inventory.amber),96);await page.evaluate(()=>closeDiscoveryPopup());
+            await page.locator('#pickaxesButton').click();assert.equal(await page.locator('#pickaxeRecipes .pickaxe-card').count(),8);
+            assert.equal(await page.locator('#craft-pickaxe-8').isDisabled(),true);await page.locator('#craft-pickaxe-1').click();await page.locator('#equip-pickaxe-1').click();
+            assert.equal(await page.evaluate(()=>save.manual.equippedPickaxeId),'pickaxe:1');await page.keyboard.press('Escape');
+            await page.evaluate(()=>{let rolls=[0,0,0,.99];Math.random=()=>rolls.shift();});await page.locator('#mineButton').click();assert.equal(await page.evaluate(()=>save.tier3Ores),2);assert.equal(await page.evaluate(()=>save.manual.pickaxes[0].remainingDurability),499);
+            // Consume the remaining hits through the mining transaction, not a durability mutation.
+            await page.evaluate(()=>{closeDiscoveryPopup();Math.random=()=>.99;for(let i=0;i<499;i++)mineDevelopmentOre();});assert.equal(await page.evaluate(()=>save.manual.equippedPickaxeId),'pickaxe:default');
+            await page.evaluate(()=>{for(let i=0;i<16;i++){let rolls=[.5,0,0];Math.random=()=>rolls.shift();mineDevelopmentOre();}Math.random=()=>.99;});
+            await page.locator('#pickaxesButton').click();await page.locator('#repair-pickaxe-1').click();assert.equal(await page.evaluate(()=>save.manual.pickaxes[0].remainingDurability),500);assert.equal(await page.evaluate(()=>save.manual.equippedPickaxeId),'pickaxe:default');
+            await page.locator('#craft-pickaxe-1').click();assert.equal(await page.evaluate(()=>save.manual.pickaxes.length),2);await page.locator('#equip-pickaxe-2').click();await page.locator('#equip-pickaxe-1').click();
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.locator('.pickaxe-modal').evaluate(el=>el.scrollTop=0);await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game17-crafting-'+width+'.png')});await page.locator('#ownedPickaxes').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game17-owned-'+width+'.png')});}
+            await page.keyboard.press('Escape');await page.evaluate(()=>developmentCommand(n=>n.stardust=100000));await page.locator('#permanentPerksButton').click();await page.locator('#perk-pickaxeDurability-10').click();assert.equal(await page.evaluate(()=>save.manual.pickaxes[0].remainingDurability),700);await page.keyboard.press('Escape');
+            await page.evaluate(()=>{addDeveloperCash(1000000);Math.random=()=>.99;mineDevelopmentOre()});const retained=await page.evaluate(()=>JSON.stringify([save.manual,save.materials,save.identity,save.permanentPerks]));
+            await page.locator('#rebirthButton').click();await page.locator('#confirmRebirth').click();assert.equal(await page.evaluate(()=>JSON.stringify([save.manual,save.materials,save.identity,save.permanentPerks])),retained);await page.reload();assert.equal(await page.evaluate(()=>JSON.stringify([save.manual,save.materials,save.identity,save.permanentPerks])),retained);
+            await page.locator('#pickaxesButton').click();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return ids.length!==new Set(ids).size}),false);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME17 '+width+'×'+height+': gather, craft, equip, actual break, repair, duplicate copies, perk and Rebirth/reload retention.');
+        }
+        for(const action of ['craft','mine']){
+            const app=await session(null,true),{page}=app;await page.evaluate(()=>developmentCommand(n=>{n.inventory.amber=64;n.materials.wood=16}));
+            if(action==='mine')await page.evaluate(()=>{craftDevelopmentPickaxe(1);equipDevelopmentPickaxe('pickaxe:1')});
+            await page.locator('#pickaxesButton').click();if(action==='mine')await page.keyboard.press('Escape');
+            const before=await page.evaluate(()=>JSON.stringify(save));await page.evaluate(()=>{window.realWrite=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('test write failure')}});
+            await page.locator(action==='craft'?'#craft-pickaxe-1':'#mineButton').click();assert.equal(await page.evaluate(()=>JSON.stringify(save)),before);const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);
+            await page.evaluate(()=>{Math.random=()=>{throw Error('retry RNG')};Storage.prototype.setItem=realWrite});await page.locator('#retryDevelopmentWrite').click();assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);assert.equal(await page.evaluate(()=>retryDevelopmentWrite()),false);await page.reload();assert.equal(await page.evaluate(()=>JSON.stringify(save)),bytes);assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME17 '+action+' failed write and exact retry.');
+        }
+        if(process.env.TEFI_BROWSER_SCOPE==='game17')return;
+
         // GAME15 real controls, timed Furnace earnings and repeatable Rebirth.
         // GAME16: actual UI purchases and rebuilt production, controlled clocks only.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
@@ -98,7 +132,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             await page.locator('#permanentPerksButton').click();assert.match(await page.locator('#permanentPerksBalance').textContent(),/10.00 Stardust/);
             await page.locator('#perk-overallLuck-1').click();assert.equal(await page.evaluate(()=>save.permanentPerks.overallLuck),1);assert.equal(await page.evaluate(()=>save.stardust),9);
             await page.locator('#perk-oreLuck-10').click();assert.equal(await page.evaluate(()=>save.permanentPerks.oreLuck),3);assert.equal(await page.evaluate(()=>save.stardust),3);
-            assert.equal(await page.locator('#perk-oreLuck-1').isDisabled(),true);assert.equal(await page.locator('#perk-pickaxeDurability button').count(),0);
+            assert.equal(await page.locator('#perk-oreLuck-1').isDisabled(),true);assert.equal(await page.locator('#perk-pickaxeDurability-1').isDisabled(),true);
             if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.locator('.perk-modal').evaluate(el=>el.scrollTop=0);await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game16-shop-'+width+'.png')});}
             await page.keyboard.press('Escape');assert.equal(await page.locator('#permanentPerksModal').isVisible(),false);
             await page.evaluate(()=>addDeveloperCash(450));await page.locator('#buyMiningPower').click();await page.locator('#unlockMiner').click();await page.locator('#buyMiner').click();
@@ -216,7 +250,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             await page.getByRole('button',{name:'Confirm',exact:true}).click();
             assert.equal(await page.evaluate(()=>save.cash),0);
             await page.evaluate(()=>{closeFurnace();testNow+=10000;updateDevelopmentMiner()});assert.equal(await page.evaluate(()=>save.cash),1);
-            await page.evaluate(()=>{addDeveloperCash(50000);Math.random=()=>0});
+            await page.evaluate(()=>{addDeveloperCash(50000);let roll=0;Math.random=()=>[0,0,.99][roll++%3]});
             for(let n=0;n<8;n++){await page.locator('#mineButton').click();if(await page.locator('#discoveryPopup').isVisible())await page.locator('#discoveryPopup button').click();}
             const ore=await page.evaluate(()=>ORE_KEYS.find(id=>save.inventory[id]>0));
             await page.locator('#polisherAction1').click();await page.locator('#polisherOre').selectOption(ore);
@@ -271,7 +305,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
         // GAME12: playable manual ore -> Polisher -> Refiner -> Furnace, using real controls.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null),{page}=app;await page.setViewportSize({width,height});
-            await page.evaluate(()=>{Math.random=()=>0;addDeveloperCash(30000)});
+            await page.evaluate(()=>{let roll=0;Math.random=()=>[0,0,.99][roll++%3];addDeveloperCash(30000)});
             for(let i=0;i<8;i++){await page.locator('#mineButton').click();if(await page.locator('#discoveryPopup').isVisible())await page.locator('#discoveryPopup button').click();}
             const ore=await page.evaluate(()=>ORE_KEYS.find(id=>save.inventory[id]>0));await page.locator('#polisherAction1').click();await page.locator('#polisherOre').selectOption(ore);
             await page.evaluate(()=>{updateDevelopmentMiner();testNow+=7500;updateDevelopmentMiner()});await page.locator('#buyRefiner').click();
@@ -337,7 +371,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
         // GAME10: real manual ore -> Polisher -> selected historical cohort -> Furnace -> reload.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null),{page}=app;await page.setViewportSize({width,height});
-            await page.evaluate(()=>{Math.random=()=>0;addDeveloperCash(5000)});
+            await page.evaluate(()=>{let roll=0;Math.random=()=>[0,0,.99][roll++%3];addDeveloperCash(5000)});
             for(let i=0;i<8;i++){await page.locator('#mineButton').click();if(await page.locator('#discoveryPopup').isVisible())await page.locator('#discoveryPopup button').click();}
             const ore=await page.evaluate(()=>ORE_KEYS.find(id=>save.inventory[id]>0));await page.locator('#polisherAction1').click();await page.locator('#polisherOre').selectOption(ore);
             await page.evaluate(()=>{updateDevelopmentMiner();for(let i=0;i<3;i++){testNow+=7500;updateDevelopmentMiner();}});
@@ -374,7 +408,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
         // GAME09: actual manual ore -> three independent Polishers -> atomic stock/statistics -> reload.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null),{page}=app;await page.setViewportSize({width,height});
-            await page.evaluate(()=>{Math.random=()=>0;addDeveloperCash(2105000);});
+            await page.evaluate(()=>{let roll=0;Math.random=()=>[0,0,.99][roll++%3];addDeveloperCash(2105000);});
             for(let i=0;i<8;i++){await page.locator('#mineButton').click();if(await page.locator('#discoveryPopup').isVisible())await page.locator('#discoveryPopup button').click();}
             const ore=await page.evaluate(()=>ORE_KEYS.find(id=>save.inventory[id]>0));assert.ok(ore);
             for(let slot=1;slot<=3;slot++){await page.locator('#polisherAction'+slot).click();if(slot>1)await page.locator('#polisherAction'+slot).click();await page.locator('#polisherOre').selectOption(ore);}
