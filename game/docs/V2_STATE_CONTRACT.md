@@ -1,3 +1,7 @@
+## GAME18 private-profile normal Shop boundary
+
+The schema-1 miner-1 runtime activates Mining Power 0–75, Mining Luck 0–150 and Mining Duplication 0–100. They are normal Cash purchases, not permanent perks or machine investments, and reset on Rebirth. Exact earlier two-field Shop records receive paired absent-field defaults only; see SAVE_VERSIONING.md. This does not activate public V2 or change its migration requirements. Pickaxe-only selection APIs retain Level-0 defaults while an optional validated Shop Luck level supplies the approved combined manual Luck. Material XP and Stone/Ore Value remain unresolved consumers.
+
 # V1-016 — V2 state and compatibility contract
 
 **GAME17 private activation:** Reference A Pickaxe copies, materials, crafting, equipment, per-click durability and broken-only repair now operate in schema-1 `miner-1`, including the complete Durability perk. See [the additive save boundary](SAVE_VERSIONING.md#v1-game17--private-pickaxes-and-materials). Canonical shapes/identity rules below are reused without activating public V2. Material-specific XP remains unapproved and inactive.

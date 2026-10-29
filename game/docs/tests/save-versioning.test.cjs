@@ -5730,7 +5730,7 @@ test('GAME15 reserved and resolved factory resets are atomic with no refunds res
  for(const resolved of [false,true]){
   const a=rebirthFactoryFixture(resolved),before=a.state();if(!resolved)a.advance(100000);
   a.run('Math.random=()=>{throw Error("Rebirth must not roll")};');assert.equal(rebirthForTest(a),true);const after=a.state();
-  assert.equal(after.cash,0);assert.equal(after.stardust,15);assert.equal(after.rebirthCount,1);assert.deepEqual(after.shop,{miningPower:0,minerUnlocked:false});assert.deepEqual(after.factory.miners,[]);assert.deepEqual(after.factory.polishers,[]);assert.equal(after.factory.refiner,null);assert.deepEqual(after.processedInventory,{polished:[],refined:[]});assert.ok(Object.values(after.inventory).every(v=>v===0));
+  assert.equal(after.cash,0);assert.equal(after.stardust,15);assert.equal(after.rebirthCount,1);assert.deepEqual(after.shop,{miningPower:0,miningLuck:0,miningDuplication:0,minerUnlocked:false});assert.deepEqual(after.factory.miners,[]);assert.deepEqual(after.factory.polishers,[]);assert.equal(after.factory.refiner,null);assert.deepEqual(after.processedInventory,{polished:[],refined:[]});assert.ok(Object.values(after.inventory).every(v=>v===0));
   assert.deepEqual(after.factory.furnace,{...before.factory.furnace,tier:1,selection:null,queue:[],cycle:null});assert.deepEqual(after.statistics.lifetime,before.statistics.lifetime);assert.ok(Object.values(after.statistics.thisRebirth.polishedOutput).every(v=>v===0));
   for(const key of ['factoryXP','factoryLevel','gemDust','identity','manual','materials','oreCollection','achievements','achievementStats','factoryMilestones','permanentBonuses','cycleBonuses','cosmetics','developerTools','totalOres'])assert.deepEqual(after[key],before[key]);assert.deepEqual(after.factory.minerSlots,before.factory.minerSlots);
   const expected=structuredClone(before);expected.cash=0;expected.stardust=15;expected.rebirthCount=1;expected.shop=after.shop;expected.inventory=after.inventory;expected.processedInventory=after.processedInventory;expected.factory=after.factory;expected.statistics=after.statistics;assert.deepEqual(after,expected);
@@ -5966,4 +5966,66 @@ test('GAME17 older absent materials complete safely; malformed ownership and col
  }
  c.run('buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner(1);buyDevelopmentPolisher(1);buyDevelopmentRefiner()');assert.deepEqual(c.state().factory.miners.map(m=>m.id),['miner:2']);assert.equal(c.state().factory.polishers[0].id,'polisher:3');assert.equal(c.state().factory.refiner.id,'refiner:4');
  const collision=c.state();collision.factory.miners[0].id='miner:1';assert.ok(boot(JSON.stringify(collision)).error);
+});
+
+
+test('GAME18 every sequential Shop price, debit, cap and higher Power Miner prerequisite',()=>{
+ const a=perkGame();
+ for(const [id,max,base,rate] of [['miningPower',75,250,1.38],['miningLuck',150,100,1.2],['miningDuplication',100,250,1.27]]){
+  for(let l=1;l<=max;l++){
+   const raw=base*rate**(l-1),step=raw<1e3?1:raw<1e6?10:raw<1e9?1000:1e6,expected=Math.floor(raw/step+.5)*step;
+   assert.equal(a.run(`ManualShopModel.price('${id}',${l})`),expected);
+   a.run(`save.cash=${expected}`);assert.equal(a.run(`buyDevelopmentShopUpgrade('${id}')`),true);assert.equal(a.state().shop[id],l);assert.equal(a.state().cash,0);
+  }
+  assert.equal(a.run(`buyDevelopmentShopUpgrade('${id}')`),false);
+ }
+ a.run('save.cash=100');assert.equal(a.run('unlockDevelopmentMiner()'),true);
+ assert.deepEqual(boot(a.stored()).state().shop,a.state().shop);
+});
+test('GAME18 bulk quotes sum independent rounded levels and retry the exact purchase',()=>{
+ const a=perkGame();
+ for(const id of ['miningPower','miningLuck','miningDuplication']){
+  const prices=a.run(`Array.from({length:10},(_,i)=>ManualShopModel.price('${id}',i+1))`),total=prices.reduce((s,p)=>s+BigInt(p),0n);
+  a.run(`save.cash=${Number(total)}`);assert.equal(a.run(`buyDevelopmentShopUpgrade('${id}',10)`),true);assert.equal(a.state().shop[id],10);assert.equal(a.state().cash,0);
+ }
+ a.run('save.cash=ManualShopModel.price("miningPower",11)+ManualShopModel.price("miningPower",12)');assert.equal(a.run('buyDevelopmentShopUpgrade("miningPower",10)'),true);assert.equal(a.state().shop.miningPower,12);
+ a.run('save.cash=1000000');const before=a.state();a.faults.write=true;
+ assert.equal(a.run('buyDevelopmentShopUpgrade("miningLuck","max")'),false);assert.deepEqual(a.state(),before);const bytes=a.run('pendingDevelopmentWrite.serialized');
+ assert.equal(a.run('buyMiningPower()'),false);a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.run('retryDevelopmentWrite()'),false);
+ assert.equal(a.run('buyDevelopmentShopUpgrade("bad",1)'),false);assert.equal(a.run('buyDevelopmentShopUpgrade("miningLuck",2)'),false);
+ a.run('save.cash=1e30');const exact=a.state();assert.equal(a.run('buyMiningPower()'),false);assert.deepEqual(a.state(),exact);
+});
+test('GAME18 manual Luck weights, tier locks and all Pickaxe combinations',()=>{
+ const a=ready();
+ for(let k=0;k<=8;k++)for(const l of [0,1,50,150]){
+  const luck=(1+2.5*k)*(1+.05*l),weights=[239744,10000,250,5,1].map((w,i)=>i>Math.min(4,k+2)?0:w*luck**(.35*i)),sum=weights.reduce((a,b)=>a+b,0);
+  const actual=a.run(`PickaxeModel.probabilities(${k},${l})`);actual.forEach((p,i)=>assert.ok(Math.abs(p-weights[i]/sum)<1e-14));
+  const ore=a.run(`PickaxeModel.oreWeights(${k},${l})`),w=Array.from({length:5},(_,i)=>.65**i*luck**(.1*i)),total=w.reduce((a,b)=>a+b,0);ore.forEach((p,i)=>assert.ok(Math.abs(p-w[i]/total)<1e-14));
+ }
+ assert.equal(a.run('PickaxeModel.manualLuck(8,150)'),178.5);assert.equal(a.run('PickaxeModel.selectTier(0,0,150)'),2);assert.equal(a.run('PickaxeModel.selectTier(1,0,150)'),3);assert.equal(a.run('PickaxeModel.selectTier(2,0,150)'),4);
+ assert.notEqual(a.run('PickaxeModel.probabilities(8,150)[0]'),.25);
+});
+test('GAME18 Power quantities and per-unit duplication after material substitution',()=>{
+ for(const [l,roll,expected] of [[0,.9,1],[1,0,2],[1,.9,1],[2,.9,2],[10,.9,6],[75,0,39],[75,.9,38]]){
+  const a=ready();a.run(`save.shop.miningPower=${l}`);pickaxeRolls(a,l%2?[roll]:[]);assert.equal(a.state().inventory.stone,expected);
+ }
+ for(const [level,roll,extra] of [[0,.9,0],[1,.004,9],[1,.005,0],[50,.249,9],[50,.25,0],[100,.499,9],[100,.5,0]]){
+  const a=ready();a.run(`save.manual.firstActionCompleted=true;save.shop.miningPower=18;save.shop.miningDuplication=${level}`);
+  pickaxeRolls(a,[.002,0,0,0,...(level?Array(9).fill(roll):[])]);
+  assert.equal(a.state().inventory.amber,9+extra);assert.equal(a.state().materials.wood,1);assert.equal(a.state().achievementStats.totalOresMined,1);
+ }
+ const a=pickaxeGame();a.run('craftDevelopmentPickaxe(1);equipDevelopmentPickaxe("pickaxe:1");save.manual.firstActionCompleted=true;save.shop.miningPower=17;save.shop.miningDuplication=100');const before=a.state();
+ // Amber: 10.25 base power, round down; one material then four of nine independent successes.
+ pickaxeRolls(a,[.99,.9,0,0,0,.9,0,.9,0,.9,0,.9,.9]);
+ assert.equal(a.state().inventory.stone-before.inventory.stone,13);assert.equal(a.state().materials.wood-before.materials.wood,1);assert.equal(a.state().manual.pickaxes[0].remainingDurability,499);assert.equal(a.state().achievementStats.totalOresMined-before.achievementStats.totalOresMined,1);
+ assert.equal(a.state().factoryXP-before.factoryXP,13*a.run('developmentOre("stone").xp'));
+});
+test('GAME18 failed boosted mining preserves RNG result, XP and one durability hit',()=>{
+ const a=pickaxeGame();a.run('craftDevelopmentPickaxe(1);equipDevelopmentPickaxe("pickaxe:1");save.manual.firstActionCompleted=true;save.shop.miningDuplication=100');const before=a.state();a.faults.write=true;
+ pickaxeRolls(a,[.99,0,.99,0,.9]);assert.deepEqual(a.state(),before);const bytes=a.run('pendingDevelopmentWrite.serialized');a.run('Math.random=()=>{throw Error("No reroll")};');a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.state().manual.pickaxes[0].remainingDurability,499);assert.equal(a.state().inventory.stone-before.inventory.stone,3);
+});
+test('GAME18 historical Shop completion, malformed records and Rebirth reset',()=>{
+ for(const p of [0,1]){const a=ready(),s=a.state();s.shop={miningPower:p,minerUnlocked:!!p};const bytes=JSON.stringify(s),b=boot(bytes);assert.equal(b.error,undefined);assert.deepEqual(b.state().shop,{miningPower:p,miningLuck:0,miningDuplication:0,minerUnlocked:!!p});assert.equal(b.stored(),bytes);}
+ for(const change of [s=>delete s.shop.miningLuck,s=>s.shop.miningLuck=151,s=>s.shop.miningDuplication=-1,s=>s.shop.miningPower=76,s=>s.shop.minerUnlocked=1,s=>{delete s.shop.miningLuck;delete s.shop.miningDuplication;s.shop.miningPower=2;}]){const s=ready().state();change(s);assert.ok(boot(JSON.stringify(s)).error);}
+ const a=pickaxeGame();a.run('craftDevelopmentPickaxe(8);equipDevelopmentPickaxe("pickaxe:1");save.shop={miningPower:75,miningLuck:150,miningDuplication:100,minerUnlocked:true};save.cash=1000000');const before=a.state();assert.equal(rebirthForTest(a),true);assert.deepEqual(a.state().shop,{miningPower:0,miningLuck:0,miningDuplication:0,minerUnlocked:false});for(const key of ['manual','materials','permanentPerks','identity'])assert.deepEqual(a.state()[key],before[key]);
 });
