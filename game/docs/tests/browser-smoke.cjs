@@ -90,6 +90,46 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
         }
 
 
+
+        // GAME18: actual shared Shop controls and deterministic per-resource mining.
+        for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
+            await page.locator('#mineButton').click();await page.evaluate(()=>addDeveloperCash(1000000));
+            await page.locator('#buyMiningPower').click();await page.locator('#unlockMiner').click();
+            await page.locator('#buyMiningPower10').click();assert.equal(await page.evaluate(()=>save.shop.miningPower),11);
+            await page.locator('#buyMiningLuck10').click();assert.equal(await page.evaluate(()=>save.shop.miningLuck),10);
+            await page.evaluate(()=>developmentCommand(n=>{n.inventory.amber=32;n.materials.wood=8}));
+            await page.locator('#pickaxesButton').click();await page.locator('#craft-pickaxe-1').click();await page.locator('#equip-pickaxe-1').click();await page.keyboard.press('Escape');
+            await page.locator('#buyMiningDuplication10').click();assert.equal(await page.evaluate(()=>save.shop.miningDuplication),10);
+            // Amber + Power11 = 7.25. Round down, replace one with Wood, duplicate six independently.
+            const before=await page.evaluate(()=>({stone:save.inventory.stone,wood:save.materials.wood,xp:save.factoryXP,clicks:save.achievementStats.totalOresMined}));
+            await page.evaluate(()=>{let rolls=[.99,.99,0,0,0,.99,0,.99,0,.99];Math.random=()=>{if(!rolls.length)throw Error('Unexpected RNG');return rolls.shift()}});
+            await page.locator('#mineButton').click();
+            assert.deepEqual(await page.evaluate(()=>({stone:save.inventory.stone,wood:save.materials.wood,xp:save.factoryXP,clicks:save.achievementStats.totalOresMined})),{stone:before.stone+9,wood:before.wood+1,xp:before.xp+9,clicks:before.clicks+1});
+            assert.equal(await page.evaluate(()=>save.manual.pickaxes[0].remainingDurability),499);
+            await page.evaluate(()=>{Math.random=()=>.99;addDeveloperCash(1000000000000000)});
+            for(const id of ['Power','Luck','Duplication'])await page.locator('#buyMining'+id+'Max').click();
+            assert.deepEqual(await page.evaluate(()=>[save.shop.miningPower,save.shop.miningLuck,save.shop.miningDuplication]),[75,150,100]);
+            assert.equal(await page.locator('#buyMiningLuck').isDisabled(),true);await page.reload();
+            assert.deepEqual(await page.evaluate(()=>[save.shop.miningPower,save.shop.miningLuck,save.shop.miningDuplication]),[75,150,100]);
+            await page.locator('#miningLuckCard').scrollIntoViewIfNeeded();
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+            assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return ids.length!==new Set(ids).size}),false);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game18-shop-'+width+'.png')});}
+            const retained=await page.evaluate(()=>JSON.stringify([save.manual,save.materials,save.permanentPerks,save.identity]));
+            await page.locator('#rebirthButton').click();await page.locator('#confirmRebirth').click();
+            assert.deepEqual(await page.evaluate(()=>save.shop),{miningPower:0,miningLuck:0,miningDuplication:0,minerUnlocked:false});assert.equal(await page.evaluate(()=>JSON.stringify([save.manual,save.materials,save.permanentPerks,save.identity])),retained);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME18 '+width+'×'+height+': bulk Shop, boosted mining, exact max progression, reload and Rebirth retention.');
+        }
+        {
+            const app=await session(null,true),{page}=app;await page.evaluate(()=>{addDeveloperCash(10000);window.originalSet=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('test write failure')}});
+            await page.locator('#buyMiningLuck10').click();assert.equal(await page.evaluate(()=>save.shop.miningLuck),0);
+            const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);await page.evaluate(()=>{Storage.prototype.setItem=window.originalSet;retryDevelopmentWrite()});
+            assert.equal(await page.evaluate(()=>localStorage.getItem('ef_incremental')),bytes);assert.equal(await page.evaluate(()=>save.shop.miningLuck),10);assert.equal(await page.evaluate(()=>retryDevelopmentWrite()),false);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME18 bulk purchase failed-write publication and exact retry.');
+        }
+        if(process.env.TEFI_SMOKE_SCOPE==='game18')return;
+
         // GAME17: real controls, deterministic mining rolls, shared persistence.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
             const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
@@ -742,8 +782,8 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             await page.evaluate(()=>closeFurnace());
             assert.equal(await page.evaluate(()=>save.cash),450);
             await page.locator('#buyMiningPower').click();
-            assert.equal(await page.locator('#buyMiningPower').textContent(),'Purchased');
-            assert.match(await page.locator('#manualPowerLink').textContent(),/Mining Power I owned/);
+            assert.match(await page.locator('#miningPowerStatus').textContent(),/Mining Power 1 \/ 75/);assert.equal(await page.locator('#buyMiningPower').textContent(),'Buy 1');
+            assert.match(await page.locator('#manualPowerLink').textContent(),/Mining Power 1 · Cash Shop/);
             await page.locator('#unlockMiner').click();
             assert.equal(await page.evaluate(()=>save.factory.miners.length),0);
             assert.equal(await page.evaluate(()=>unlockDevelopmentMiner()),false);

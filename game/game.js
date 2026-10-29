@@ -631,6 +631,7 @@ function readVersionedSave(serializedSave){
         completeDevelopmentRebirthFields(migrated);
         completeDevelopmentPerkFields(migrated);
         completeDevelopmentPickaxeFields(migrated);
+        completeDevelopmentShopFields(migrated);
         validateDevelopmentSave(migrated);
     }catch(error){
         throw error?.code ? error : saveLoadError("VALIDATION_ERROR", "Save validation failed. Stored data was not changed.", error);
@@ -4222,7 +4223,7 @@ function createMinerDevelopmentSave(){
     const state = Object.assign(createDefaultSave(), {
         developmentProfile: "miner-1",
         developerTools: { furnaceEnabled: false },
-        shop: { miningPower: 0, minerUnlocked: false },
+        shop: { miningPower: 0, miningLuck: 0, miningDuplication: 0, minerUnlocked: false },
         materials: InventoryModel.createMaterials(),
         manual: { firstActionCompleted: false, equippedPickaxeId: "pickaxe:default", pickaxes: [] },
         factory: { minerSlots: MinerCandidateModel.createSlotAccess(), miners: [], polishers: [], refiner: null },
@@ -4531,9 +4532,9 @@ function validateDevelopmentSave(state){
         }
         for(const key of Object.keys(createDefaultSave())) if(!(hasCanonicalFurnace(state) && furnaceLegacyKeys().includes(key)) && !Object.hasOwn(state, key)) throw Error("Missing development field: " + key);
         for(const key of ["stone", ...ORE_KEYS]) if(!Object.hasOwn(state.inventory, key)) throw Error("Missing inventory counter");
-        developmentRecord(state.shop, ["miningPower", "minerUnlocked"]);
-        if(![0,1].includes(state.shop.miningPower) || state.shop.minerUnlocked && state.shop.miningPower !== 1)
-            throw Error("Invalid Mining Power prerequisite");
+        developmentRecord(state.shop, ["miningPower", "miningLuck", "miningDuplication", "minerUnlocked"]);
+        for(const id of Object.keys(ManualShopModel.definitions))ManualShopModel.validateLevel(id,state.shop[id]);
+        if(typeof state.shop.minerUnlocked!=="boolean" || state.shop.minerUnlocked && state.shop.miningPower<1)throw Error("Invalid Mining Power prerequisite");
         developmentRecord(state.manual, ["firstActionCompleted", "equippedPickaxeId", "pickaxes"]);
         validateDevelopmentPickaxes(state);
         const projection = copySaveData(minerProjection(state));
@@ -4670,6 +4671,7 @@ function retryDevelopmentWrite(){
         document.getElementById("devFeedback").textContent = feedback.message;
         if(feedback.minerSale) document.getElementById("minerFeedback").textContent = feedback.message;
         if(feedback.rebirth) document.getElementById("rebirthFeedback").textContent = feedback.message;
+        if(feedback.shop) document.getElementById("shopFeedback").textContent = feedback.message;
         if(feedback.permanentPerk) document.getElementById("permanentPerkFeedback").textContent = feedback.message;
         if(feedback.refinerSale) document.getElementById("refinerFeedback").textContent = feedback.message;
         if(feedback.polisherSale) document.getElementById("polisherFeedback").textContent = feedback.message;
@@ -4692,6 +4694,7 @@ function developmentCommand(prepare, feedback = null){
         if(feedback) document.getElementById("devFeedback").textContent = error.message;
         if(feedback?.smelt) document.getElementById("smeltFeedback").textContent = error.message;
         if(feedback?.rebirth) document.getElementById("rebirthFeedback").textContent = error.message;
+        if(feedback?.shop) document.getElementById("shopFeedback").textContent = error.message;
         if(feedback?.permanentPerk) document.getElementById("permanentPerkFeedback").textContent = error.message;
         if(feedback?.refinerSale) document.getElementById("refinerFeedback").textContent = error.message;
         if(feedback?.polisherSale) document.getElementById("polisherFeedback").textContent = error.message;
@@ -4909,17 +4912,42 @@ function renderDeveloperTools(){
     document.getElementById("furnaceModeNotice").textContent = enabled ? "Testing only · Manual sales ×1,000 Cash · Auto Furnace paused." : "Smelt resources from your inventory to earn Cash.";
     document.getElementById("furnaceModalTitle").textContent = enabled ? "Developer Furnace · manual test sales" : "🔥 Furnace";
 }
-function buyMiningPower(){
-    return developmentCommand(next => {
-        if(next.shop.miningPower !== 0) throw Error("Mining Power I is already owned");
-        const cost = CashPricingModel.calculateCashPrice(250, { category: "miningPower", discountLevel: 0 });
-        next.cash = developmentDebit(next.cash, cost);
-        next.shop.miningPower = 1;
-    });
+function completeDevelopmentShopFields(state){
+    if(!isMinerDevelopment(state))return;
+    const shop=state.shop;
+    if(shop && !Object.hasOwn(shop,"miningLuck") && !Object.hasOwn(shop,"miningDuplication")){
+        developmentRecord(shop,["miningPower","minerUnlocked"]);
+        if(![0,1].includes(shop.miningPower)||typeof shop.minerUnlocked!=="boolean"||shop.minerUnlocked&&!shop.miningPower)throw Error("Invalid historical Shop");
+        shop.miningLuck=0;shop.miningDuplication=0;
+    }
+}
+function buyMiningPower(){return buyDevelopmentShopUpgrade("miningPower",1);}
+function buyDevelopmentShopUpgrade(id,mode=1){
+    const feedback={shop:true,message:""};
+    if(pendingDevelopmentWrite){document.getElementById("shopFeedback").textContent="Retry the pending save first.";return false;}
+    return developmentCommand(next=>{
+        const q=ManualShopModel.quote(id,next.shop[id],mode,next.cash);
+        if(!q.levels)throw Error(next.shop[id]===ManualShopModel.definitions[id].max?"Max Level":"Insufficient Cash");
+        next.cash=q.remaining;next.shop[id]=q.target;
+        feedback.message=ManualShopModel.definitions[id].name+" +"+q.levels+" levels · $"+q.cost.toLocaleString("en-US")+" saved.";
+    },feedback);
+}
+function renderDevelopmentShop(){
+    for(const [id,d] of Object.entries(ManualShopModel.definitions)){
+        document.getElementById(id+"Card").hidden=!isMinerDevelopment();
+        if(!isMinerDevelopment())continue;
+        const l=save.shop[id],effect=n=>id==="miningPower"?"+"+(2*n)+" raw Power":id==="miningLuck"?(1+.05*n).toFixed(2)+"× Shop Luck":(.5*n).toFixed(1)+"% per resource";
+        document.getElementById(id+"Status").textContent=d.name+" "+l+" / "+d.max+" · "+effect(l)+(l<d.max?" → "+effect(l+1)+" · Next $"+ManualShopModel.price(id,l+1).toLocaleString("en-US"):" · Max Level");
+        for(const [mode,suffix] of [[1,""],[10,"10"],["max","Max"]]){
+            const button=document.getElementById("buy"+id[0].toUpperCase()+id.slice(1)+suffix);
+            try{const q=ManualShopModel.quote(id,l,mode,save.cash);button.disabled=!q.levels||!!pendingDevelopmentWrite;button.title=q.levels?"Buy "+q.levels+" · $"+q.cost.toLocaleString("en-US"):"Insufficient Cash or Max Level";}
+            catch(e){button.disabled=true;button.title=e.message;}
+        }
+    }
 }
 function unlockDevelopmentMiner(){
     return developmentCommand(next => {
-        if(next.shop.miningPower !== 1) throw Error("Purchase Mining Power I first");
+        if(next.shop.miningPower < 1) throw Error("Purchase Mining Power I first");
         if(next.shop.minerUnlocked) throw Error("Miners are already unlocked");
         next.cash = developmentDebit(next.cash, CashPricingModel.calculateCashPrice(100, { category: "unlockMiner", discountLevel: 0 }));
         next.shop.minerUnlocked = true;
@@ -5068,11 +5096,13 @@ function mineDevelopmentOre(){
     return developmentCommand(next => {
         const copy=next.manual.pickaxes.find(c=>c.id===next.manual.equippedPickaxeId), k=copy?.tier||0;
         const first=!next.manual.firstActionCompleted;
-        const tier=first?0:PickaxeModel.selectTier(k,Math.random());
-        const resource=tier?PickaxeModel.selectOre(k,tier,Math.random()):"stone";
+        const tier=first?0:PickaxeModel.selectTier(k,Math.random(),next.shop.miningLuck);
+        const resource=tier?PickaxeModel.selectOre(k,tier,Math.random(),next.shop.miningLuck):"stone";
         const power=.25*(PickaxeModel.stats(k).power+2*next.shop.miningPower);
         let amount=Math.floor(power)+(power%1>0&&Math.random()<power%1?1:0),material=null;
         if(!first&&Math.random()<.15){const roll=Math.random();material=roll<.6?"wood":roll<.9?"scrap":"metal";amount--;next.materials[material]=exactDevelopmentAdd(next.materials[material],1);}
+        const eligible=amount,chance=.005*next.shop.miningDuplication;
+        if(chance)for(let i=0;i<eligible;i++)if(Math.random()<chance)amount++;
         if(amount)prepareDevelopmentAward(next,resource,amount,false);
         // One click, including a material-only outcome. Replaced ore earns no XP/discovery.
         next.achievementStats.totalOresMined=exactDevelopmentAdd(next.achievementStats.totalOresMined,1);
@@ -5186,9 +5216,8 @@ function renderDevelopmentMiner(){
     renderDevelopmentMinerSlots(selectedDevelopmentMinerId);
     renderDevelopmentMinerResale(miner);
     document.getElementById("minerDetailTitle").textContent = miner ? "Slot " + miner.slot + " · " + miner.id : "Miner management";
-    document.getElementById("manualPowerLink").textContent = save.shop.miningPower ? "Mining Power I owned · 50% chance of +1 resource" : "Mining Power I · available in the Shop";
-    document.getElementById("buyMiningPower").disabled = save.shop.miningPower === 1 || save.cash < 250;
-    document.getElementById("buyMiningPower").textContent = save.shop.miningPower ? "Purchased" : "Buy Mining Power I · $250";
+    renderDevelopmentShop();
+    document.getElementById("manualPowerLink").textContent="Mining Power "+save.shop.miningPower+" · Cash Shop";
     document.getElementById("unlockMiner").disabled = unlocked || !save.shop.miningPower || save.cash < 100;
     document.getElementById("unlockMiner").textContent = unlocked ? "Miner system unlocked" : "Unlock Miners · $100";
     const c = miner?.cycle;
@@ -5821,7 +5850,7 @@ function closeDevelopmentRebirth(){
 }
 function applyDevelopmentRebirth(next,quote){
     next.cash=0;next.stardust=quote.balance;next.rebirthCount=quote.count;
-    next.shop={miningPower:0,minerUnlocked:false};
+    next.shop={miningPower:0,miningLuck:0,miningDuplication:0,minerUnlocked:false};
     next.inventory=createDefaultInventory();next.processedInventory=InventoryModel.createProcessedInventory();
     next.factory.miners=[];next.factory.polishers=[];next.factory.refiner=null;
     const furnace=next.factory.furnace;
@@ -6035,7 +6064,7 @@ function closeDevelopmentPickaxes(){document.getElementById("pickaxesModal").sty
 function renderDevelopmentPickaxes(){
     const button=document.getElementById("pickaxesButton");button.hidden=!isMinerDevelopment();if(!isMinerDevelopment())return;
     const copy=save.manual.pickaxes.find(c=>c.id===save.manual.equippedPickaxeId),k=copy?.tier||0,st=PickaxeModel.stats(k),level=perkLevel(save,"pickaxeDurability");
-    document.getElementById("equippedPickaxeSummary").textContent=pickaxeName(k)+" · Power "+st.power.toFixed(2)+" · Luck "+st.luck+"× · Access T"+st.maxOreTier+(copy?" · "+copy.remainingDurability+"/"+PickaxeModel.maximum(k,level)+" hits":" · Indestructible");
+    document.getElementById("equippedPickaxeSummary").textContent=pickaxeName(k)+" · Power "+st.power.toFixed(2)+" · Shop Power "+save.shop.miningPower+" · Total Power "+(.25*(st.power+2*save.shop.miningPower)).toFixed(2)+" · Manual Luck "+PickaxeModel.manualLuck(k,save.shop.miningLuck).toFixed(2)+"× · Duplication "+(.5*save.shop.miningDuplication)+"% · Access T"+st.maxOreTier+(copy?" · "+copy.remainingDurability+"/"+PickaxeModel.maximum(k,level)+" hits":" · Indestructible");
     const materials=Object.entries(save.materials).map(([id,n])=>id+": "+n.toLocaleString()).join(" · ");
     document.getElementById("materialsSummary").textContent=materials;document.getElementById("pickaxeMaterials").textContent=materials;
     const modal=document.getElementById("pickaxesModal");modal.onkeydown=e=>{

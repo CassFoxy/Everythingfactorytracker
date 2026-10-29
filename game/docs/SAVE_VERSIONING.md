@@ -1,3 +1,13 @@
+## V1-GAME18 — private manual Cash Shop
+
+Schema 1 / miner-1 now requires shop: miningPower (integer 0–75), miningLuck (0–150), miningDuplication (0–100), minerUnlocked (Boolean). Unlock Miner requires Power >= 1. Only an exact earlier two-field Shop with Power 0/1 receives paired absent Luck/Duplication zero defaults in memory. Partial extensions, malformed values and unknown fields reject through preserved-byte recovery. Opening a save does not write the completion. Untagged legacy mode remains separate.
+
+Each target uses CashPricingModel on its original exponential raw price, without Factory Discount. Shared Buy 1/10/Max quotes sum rounded payable integers using internal BigInt; Number conversion and final Cash debit must be exact. One developmentCommand commits Cash and the final level. No investment ledger or BigInt is saved. Failed writes retain the original candidate/bytes; Retry never requotes.
+
+Manual Luck is (1 + 0.05 × Shop level) × intrinsic Pickaxe Luck, applied to accessible tier and within-tier weights. Quantity uses full raw Pickaxe Power plus 2 × Power level before the 0.25 factor and fractional roll. After one possible material substitution, each remaining base unit independently rolls 0.005 × Duplication level once. Materials and new duplicates never roll again. Final ore quantity drives existing XP/Collection counters, with one click and one durability hit. The same candidate captures all random outcomes and breakage fallback; Retry never rerolls. Automated machines are unchanged.
+
+Rebirth resets all three levels and Miner unlock, retaining GAME17 Pickaxes, equipment, damage, materials, identities and permanent perks. Material-specific XP, Ore Value/Stone policy, broader statistics, challenges and public V2 remain gated.
+
 # Save schema version 1 — accepted persistence foundation
 
 ## V1-GAME17 — private Pickaxes and Materials

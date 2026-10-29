@@ -2298,15 +2298,33 @@ const PickaxeModel = (() => {
     function recipe(k,repair=false){tier(k);if(!k)throw Error("Default needs no recipe");const [ore,material,amount]=recipes[k];
         return {ore,oreAmount:repair?31:32,material,materialAmount:repair?Math.ceil(amount*.95):amount};}
     function maximum(k,level){if(!tier(k))throw Error("Default has no finite durability");return PermanentPerkModel.getDurability(500*k,level);}
-    function probabilities(k){const st=stats(k);const weights=[239744,10000,250,5,1].map((w,i)=>i>st.maxOreTier?0:w*st.luck**(.35*i));
+    function manualLuck(k,l=0){if(!Number.isInteger(l)||l<0||l>150)throw Error("Invalid Mining Luck level");return stats(k).luck*(1+.05*l);}
+    function probabilities(k,l=0){const st=stats(k),luck=manualLuck(k,l);const weights=[239744,10000,250,5,1].map((w,i)=>i>st.maxOreTier?0:w*luck**(.35*i));
         const total=weights.reduce((a,b)=>a+b,0);return weights.map(w=>w/total);}
-    function selectTier(k,roll){if(!Number.isFinite(roll)||roll<0||roll>=1)throw Error("Invalid manual roll");
-        const ps=probabilities(k);let sum=0;for(let i=4;i>=0;i--){sum+=ps[i];if(ps[i]&&roll<sum)return i;}return 0;}
-    function oreWeights(k){const luck=stats(k).luck;const weights=Array.from({length:5},(_,i)=>.65**i*luck**(.1*i));
+    function selectTier(k,roll,l=0){if(!Number.isFinite(roll)||roll<0||roll>=1)throw Error("Invalid manual roll");
+        const ps=probabilities(k,l);let sum=0;for(let i=4;i>=0;i--){sum+=ps[i];if(ps[i]&&roll<sum)return i;}return 0;}
+    function oreWeights(k,l=0){const luck=manualLuck(k,l);const weights=Array.from({length:5},(_,i)=>.65**i*luck**(.1*i));
         const total=weights.reduce((a,b)=>a+b,0);return weights.map(w=>w/total);}
-    function selectOre(k,oreTier,roll){tier(k);if(!Number.isInteger(oreTier)||oreTier<1||oreTier>stats(k).maxOreTier||!Number.isFinite(roll)||roll<0||roll>=1)throw Error("Invalid manual ore roll");
-        const ids=[TIER_1_ORES,TIER_2_ORES,TIER_3_ORES,TIER_4_ORES][oreTier-1],weights=oreWeights(k);let sum=0;
+    function selectOre(k,oreTier,roll,l=0){tier(k);if(!Number.isInteger(oreTier)||oreTier<1||oreTier>stats(k).maxOreTier||!Number.isFinite(roll)||roll<0||roll>=1)throw Error("Invalid manual ore roll");
+        const ids=[TIER_1_ORES,TIER_2_ORES,TIER_3_ORES,TIER_4_ORES][oreTier-1],weights=oreWeights(k,l);let sum=0;
         for(let i=0;i<5;i++){sum+=weights[i];if(roll<sum)return ids[i];}return ids[4];}
     function fallback(copies){return copies.filter(c=>c.remainingDurability>0).slice().sort((a,b)=>b.tier-a.tier||b.remainingDurability-a.remainingDurability||b.lastManualEquipOrder-a.lastManualEquipOrder||Number(a.id.slice(8))-Number(b.id.slice(8)))[0]?.id||"pickaxe:default";}
-    return Object.freeze({stats,recipe,maximum,probabilities,oreWeights,selectTier,selectOre,fallback});
+    return Object.freeze({stats,recipe,maximum,manualLuck,probabilities,oreWeights,selectTier,selectOre,fallback});
+})();
+
+// Normal Cash Shop: each target level is priced independently; totals are exact integers.
+const ManualShopModel = (() => {
+    const definitions=Object.freeze({miningPower:Object.freeze({name:"Mining Power",max:75,base:250,rate:1.38}),miningLuck:Object.freeze({name:"Mining Luck",max:150,base:100,rate:1.20}),miningDuplication:Object.freeze({name:"Mining Duplication",max:100,base:250,rate:1.27})});
+    function definition(id){if(!Object.hasOwn(definitions,id))throw Error("Unknown manual upgrade");return definitions[id];}
+    function validateLevel(id,l){if(!Number.isInteger(l)||l<0||l>definition(id).max)throw Error("Invalid manual upgrade level");}
+    function price(id,l){validateLevel(id,l);if(!l)throw Error("Target starts at Level 1");const d=definition(id);return CashPricingModel.calculateCashPrice(d.base*d.rate**(l-1),{category:id,discountLevel:0});}
+    function quote(id,owned,mode,cash){
+        validateLevel(id,owned);if(![1,10,"max"].includes(mode)||!Number.isFinite(cash)||cash<0)throw Error("Invalid Shop request");
+        let target=owned,total=0n;const limit=Math.min(definition(id).max,owned+(mode==="max"?definition(id).max:mode));
+        for(let l=owned+1;l<=limit;l++){const cost=price(id,l);if(!Number.isInteger(cost)||!Number.isFinite(cost))throw Error("Unrepresentable price");const sum=total+BigInt(cost);if(sum>BigInt(Math.floor(cash)))break;total=sum;target=l;}
+        const cost=Number(total),remaining=cash-cost;
+        if(!Number.isFinite(cost)||BigInt(cost)!==total||remaining<0||remaining+cost!==cash||cash-remaining!==cost)throw Error("Cash precision prevents this purchase");
+        return {target,levels:target-owned,cost,remaining};
+    }
+    return Object.freeze({definitions,validateLevel,price,quote});
 })();

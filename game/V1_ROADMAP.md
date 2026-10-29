@@ -1,3 +1,9 @@
+## V1-GAME18 — Complete Manual Mining Cash Shop and Duplication
+
+Implemented for the private schema-1 miner-1 game: Power 0–75, Luck 0–150 and Duplication 0–100; shared atomic Buy 1/10/Max using canonical Cash prices; combined Shop/Pickaxe Luck with access locks; independent per-resource duplication after material substitution; exact retry and Rebirth reset. Unlock Miner accepts any Power level >= 1. Compact Shop controls expose effects, next prices and caps; mining information shows combined stats.
+
+Verification and completion evidence are recorded on the implementation PR. No public V2 activation is claimed. GAME17 Pickaxe crafting/material gathering/durability/repair are already playable; their older unstarted labels are superseded below. Remaining: Ore Value/Stone decision, material XP approval, broader Statistics, challenges, grid/conveyors and public compatibility. Next consolidated ticket: approved Statistics consumers and transaction event accounting, with unresolved reward policies gated.
+
 # Everything Factory Incremental — Version 1.0 Development Roadmap
 
 ## V1-GAME17 — Complete Pickaxe Crafting, Durability and Repair Integration
@@ -213,7 +219,7 @@ Ticket numbers preserve history, not execution order. Complete one bounded child
 
 1. **V1-021A** fresh Cash/Level baseline only (implemented and tested; continue with the contract work in step 2).
 2. V1-016 contract documented; next implement the V1-026 Default-only portion using its [incremental boundary](docs/V2_STATE_CONTRACT.md#11-incremental-development-before-v2-activation). V1-021B first-ever Stone waits on M1 legacy policy. V1-050 price rules and V1-023 sale work must respect the same non-writing/compatible limits.
-3. V1-041 inventory contract, V1-028/029 manual quantity/material/Luck, V1-027 crafting/copies and V1-051/052 normal Shop; integrate V1-024 Mining Power I. Material XP recommendations and Stone Ore Value remain gated.
+3. GAME17/18 deliver private Pickaxe inventory, quantity/material/Luck/duplication and three normal Shop trees. Continue approved Statistics consumers; material XP and Stone Ore Value remain gated.
 4. V1-070 lifecycle contract → V1-071A/B Miner consumers and V1-071C/D local upgrades/resale; develop V1-017 migration and V1-018 validation against candidate fixtures without activating V2. K.2 and applicable contract decision gates must be resolved before release.
 5. V1-074A/B Polisher → V1-075A/B Refiner → V1-080–085 Furnace modernization, integrating independent reservations. Build consumers before V2 activation; they depend on the contract, not an already-active V2. Only after all migrated data has working consumers may V1-018 activate V2 and V1-025 expose new Miner automation. Compatible opening sale work need not wait for all later tiers, but must not reinterpret old active batches.
 6. V1-060–079 grid/network integration and V1-090–093 expansion after their unresolved design contracts; reuse tested machine simulation. Machine formulas do not define conveyor behavior.
@@ -507,7 +513,7 @@ Implemented unconditional runtime Default (Tier 0, raw Power 4, Luck 1×, infini
 
 ## V1-027 — Pickaxe Copies, Crafting, Durability and Repair
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟠 PRIVATE GAMEPLAY IMPLEMENTED; remaining release boundaries apply
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-026, V1-028 materials, V1-041, compatible persistence activation
 
@@ -515,11 +521,14 @@ Implement Reference A exact eight recipes, full-precision power, additive Luck, 
 
 **Acceptance:** Reference L checks 10–13, 19, 26.
 
+
+Delivered by GAME17: eight recipes, independent copies, equipment, durability, repair and permanent perk consumer.
+
 ---
 
 ## V1-028 — Manual Quantity, Materials and Duplication
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟠 PRIVATE GAMEPLAY IMPLEMENTED; remaining release boundaries apply
 **Design:** DESIGN COMPLETE except material XP award values
 **Dependencies:** V1-026, V1-050–052 stat definitions, V1-041
 
@@ -527,17 +536,23 @@ Implement probabilistic power rounding, once-per-click 15% material substitution
 
 **Acceptance:** Reference L checks 2, 9–10.
 
+
+Quantity/materials delivered by GAME17; per-resource duplication delivered by GAME18. Material-specific XP remains pending approval.
+
 ---
 
 ## V1-029 — Manual Luck and Within-Tier Selection
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟠 PRIVATE GAMEPLAY IMPLEMENTED; remaining release boundaries apply
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-026, V1-030; shop stat definitions
 
 Reference A tier weights/exponents, accessible pool normalization and 0.65 within-tier weighting. FinalManualLuck combines only shop and equipped Pickaxe Luck; no automated Stone clamp or Rebirth automated Luck.
 
 **Acceptance:** Reference L checks 7–8, 10.
+
+
+Delivered by GAME17/GAME18: equipped Pickaxe and Shop Luck, tier locks and within-tier weighting.
 
 ---
 
@@ -745,7 +760,7 @@ Implement the complete candidate-to-durable-commit boundary, failure/retry handl
 
 ## V1-051 — Normal Upgrade Shop and Transaction Gates
 
-**Status:** ⚪ NOT STARTED
+**Status:** 🟠 PRIVATE GAMEPLAY IMPLEMENTED; remaining release boundaries apply
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-050, V1-016 field contract
 
@@ -753,11 +768,14 @@ Data-driven normal Shop table from Reference J, clear affordability/cap/prerequi
 
 **Acceptance:** Reference L checks 4, 8–9, 17.
 
+
+GAME18 activates the three approved manual upgrade trees and atomic bulk purchases. Ore Value remains gated by K.4.
+
 ---
 
 ## V1-052 — Normal Upgrade Effects
 
-**Status:** 🟠 IN PROGRESS
+**Status:** 🟠 PRIVATE GAMEPLAY IMPLEMENTED; remaining release boundaries apply
 **Design:** DESIGN COMPLETE except K.4
 **Dependencies:** V1-050–051
 
@@ -765,12 +783,15 @@ Apply approved Mining Power, Mining Luck and Mining Duplication effects/caps. Or
 
 **Acceptance:** Reference L checks 8–10, 17.
 
+
+GAME18 activates Power, Luck and Duplication consumers; Ore Value remains gated.
+
 ---
 
 ## V1-053 — Purchase Feedback
 
 **Priority:** P3
-**Status:** ⚪ NOT STARTED
+**Status:** 🟠 PRIVATE GAMEPLAY IMPLEMENTED; remaining release boundaries apply
 
 Players should clearly understand:
 
@@ -778,6 +799,9 @@ Players should clearly understand:
 * Insufficient Cash.
 * Locked items.
 * Requirements.
+
+
+GAME18 manual Shop feedback covers successful purchases, affordability, caps, precision and pending writes.
 
 ---
 
