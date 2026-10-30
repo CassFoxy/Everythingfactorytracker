@@ -632,6 +632,7 @@ function readVersionedSave(serializedSave){
         completeDevelopmentPerkFields(migrated);
         completeDevelopmentPickaxeFields(migrated);
         completeDevelopmentShopFields(migrated);
+        completeDevelopmentStatistics(migrated);
         validateDevelopmentSave(migrated);
     }catch(error){
         throw error?.code ? error : saveLoadError("VALIDATION_ERROR", "Save validation failed. Stored data was not changed.", error);
@@ -887,6 +888,7 @@ function saveGame(){
 
 function upgradeFurnace(){
     if(hasCanonicalFurnace()) return upgradeCanonicalFurnace();
+    if(isMinerDevelopment())return developmentCommand(next=>{if(next.furnaceTier>=2)throw Error("Max inherited Furnace");next.cash=developmentDebit(next.cash,FURNACES[next.furnaceTier+1].cost);next.furnaceTier++;});
 
     if(
         save.furnaceTier >=
@@ -930,6 +932,7 @@ if(hasCanonicalFurnace()){
     autoFurnaceState.processing = save.factory.furnace.cycle !== null;
     autoFurnaceState.batch = []; return;
 }
+if(isMinerDevelopment()){autoFurnaceState.processing=false;autoFurnaceState.batch=[];autoFurnaceState.startTime=0;}
 autoFurnaceState.enabled =
     save.autoFurnaceEnabled;
 if(
@@ -1172,6 +1175,7 @@ function getAutoFurnaceBatchValue(
 
 function startAutoFurnaceCycle(){
     if(hasCanonicalFurnace()) return false; // stale legacy callback
+    if(isMinerDevelopment())return startInheritedDevelopmentFurnace();
     if(developerFurnaceEnabled()) return;
 
     if(
@@ -1261,6 +1265,7 @@ function startAutoFurnaceCycle(){
 
 function finishAutoFurnaceCycle(){
     if(hasCanonicalFurnace()) return false; // stale legacy callback
+    if(isMinerDevelopment())return finishInheritedDevelopmentFurnace();
 
     if(
         !autoFurnaceState.processing
@@ -3355,6 +3360,7 @@ function closeInventory(){
 }
 
           function openStats(){
+    renderDevelopmentStatistics();
 
     document.getElementById(
         "statsModal"
@@ -3646,6 +3652,7 @@ function confirmSmelt(){
             const remaining = next.inventory[key] - amount;
             if(remaining + amount !== next.inventory[key] || next.inventory[key] - remaining !== amount) throw Error("Inventory precision exhausted");
             next.inventory[key] = remaining;
+            accountFurnaceResult(next,[furnaceRawLot(key,amount)],[quote.total/amount],quote.total,developmentXPAward(amount,perkLevel(next,"factoryXP")),developerFurnaceEnabled(next));
             next.cash = exactDevelopmentAdd(next.cash, quote.total);
             next.achievementStats.oresSmelted = exactDevelopmentAdd(next.achievementStats.oresSmelted, amount);
             next.factoryXP = developmentXPAdd(next.factoryXP, developmentXPAward(amount,perkLevel(next,"factoryXP")));
@@ -4235,6 +4242,7 @@ function createMinerDevelopmentSave(){
         statistics: PolishedOutputStatisticsCandidateModel.createStatistics(),
         identity: { nextEntitySequence: 1, nextManualEquipSequence: 1 }
     });
+    state.statistics=GameplayStatisticsModel.extend(state.statistics,0,Date.now(),true);
     state.factory.furnace=newDevelopmentFurnace();
     for(const key of furnaceLegacyKeys()) delete state[key];
     return state;
@@ -4392,7 +4400,8 @@ function advanceCanonicalFurnace(now){
         return developmentCommand(next=>{const cycle=next.factory.furnace.cycle; cycle.result=furnaceResult(cycle);cycle.phase="resolved";});
     }
     return developmentCommand(next=>{
-        const result=next.factory.furnace.cycle.result;
+        const cycle=next.factory.furnace.cycle,result=cycle.result;
+        accountFurnaceResult(next,cycle.inputs,cycle.saleUnitValues,result.cashDelta,result.factoryXPDelta,developerFurnaceEnabled(next));
         next.cash=exactDevelopmentAdd(next.cash,result.cashDelta);
         next.factoryXP=developmentXPAdd(next.factoryXP,result.factoryXPDelta);
         next.achievementStats.oresSmelted=polisherReturnAdd(next.achievementStats.oresSmelted,result.events.reduce((n,e)=>n+e.amount,0));
@@ -4466,6 +4475,7 @@ function renderCanonicalFurnace(){
     document.getElementById("canonicalFurnaceProgress").value=c?Math.min(100,Math.max(0,(Date.now()-c.startedAtMs)/c.durationMs*100)):0;
 }
 function buildCanonicalFurnaceMenu(){
+    document.getElementById("polishedFurnaceSection").hidden=false;
     const raw=document.getElementById("furnaceItems"),processed=document.getElementById("polishedFurnaceItems");raw.innerHTML="";processed.innerHTML="";
     let grouped=InventoryModel.createProcessedInventory();
     for(const lot of [...save.processedInventory.polished,...save.processedInventory.refined]) grouped=InventoryModel.addProcessedLot(grouped,lot);
@@ -4641,7 +4651,7 @@ function publishDevelopmentState(next){
     const previous = save;
     save = next;
     if(isMinerDevelopment() && previous.rebirthCount !== save.rebirthCount) clearRebirthTransientUI();
-    if(hasCanonicalFurnace()) restoreAutoFurnace();
+    if(isMinerDevelopment()) restoreAutoFurnace();
     document.getElementById("minerFeedback").textContent = "";
     for(const id of ORE_KEYS) if(previous.oreCollection[id] === 0 && save.oreCollection[id] > 0){
         const ore = developmentOre(id); showDiscoveryPopup(ore.emoji + " " + ore.name, ore.value);
@@ -4651,6 +4661,7 @@ function publishDevelopmentState(next){
     for(const level of FACTORY_MILESTONES)
         if(save.factoryMilestones[level] && !previous.factoryMilestones[level]) pendingMilestone = level;
     updateUI();
+    if(document.getElementById("statsModal").style.display==="block")renderDevelopmentStatistics();
 }
 function retryDevelopmentWrite(){
     if(!pendingDevelopmentWrite) return false;
@@ -4681,6 +4692,7 @@ function retryDevelopmentWrite(){
 }
 function commitDevelopmentState(candidate, feedback = null){
     if(pendingDevelopmentWrite || recoveryState.active) return false;
+    accountDevelopmentTransition(save,candidate);
     validateSaveData(candidate); validateDevelopmentSave(candidate);
     const serialized = JSON.stringify(candidate);
     pendingDevelopmentWrite = { candidate, serialized, feedback };
@@ -4728,7 +4740,7 @@ function addDeveloperCash(input){
     if(!isMinerDevelopment() || pendingDevelopmentWrite || recoveryState.active) return false;
     try{
         const amount = developerAmount(input);
-        return developmentCommand(next => { next.cash = exactDevelopmentAdd(next.cash, amount); },
+        return developmentCommand(next => { next.cash = exactDevelopmentAdd(next.cash, amount); GameplayStatisticsModel.increment(next.statistics,{type:"developerCash",amount}); },
             { message: "Added $" + amount.toLocaleString() + " Cash. Saved." });
     }catch(error){ document.getElementById("devFeedback").textContent = error.message; return false; }
 }
@@ -4861,6 +4873,7 @@ function confirmDevelopmentPolishedSmelt(){
             return split.remaining ? [split.remaining] : [];
         });
         if(remaining !== 0) throw Error("Polished input ownership changed.");
+        accountFurnaceResult(next,[{...cohort,amount}],[quote.total/amount],quote.total,developmentXPAward(amount,perkLevel(next,"factoryXP")),developerFurnaceEnabled(next));
         next.cash = exactDevelopmentAdd(next.cash, quote.total);
         // Same existing private Furnace effects as raw sales; no new Polisher event.
         next.achievementStats.oresSmelted = exactDevelopmentAdd(next.achievementStats.oresSmelted, amount);
@@ -5095,6 +5108,7 @@ function renderDevelopmentMinerResale(miner){
 function mineDevelopmentOre(){
     return developmentCommand(next => {
         const copy=next.manual.pickaxes.find(c=>c.id===next.manual.equippedPickaxeId), k=copy?.tier||0;
+        const xpBefore=next.factoryXP;
         const first=!next.manual.firstActionCompleted;
         const tier=first?0:PickaxeModel.selectTier(k,Math.random(),next.shop.miningLuck);
         const resource=tier?PickaxeModel.selectOre(k,tier,Math.random(),next.shop.miningLuck):"stone";
@@ -5104,6 +5118,7 @@ function mineDevelopmentOre(){
         const eligible=amount,chance=.005*next.shop.miningDuplication;
         if(chance)for(let i=0;i<eligible;i++)if(Math.random()<chance)amount++;
         if(amount)prepareDevelopmentAward(next,resource,amount,false);
+        GameplayStatisticsModel.increment(next.statistics,{type:"manual",resourceId:resource,base:eligible,duplicates:amount-eligible,material,xp:next.factoryXP-xpBefore});
         // One click, including a material-only outcome. Replaced ore earns no XP/discovery.
         next.achievementStats.totalOresMined=exactDevelopmentAdd(next.achievementStats.totalOresMined,1);
         next.manual.firstActionCompleted=true;
@@ -5167,6 +5182,7 @@ function advanceDevelopmentMiner(minerId, now){
         return developmentCommand(next => {
             const m = next.factory.miners.find(item => item.id === minerId), output = m.cycle.result.outputs[0];
             prepareDevelopmentAward(next, output.resourceId, output.amount, false,m.cycle.effectContext.factoryXPLevel||0);
+            GameplayStatisticsModel.increment(next.statistics,{type:"resourceAcquired",resourceId:output.resourceId,amount:output.amount,xp:m.cycle.result.factoryXPDelta});
             m.cycle = null;
         });
     }
@@ -5270,7 +5286,7 @@ function validateDevelopmentPolishers(state){
         if(Object.hasOwn(state,key)) throw Error("Active challenge state is unsupported in this private profile");
     developmentRecord(state.processedInventory,["polished","refined"]);
     InventoryModel.validateProcessedInventory(state.processedInventory);
-    PolishedOutputStatisticsCandidateModel.validateStatistics(state.statistics);
+    GameplayStatisticsModel.validate(state.statistics,state.rebirthCount);
     PolisherCandidateModel.validateCandidate(polisherProjection(state),developmentOtherIds(state,"polisher"));
     for(const m of state.factory.polishers){
         const expected=[{kind:"purchase",targetLevel:null,cashPaid:PolisherCandidateModel.getPurchasePrice(m.slot,0),basis:"actual"}];
@@ -5356,9 +5372,10 @@ function advanceDevelopmentPolisher(id,now){
     return polisherCommand(next=>{
         const target=next.factory.polishers.find(m=>m.id===id), event=target.cycle.result.events[0];
         const result=PolisherCommitCandidateModel.prepareCommit({polisher:target,inventory:next.inventory,processedInventory:next.processedInventory},id,m.cycle.id);
-        const statistics=PolishedOutputStatisticsCandidateModel.prepareIncrement(next.statistics,event);
+        const statistics=PolishedOutputStatisticsCandidateModel.prepareIncrement(GameplayStatisticsModel.polished(next.statistics),event);
         // One full candidate/write: no inventory/statistics split and no mining/event callbacks.
-        next.processedInventory=result.processedInventory;next.statistics=statistics;
+        next.processedInventory=result.processedInventory;
+        next.statistics.lifetime.polishedOutput=statistics.lifetime.polishedOutput;next.statistics.thisRebirth.polishedOutput=statistics.thisRebirth.polishedOutput;
         next.factory.polishers[next.factory.polishers.findIndex(m=>m.id===id)]=result.polisher;
     });
 }
@@ -5663,9 +5680,9 @@ function advanceDevelopmentRefiner(id,now){
         validateDevelopmentRefiner(next);
         for(const lot of c.result.outputs)next.processedInventory=InventoryModel.addProcessedLot(next.processedInventory,lot);
         next.gemDust=polisherReturnAdd(next.gemDust,c.result.gemDustDelta);
+        GameplayStatisticsModel.increment(next.statistics,{type:"refiner",events:c.result.events,dust:c.result.gemDustDelta});
         next.factory.refiner.cycle=null;
-        // Physical events are validated above. No active challenge/statistics
-        // consumer exists in this profile; no mining/XP/discovery award is inferred.
+        // Physical accounting only; challenge consumers remain gated.
     });
 }
 function renderDevelopmentRefiner(){
@@ -6090,4 +6107,82 @@ function renderDevelopmentPickaxes(){
         if(!c.remainingDurability)action(el,"repair-"+c.id.replace(":","-"),canAffordPickaxe(c.tier,true)?"Repair":"Need repair ingredients",!canAffordPickaxe(c.tier,true),()=>repairDevelopmentPickaxe(c.id));
     }
     if(focus&&modal.style.display==="block"){const target=document.getElementById(focus);(target&&!target.disabled?target:document.getElementById("closePickaxes")).focus();}
+}
+
+
+// GAME19: strict observed-history activation; never backfill from balances or stock.
+function completeDevelopmentStatistics(state){
+    if(!isMinerDevelopment(state)||Object.hasOwn(state.statistics||{},"coverage"))return;
+    state.statistics=GameplayStatisticsModel.extend(state.statistics,state.rebirthCount,Date.now());
+}
+function accountFurnaceResult(state,inputs,values,cash,xp,testing){
+    const entries=inputs.map((lot,i)=>({resourceId:lot.resourceId,stage:lot.stage,refineCount:lot.refineCount,amount:lot.amount,cash:inputs.length===1?cash:exactDevelopmentProduct(lot.amount,values[i])}));
+    const sum=entries.reduce((n,e)=>exactDevelopmentAdd(n,e.cash),0);if(sum!==cash)throw Error("Furnace accounting does not match payout");
+    GameplayStatisticsModel.increment(state.statistics,{type:"smelted",entries,cash,xp,testing});
+}
+function startInheritedDevelopmentFurnace(){
+    if(pendingDevelopmentWrite||developerFurnaceEnabled()||!autoFurnaceState.enabled||save.furnaceTier<2||save.autoFurnaceBatch.length)return false;
+    const batch=getAutoFurnaceBatch();if(!batch.length)return false;
+    return developmentCommand(next=>{for(const item of batch)next.inventory[item.key]=developmentDebit(next.inventory[item.key],item.amount);next.autoFurnaceBatch=copySaveData(batch);next.autoFurnaceStartTime=Date.now();});
+}
+function finishInheritedDevelopmentFurnace(){
+    if(pendingDevelopmentWrite||!save.autoFurnaceBatch.length||Date.now()<save.autoFurnaceStartTime+AUTO_FURNACE_CYCLE_MS)return false;
+    const ok=developmentCommand(next=>{
+        const batch=next.autoFurnaceBatch,inputs=batch.map(i=>furnaceRawLot(i.key,i.amount)),values=batch.map(i=>i.value);
+        const cash=inputs.reduce((n,l,i)=>exactDevelopmentAdd(n,exactDevelopmentProduct(l.amount,values[i])),0),amount=inputs.reduce((n,l)=>exactDevelopmentAdd(n,l.amount),0),xp=amount;
+        accountFurnaceResult(next,inputs,values,cash,xp,false);next.cash=exactDevelopmentAdd(next.cash,cash);next.factoryXP=developmentXPAdd(next.factoryXP,xp);next.achievementStats.oresSmelted=exactDevelopmentAdd(next.achievementStats.oresSmelted,amount);next.autoFurnaceBatch=[];next.autoFurnaceStartTime=0;prepareDevelopmentProgress(next);
+    });
+    if(ok)startInheritedDevelopmentFurnace();
+    return ok;
+}
+function accountDevelopmentTransition(before,next){
+    if(!isMinerDevelopment(next))return;
+    const increment=f=>GameplayStatisticsModel.increment(next.statistics,f),machines=s=>[...s.factory.miners,...s.factory.polishers,...(s.factory.refiner?[s.factory.refiner]:[])];
+    const prior=machines(before),current=machines(next);
+    if(next.rebirthCount===before.rebirthCount+1){
+        const award=stardustFromHundredths(stardustHundredths(next.stardust)-stardustHundredths(before.stardust));
+        increment({type:"rebirth",amount:award});
+        next.statistics.rebirthHistory.push({sequence:next.rebirthCount,cashBasis:before.cash,gainLevel:perkLevel(before,"stardustGain"),award,completedAtMs:Date.now()});
+        next.statistics.rebirthHistory=next.statistics.rebirthHistory.slice(-100);next.statistics.thisRebirth.gameplay=GameplayStatisticsModel.scope();
+    }else{
+        let source=null;
+        if(Object.keys(ManualShopModel.definitions).some(k=>next.shop[k]>before.shop[k])||!before.shop.minerUnlocked&&next.shop.minerUnlocked)source="shop";
+        if(next.factory.minerSlots.some((v,i)=>v&&!before.factory.minerSlots[i]))source="minerSlot";
+        for(const m of current){const old=prior.find(p=>p.id===m.id),kind=m.id.split(":")[0];if(!old)source=kind+"Purchase";else if(m.tier>old.tier)source=kind+"Tier";else if(m.oreLuckLevel>old.oreLuckLevel)source="minerLuck";}
+        if(hasCanonicalFurnace(before)&&hasCanonicalFurnace(next)&&next.factory.furnace.tier>before.factory.furnace.tier||!hasCanonicalFurnace(next)&&next.furnaceTier>before.furnaceTier)source="furnaceTier";
+        if(source&&next.cash<before.cash)increment({type:"purchase",source,amount:developmentDebit(before.cash,next.cash)});
+        const removed=prior.filter(m=>!current.some(n=>n.id===m.id));
+        if(removed.length){if(removed.length!==1||next.cash<before.cash)throw Error("Invalid resale accounting");increment({type:"refund",source:removed[0].id.split(":")[0],amount:next.cash-before.cash});}
+        if(Object.keys(next.permanentPerks).some(k=>next.permanentPerks[k]>before.permanentPerks[k])&&next.stardust<before.stardust)increment({type:"perk",amount:stardustFromHundredths(stardustHundredths(before.stardust)-stardustHundredths(next.stardust))});
+    }
+    // Observe actual states at a committed transition, never reconstruct past ownership.
+    const b=next.statistics.bests;
+    for(const state of [before,next]){b.cash=Math.max(b.cash,state.cash);b.factoryLevel=Math.max(b.factoryLevel,state.factoryLevel);for(const [key,list] of [["minerTier",state.factory.miners],["polisherTier",state.factory.polishers],["refinerTier",state.factory.refiner?[state.factory.refiner]:[]]])for(const m of list)b[key]=Math.max(b[key],m.tier);b.furnaceTier=Math.max(b.furnaceTier,hasCanonicalFurnace(state)?state.factory.furnace.tier:state.furnaceTier+1);}
+}
+
+let developmentStatisticsScope="lifetime";
+function renderDevelopmentStatistics(scope=developmentStatisticsScope){
+    const panel=document.getElementById("gameplayStatistics");panel.hidden=!isMinerDevelopment();if(!isMinerDevelopment())return;
+    if(!["lifetime","thisRebirth"].includes(scope))return;developmentStatisticsScope=scope;
+    const stats=save.statistics,g=stats[scope].gameplay,container=document.getElementById("statisticsGroups");container.innerHTML="";
+    document.getElementById("statisticsLifetime").disabled=scope==="lifetime";document.getElementById("statisticsRebirth").disabled=scope==="thisRebirth";
+    document.getElementById("statisticsCoverage").textContent="New counters: observations since GAME19 tracking began ("+new Date(stats.coverage.startedAtMs).toISOString()+"). Earlier activity is unknown. Polished output: "+(stats.coverage.polished==="from-start"?"tracked from this save’s start.":"retained GAME09 observations; not reset at GAME19 activation.")+" Play time and challenge tracking are unavailable pending policy/consumer approval.";
+    const fmt=n=>n.toLocaleString("en-US",{maximumFractionDigits:20});
+    function group(title,headers,rows,open=false){const details=document.createElement("details");details.className="statistics-group";details.open=open;const summary=document.createElement("summary");summary.textContent=title;details.appendChild(summary);const table=document.createElement("table"),head=document.createElement("tr");for(const h of headers){const th=document.createElement("th");th.textContent=h;head.appendChild(th);}table.appendChild(head);for(const values of rows){const row=document.createElement("tr");for(const value of values){const cell=document.createElement("td");cell.textContent=typeof value==="number"?fmt(value):typeof value==="string"&&/^[0-9]+(\.[0-9]+)?$/.test(value)?value.split(".").map((part,index)=>index?part:part.replace(/\B(?=(\d{3})+(?!\d))/g,",")).join("."):value;row.appendChild(cell);}table.appendChild(row);}details.appendChild(table);container.appendChild(details);}
+    const sum=m=>Object.values(m).reduce((a,b)=>a+BigInt(b),0n);
+    const label=k=>k.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/^./,c=>c.toUpperCase());
+    group("Overview — "+(scope==="lifetime"?"observed lifetime":"this Rebirth"),["Record","Value"],[["Current Cash",save.cash],["Actual Factory XP",save.factoryXP],["Factory Level",save.factoryLevel],["Rebirth count (permanent)",save.rebirthCount],["Manual clicks",g.manualClicks],["Resources gathered (ores, Stone, materials)",(sum(g.manualOutput)+sum(g.minerOutput)+sum(g.materials)).toLocaleString("en-US")],["Collection discoveries",Object.values(save.oreCollection).filter(n=>n>0).length]],true);
+    group("Cash and economy",["Source","Cash"],[["Furnace earnings",g.cashEarned],["Testing Furnace earnings (included above)",g.testingCashEarned],["Actual spending",g.cashSpent],["Resale refunds",g.cashRefunded],["Developer grants (excluded from earnings)",g.developerCashGranted],...Object.entries(g.spending).map(([k,v])=>["Spent: "+label(k),v]),...Object.entries(g.refunds).map(([k,v])=>["Refund: "+label(k),v])]);
+    group("Manual mining",["Resource","Base after substitution","Duplicates","Awarded"],GameplayStatisticsModel.rawIds.map(id=>[developmentOre(id).name,g.manualBase[id],g.manualDuplicates[id],g.manualOutput[id]]));
+    group("Automated Miner output",["Resource","Tier","Awarded"],GameplayStatisticsModel.rawIds.map(id=>[developmentOre(id).name,developmentOre(id).tier,g.minerOutput[id]]));
+    group("Materials (not ores)",["Material","Obtained"],Object.entries(g.materials));
+    group("Polisher output — established coverage",["Ore","Polished quantity"],ORE_KEYS.map(id=>[developmentOre(id).name,stats[scope].polishedOutput[id]]));
+    const refined=[];for(const id of ORE_KEYS)for(let n=1;n<=15;n++)if(g.refineAttempts[id][n-1])refined.push([developmentOre(id).name+" · pass "+n,g.refineAttempts[id][n-1],g.refineSurvived[id][n-1],g.refineDestroyed[id][n-1]]);
+    group("Refiner processing",["Ore / attempted pass","Attempts","Survived","Destroyed"],refined.length?refined:[["No observed attempts",0,0,0]]);
+    const sales=[];for(const stage of ["raw","polished","refined"])for(const [id,entry] of Object.entries(g.sales[stage]))for(const [i,c] of (stage==="refined"?entry:[entry]).entries())if(c.amount)sales.push([developmentOre(id).name+" · "+stage+(stage==="refined"?" "+(i+1):""),c.amount,c.cash]);
+    group("Furnace sales",["Resource / stage / count","Sold","Credited Cash"],sales.length?sales:[["No observed sales",0,0]]);
+    group("Gameplay Factory XP",["Source","Actual XP earned"],[["Manual mining",g.xpManual],["Automated Miner",g.xpMiner],["Furnace processing",g.xpFurnace]]);
+    group("Stardust and Gem Dust",["Record","Amount"],[["Stardust balance",save.stardust],["Rebirth Stardust earned",g.stardustRebirthEarned],["Perk Stardust spent",g.stardustPerksSpent],["Perk purchase transactions",g.perkPurchases],["Gem Dust balance",save.gemDust],["Refiner Gem Dust earned",g.gemDustEarned]]);
+    group("Rebirth history — latest 100 observed completions",["Sequence / UTC completion","Cash basis","Gain level","Award"],stats.rebirthHistory.slice().reverse().map(h=>[h.sequence+" · "+new Date(h.completedAtMs).toISOString(),h.cashBasis,h.gainLevel,h.award]));
+    group("Personal bests — observed since tracking began",["Record","Best"],Object.entries(stats.bests).map(([k,v])=>[label(k),v]));
 }

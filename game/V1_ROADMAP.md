@@ -1,3 +1,11 @@
+## V1-GAME19 — Gameplay Statistics and Transaction Accounting
+
+Private gameplay implementation: source-separated manual/Miner/material observations, retained Polished maps, Refiner attempts/survivors/destruction/Dust, raw/Polished/Refined Furnace sales, actual Cash spending/refunds, XP sources, Stardust earning/spending, observed Rebirth history and permanent bests. All increments share the originating durable candidate and exact retry. The Statistics interface groups resource/pass breakdowns with Lifetime/This Rebirth switching and truthful coverage labels.
+
+New observations begin at GAME19 activation; no fictional prior history is reconstructed. Existing Polished counts, actual permanent XP, balances, collections, achievements and legacy counters remain intact. Validation evidence is recorded on the implementation PR. See docs/GAMEPLAY_STATISTICS_CONTRACT.md for exact fields and arithmetic.
+
+V1-150–156 are only partially complete: active play-time policy and challenge consumers remain gated. Do not activate challenges until target rounding, destroyed-ore credit and reward precision are explicitly approved. Material XP, Ore Value/Stone, grid/conveyors and public V2 remain outstanding. A consolidated challenge contract/integration ticket is appropriate only after those decisions; otherwise implement a fully specified remaining consumer without guessed rewards.
+
 ## V1-GAME18 — Complete Manual Mining Cash Shop and Duplication
 
 Implemented for the private schema-1 miner-1 game: Power 0–75, Luck 0–150 and Duplication 0–100; shared atomic Buy 1/10/Max using canonical Cash prices; combined Shop/Pickaxe Luck with access locks; independent per-resource duplication after material substitution; exact retry and Rebirth reset. Unlock Miner accepts any Power level >= 1. Compact Shop controls expose effects, next prices and caps; mining information shows combined stats.

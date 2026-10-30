@@ -2328,3 +2328,82 @@ const ManualShopModel = (() => {
     }
     return Object.freeze({definitions,validateLevel,price,quote});
 })();
+
+
+// GAME19 aggregate observations. No arbitrary paths or executable event payloads.
+const GameplayStatisticsModel=(()=>{
+    const rawIds=Object.freeze(["stone",...ORE_KEYS]),oreIds=Object.freeze([...ORE_KEYS]);
+    const scalarTypes=Object.freeze({cashEarned:"cash",cashSpent:"cash",cashRefunded:"cash",testingCashEarned:"cash",developerCashGranted:"cash",manualClicks:"count",gemDustEarned:"count",xpManual:"count",xpMiner:"count",xpFurnace:"count",stardustRebirthEarned:"hundredths",stardustPerksSpent:"hundredths",cashPurchases:"count",perkPurchases:"count",resales:"count"});
+    const spendIds=Object.freeze(["shop","minerSlot","minerPurchase","minerTier","minerLuck","polisherPurchase","polisherTier","refinerPurchase","refinerTier","furnaceTier"]);
+    const map=(ids,fn=()=>0)=>Object.fromEntries(ids.map(id=>[id,fn()]));
+    const passes=()=>Array(15).fill(0),sale=()=>({amount:0,cash:"0"});
+    function record(value,keys){if(!value||typeof value!=="object"||Array.isArray(value)||Reflect.ownKeys(value).length!==keys.length||keys.some(k=>{const d=Object.getOwnPropertyDescriptor(value,k);return !d||!d.enumerable||!("value" in d)}))throw Error("Invalid Statistics record");}
+    function number(v,kind="count"){if(typeof v!=="number"||!Number.isFinite(v)||v<0||(kind==="count"&&!Number.isInteger(v)))throw Error("Invalid Statistics number");if(kind==="hundredths")cents(v);}
+    function cents(v){number(v,"cash");if(Number.isInteger(v))return BigInt(v)*100n;const m=/^(\d+)\.(\d{1,2})$/.exec(v.toString());if(!m)throw Error("Statistics hundredths precision");return BigInt(m[1])*100n+BigInt(m[2].padEnd(2,"0"));}
+    function decimal(v){
+        if(typeof v==="number"){number(v,"cash");if(Number.isInteger(v))return BigInt(v).toString();const [mantissa,e="0"]=v.toString().split("e"),[whole,frac=""]=mantissa.split("."),digits=whole+frac,point=whole.length+Number(e);v=point<=0?"0."+"0".repeat(-point)+digits:point>=digits.length?digits+"0".repeat(point-digits.length):digits.slice(0,point)+"."+digits.slice(point);}
+        if(typeof v!=="string"||v.length>640||!/^(0|[1-9]\d*)(\.\d+)?$/.test(v))throw Error("Invalid exact Statistics currency");
+        if(v.includes("."))v=v.replace(/0+$/,"").replace(/\.$/,"");return v;
+    }
+    function currency(v,kind){if(typeof v!=="string"||decimal(v)!==v||kind==="hundredths"&&(v.split(".")[1]||"").length>2)throw Error("Invalid Statistics currency record");}
+    function add(a,b,kind="count"){
+        if(kind!=="count"){
+            a=decimal(a);b=decimal(b);if(kind==="hundredths"){currency(a,kind);currency(b,kind);}
+            const [aw,af=""]=a.split("."),[bw,bf=""]=b.split("."),scale=Math.max(af.length,bf.length),n=BigInt(aw+af.padEnd(scale,"0"))+BigInt(bw+bf.padEnd(scale,"0")),digits=n.toString().padStart(scale+1,"0");
+            return decimal(scale?digits.slice(0,-scale)+"."+digits.slice(-scale):digits);
+        }
+        number(a);number(b);const n=a+b;if(!Number.isFinite(n)||n-a!==b||n-b!==a)throw Error("Statistics precision exhausted");return n;
+    }
+    function compare(a,b){const [aw,af=""]=decimal(a).split("."),[bw,bf=""]=decimal(b).split(".");if(aw.length!==bw.length)return aw.length-bw.length;if(aw!==bw)return aw<bw?-1:1;const n=Math.max(af.length,bf.length),x=af.padEnd(n,"0"),y=bf.padEnd(n,"0");return x===y?0:x<y?-1:1;}
+    function scope(){return {...Object.fromEntries(Object.entries(scalarTypes).map(([k,t])=>[k,t==="count"?0:"0"])),manualBase:map(rawIds),manualDuplicates:map(rawIds),manualOutput:map(rawIds),minerOutput:map(rawIds),materials:map(["wood","scrap","metal"]),refineAttempts:map(oreIds,passes),refineSurvived:map(oreIds,passes),refineDestroyed:map(oreIds,passes),sales:{raw:map(rawIds,sale),polished:map(oreIds,sale),refined:map(oreIds,()=>Array.from({length:15},sale))},spending:map(spendIds,()=>"0"),refunds:map(["miner","polisher","refiner"],()=>"0")};}
+    function validateScope(v){
+        const template=scope();record(v,Object.keys(template));
+        for(const [k,t] of Object.entries(scalarTypes))t==="count"?number(v[k]):currency(v[k],t);
+        for(const k of ["manualBase","manualDuplicates","manualOutput","minerOutput","materials","spending","refunds"]){record(v[k],Object.keys(template[k]));for(const n of Object.values(v[k]))["spending","refunds"].includes(k)?currency(n,"cash"):number(n);}
+        for(const k of ["refineAttempts","refineSurvived","refineDestroyed"]){record(v[k],oreIds);for(const a of Object.values(v[k])){if(!Array.isArray(a)||a.length!==15||Object.keys(a).length!==15)throw Error("Invalid pass map");a.forEach(n=>number(n));}}
+        for(const id of rawIds)if(v.manualOutput[id]!==add(v.manualBase[id],v.manualDuplicates[id]))throw Error("Manual output mismatch");
+        for(const id of oreIds)for(let i=0;i<15;i++)if(v.refineAttempts[id][i]!==add(v.refineSurvived[id][i],v.refineDestroyed[id][i]))throw Error("Refiner accounting mismatch");
+        record(v.sales,["raw","polished","refined"]);
+        for(const stage of Object.keys(v.sales)){record(v.sales[stage],stage==="raw"?rawIds:oreIds);for(const entry of Object.values(v.sales[stage])){const cells=stage==="refined"?entry:[entry];if(stage==="refined"&&(!Array.isArray(cells)||cells.length!==15||Object.keys(cells).length!==15))throw Error("Invalid sale passes");for(const c of cells){record(c,["amount","cash"]);number(c.amount);currency(c.cash,"cash");}}}
+        const total=values=>values.reduce((n,v)=>add(n,v,"cash"),"0");
+        if(total(Object.values(v.spending))!==v.cashSpent||total(Object.values(v.refunds))!==v.cashRefunded)throw Error("Currency source totals disagree");
+        const saleCash=[];for(const stage of Object.keys(v.sales))for(const entry of Object.values(v.sales[stage]))for(const cell of stage==="refined"?entry:[entry])saleCash.push(cell.cash);
+        if(total(saleCash)!==v.cashEarned||compare(v.testingCashEarned,v.cashEarned)>0)throw Error("Sale totals disagree");
+    }
+    function extend(statistics,count,now,fresh=false){
+        PolishedOutputStatisticsCandidateModel.validateStatistics(statistics);
+        return {lifetime:{...statistics.lifetime,gameplay:scope()},thisRebirth:{...statistics.thisRebirth,gameplay:scope()},coverage:{version:1,baselineRebirthCount:count,startedAtMs:now,newCounters:"since-game19",polished:fresh?"from-start":"retained-game09",playTime:"policy-gated"},bests:{cash:0,factoryLevel:0,minerTier:0,polisherTier:0,refinerTier:0,furnaceTier:fresh?1:0},rebirthHistory:[]};
+    }
+    function polished(s){return {lifetime:{polishedOutput:s.lifetime.polishedOutput},thisRebirth:{polishedOutput:s.thisRebirth.polishedOutput}};}
+    function validate(s,rebirthCount){
+        record(s,["lifetime","thisRebirth","coverage","bests","rebirthHistory"]);
+        for(const key of ["lifetime","thisRebirth"]){record(s[key],["polishedOutput","gameplay"]);validateScope(s[key].gameplay);}
+        function contained(a,b){if(typeof a==="object"){for(const k of Object.keys(a))contained(a[k],b[k]);}else if(compare(a,b)>0)throw Error("Current Statistics exceed lifetime observations");}
+        contained(s.thisRebirth.gameplay,s.lifetime.gameplay);
+        PolishedOutputStatisticsCandidateModel.validateStatistics(polished(s));
+        record(s.coverage,["version","baselineRebirthCount","startedAtMs","newCounters","polished","playTime"]);
+        const c=s.coverage;if(c.version!==1||c.newCounters!=="since-game19"||!["from-start","retained-game09"].includes(c.polished)||c.playTime!=="policy-gated")throw Error("Unknown Statistics coverage");number(c.baselineRebirthCount);number(c.startedAtMs);if(c.startedAtMs>8640000000000000||c.baselineRebirthCount>rebirthCount)throw Error("Invalid Statistics baseline");
+        record(s.bests,["cash","factoryLevel","minerTier","polisherTier","refinerTier","furnaceTier"]);for(const [k,v] of Object.entries(s.bests))number(v,k==="cash"?"cash":"count");for(const [k,max] of [["minerTier",25],["polisherTier",10],["refinerTier",10],["furnaceTier",20]])if(s.bests[k]>max)throw Error("Invalid best tier");
+        if(!Array.isArray(s.rebirthHistory)||s.rebirthHistory.length>100||Object.keys(s.rebirthHistory).length!==s.rebirthHistory.length)throw Error("Invalid Rebirth history");let prior=c.baselineRebirthCount;
+        for(const [index,h] of s.rebirthHistory.entries()){record(h,["sequence","cashBasis","gainLevel","award","completedAtMs"]);number(h.sequence);number(h.cashBasis,"cash");number(h.gainLevel);number(h.award,"hundredths");number(h.completedAtMs);if(h.sequence!==rebirthCount-s.rebirthHistory.length+index+1||h.sequence<=prior||h.sequence>rebirthCount||h.cashBasis<1000000||h.gainLevel>7500||h.completedAtMs>8640000000000000)throw Error("Invalid Rebirth entry");if(h.award!==Math.round((10+5*Math.log2(Math.max(1,h.cashBasis/1000000)))*PermanentPerkModel.getEffect("stardustGain",h.gainLevel)*100)/100)throw Error("Invalid historical Stardust award");prior=h.sequence;}
+        if(s.rebirthHistory.length!==Math.min(100,rebirthCount-c.baselineRebirthCount)||prior!==rebirthCount)throw Error("Missing tracked Rebirth history");
+    }
+    function increment(s,fact){
+        // Trusted adapters construct typed facts from validated gameplay results, never field paths.
+        for(const key of ["lifetime","thisRebirth"]){const g=s[key].gameplay,inc=(k,n)=>g[k]=add(g[k],n,scalarTypes[k]),incMap=(k,id,n)=>{if(!Object.hasOwn(g[k],id))throw Error("Invalid statistic resource");g[k][id]=add(g[k][id],n);};
+            switch(fact.type){
+            case "manual":inc("manualClicks",1);incMap("manualBase",fact.resourceId,fact.base);incMap("manualDuplicates",fact.resourceId,fact.duplicates);incMap("manualOutput",fact.resourceId,add(fact.base,fact.duplicates));if(fact.material)incMap("materials",fact.material,1);inc("xpManual",fact.xp);break;
+            case "resourceAcquired":incMap("minerOutput",fact.resourceId,fact.amount);inc("xpMiner",fact.xp);break;
+            case "refiner":for(const e of fact.events){const k={refineAttempt:"refineAttempts",refineSurvived:"refineSurvived",refineDestroyed:"refineDestroyed"}[e.type];if(!k||!oreIds.includes(e.resourceId)||e.refineCount<1||e.refineCount>15)throw Error("Invalid Refiner fact");g[k][e.resourceId][e.refineCount-1]=add(g[k][e.resourceId][e.refineCount-1],e.amount);}inc("gemDustEarned",fact.dust);break;
+            case "smelted":for(const e of fact.entries){const cell=e.stage==="refined"?g.sales.refined[e.resourceId]?.[e.refineCount-1]:g.sales[e.stage]?.[e.resourceId];if(!cell)throw Error("Invalid sale fact");cell.amount=add(cell.amount,e.amount);cell.cash=add(cell.cash,e.cash,"cash");}inc("cashEarned",fact.cash);inc("xpFurnace",fact.xp);if(fact.testing)inc("testingCashEarned",fact.cash);break;
+            case "purchase":if(!spendIds.includes(fact.source))throw Error("Invalid spending source");g.spending[fact.source]=add(g.spending[fact.source],fact.amount,"cash");inc("cashSpent",fact.amount);inc("cashPurchases",1);break;
+            case "refund":if(!Object.hasOwn(g.refunds,fact.source))throw Error("Invalid refund source");g.refunds[fact.source]=add(g.refunds[fact.source],fact.amount,"cash");inc("cashRefunded",fact.amount);inc("resales",1);break;
+            case "perk":inc("stardustPerksSpent",fact.amount);inc("perkPurchases",1);break;
+            case "rebirth":inc("stardustRebirthEarned",fact.amount);break;
+            case "developerCash":inc("developerCashGranted",fact.amount);break;
+            default:throw Error("Unsupported Statistics fact");
+            }
+        }
+    }
+    return Object.freeze({rawIds,oreIds,scalarTypes,spendIds,scope,extend,validate,polished,increment,add,decimal});
+})();

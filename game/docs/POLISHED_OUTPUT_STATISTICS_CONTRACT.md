@@ -1,3 +1,7 @@
+## GAME19 private broader-statistics adapter
+
+The miner-1 runtime now stores additional validated gameplay observations. It extracts exactly lifetime.polishedOutput and thisRebirth.polishedOutput for this pure helper, then merges those two returned maps into the full candidate. Existing maps are retained on activation, and no duplicate polished event is dispatched. See [the broader field contract](GAMEPLAY_STATISTICS_CONTRACT.md). Earlier future/public-only wording remains a public migration boundary.
+
 # V1-152A1 — Polished-output statistics fields
 
 **GAME15 private activation:** Core Rebirth now owns one atomic reset, retaining lifetime Polished output and zeroing the complete current-Rebirth map. It clears all reserved/resolved work without settlement or restitution and retains permanent Furnace identity/preferences/sequence at Tier 1. [Exact state, hundredths arithmetic and known-absence policy](SAVE_VERSIONING.md#v1-game15--private-core-rebirth-and-stardust). This supersedes historical unimplemented-Rebirth wording only for miner-1, not public V2 or perk purchases.

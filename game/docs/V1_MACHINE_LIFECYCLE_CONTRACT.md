@@ -1,3 +1,7 @@
+## GAME19 private accounting integration
+
+The private miner-1 commit boundary now consumes validated physical results for acquisition, processing and sale observations, atomically with output and balances. Reservation/resolution do not increment statistics; cancellation generates no processing observations. Resale credits are separate from Furnace earnings; Rebirth reset generates no sale/refund events. Existing Polished-output maps remain authoritative through their narrow model projection. See [GAMEPLAY_STATISTICS_CONTRACT.md](GAMEPLAY_STATISTICS_CONTRACT.md) for exact fields, observed-history provenance, currency arithmetic and gated challenge/time consumers. Public V2 is not activated.
+
 # V1-070 — Independent Machine Lifecycle Contract
 
 **GAME17 private activation:** Crafted Pickaxes share the global allocator with machines. Machine projections include all crafted IDs as external ownership context. Crafting, equipment, mining/break fallback, repair and Durability purchases use the same full-state transaction boundary; they preserve unrelated machine cycles. Rebirth retains Pickaxe/material ownership and damage. See [the private save rules](SAVE_VERSIONING.md#v1-game17--private-pickaxes-and-materials); no public migration or material XP is activated.
