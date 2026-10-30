@@ -1,0 +1,44 @@
+/* TEFI compact dashboard concept. Presentation only; no save/gameplay changes. */
+@media(min-width:1101px){
+ html,body{height:100%;overflow:hidden}
+ #gameRoot:not([hidden]){height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+ .game-header{position:relative;flex:0 0 auto;padding:10px 18px;gap:18px;grid-template-columns:minmax(230px,1fr) minmax(290px,1.2fr) minmax(150px,.65fr)}
+ .secondary-nav{flex:0 0 auto;padding:5px 16px;justify-content:space-around}
+ .game-layout{flex:1;min-height:0;width:100%;max-width:none;padding:10px 12px 12px;grid-template-columns:minmax(260px,1.05fr) minmax(410px,1.48fr) minmax(280px,1.08fr);gap:10px;align-items:stretch}
+ .game-panel{height:100%;min-height:0;overflow:hidden;padding:12px;display:flex;flex-direction:column}
+ .section-heading{flex:0 0 auto;padding-bottom:10px;margin-bottom:10px}
+ .section-heading h2{font-size:21px;margin:3px 0}
+ .mining-panel .mine-scene{height:clamp(100px,21vh,250px);flex:0 1 auto;min-height:80px;margin-bottom:10px}
+ .mining-panel .mine-button{min-height:46px;font-size:17px;flex-shrink:0}
+ .mining-feedback{padding:10px 0}.mining-total{padding:7px 0}
+ .mining-panel{overflow-y:auto;scrollbar-color:var(--accent) var(--bg-main);scrollbar-width:thin}
+ .factory-panel,.shop-panel{overflow-y:auto;scrollbar-color:var(--accent) var(--bg-main);scrollbar-width:thin}
+ .factory-panel>.section-heading,.shop-panel>.section-heading{position:sticky;top:-12px;z-index:5;background:var(--bg-panel)}
+ .furnace-workbench{padding:10px;margin-bottom:8px}.miner-slots,.polisher-slots{margin:8px 0}
+ .shop-row{padding:9px 0}.shop-row p{margin:4px 0 7px}
+ .game-footer{flex:0 0 auto;padding:4px 16px}
+}
+@media(min-width:1101px) and (max-height:730px){.game-header{padding:5px 14px}.secondary-nav{padding:2px 14px}.mining-panel .mine-scene{height:105px}.mining-feedback{padding:4px 0}.game-panel{padding:9px}.section-heading p{display:none}}
+body.tefi-pixel-ui{background:radial-gradient(ellipse at 50% -30%,#473724 0%,#181713 64%);font-family:system-ui,sans-serif}
+.tefi-pixel-ui .game-panel{border:2px solid #927047;border-top:4px solid #bd8147;border-radius:2px;box-shadow:inset 0 0 0 2px #1c1914,0 4px #0f0d0b}
+.tefi-pixel-ui .game-header,.tefi-pixel-ui .secondary-nav{background:#211d17}
+.tefi-pixel-ui .brand h1,.tefi-pixel-ui .section-heading h2{font-weight:900;letter-spacing:.01em}
+.tefi-pixel-ui .section-heading .eyebrow{color:#d8a974}
+.tefi-pixel-ui button{border-color:#83623f;box-shadow:inset 0 2px #ffffff10,0 3px #17110c;transition:background-color .12s,border-color .12s}
+.tefi-pixel-ui button:hover:not(:disabled){border-color:#e1a061}
+.tefi-pixel-ui .mine-button{background:linear-gradient(#ce8547,#a65b32);color:#ffeed4;text-shadow:1px 2px #4b2b1d}
+.tefi-pixel-ui .mine-scene{background:repeating-linear-gradient(110deg,#211f1c,#211f1c 23px,#2a2722 24px,#2a2722 47px);border-color:#4a3827}
+.tefi-pixel-ui .miner-slot,.tefi-pixel-ui .shop-row,.tefi-pixel-ui .furnace-workbench{border-color:#72583b}
+.tefi-pixel-ui .miner-slot[data-selected="true"]{outline:2px solid #c79455}
+.tefi-pixel-ui .tefi-switcher{display:flex;gap:4px;padding:4px;background:#1f1b16;border:1px solid #775c3a;margin-bottom:10px;flex-shrink:0}
+.tefi-pixel-ui .tefi-switcher button{flex:1;min-width:0;min-height:36px;padding:6px 4px;font-size:12px}
+.tefi-pixel-ui .tefi-switcher button:focus-visible{background:#995b32;border-color:#d49353;color:#fff1d4}
+
+.tefi-pixel-ui .tefi-small-icon{display:inline-grid;place-items:center;width:29px;height:29px;flex:0 0 29px;background:#28221b;border:1px solid #8a673f;margin-right:8px;font-size:17px}
+.tefi-pixel-ui .shop-row h3{display:flex;align-items:center}
+.tefi-pixel-ui .shop-row h3:before{content:"✦";display:inline-grid;place-items:center;background:#292319;border:1px solid #745534;color:#e1af66;width:29px;height:29px;margin-right:8px;font-size:16px}
+.tefi-pixel-ui #miningPowerCard h3:before{content:"⛏"}.tefi-pixel-ui #miningLuckCard h3:before{content:"◆"}.tefi-pixel-ui #miningDuplicationCard h3:before{content:"✧"}
+.tefi-pixel-ui .shop-row .shop-heading h3:before{display:none}
+.tefi-pixel-ui .shop-heading h3{gap:6px}
+.tefi-pixel-ui .mine-scene:after{pointer-events:none}
+@media(prefers-reduced-motion:reduce){.tefi-pixel-ui button{transition:none}}
