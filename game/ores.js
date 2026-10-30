@@ -2354,7 +2354,7 @@ const GameplayStatisticsModel=(()=>{
         }
         number(a);number(b);const n=a+b;if(!Number.isFinite(n)||n-a!==b||n-b!==a)throw Error("Statistics precision exhausted");return n;
     }
-    function compare(a,b){const [aw,af=""]=decimal(a).split("."),[bw,bf=""]=decimal(b).split(".");if(aw.length!==bw.length)return aw.length-bw.length;if(aw!==bw)return aw<bw?-1:1;const n=Math.max(af.length,bf.length),x=af.padEnd(n,"0"),y=bf.padEnd(n,"0");return x===y?0:x<y?-1:1;}
+    function compare(a,b){if(a===b)return 0;const [aw,af=""]=decimal(a).split("."),[bw,bf=""]=decimal(b).split(".");if(aw.length!==bw.length)return aw.length-bw.length;if(aw!==bw)return aw<bw?-1:1;const n=Math.max(af.length,bf.length),x=af.padEnd(n,"0"),y=bf.padEnd(n,"0");return x===y?0:x<y?-1:1;}
     function scope(){return {...Object.fromEntries(Object.entries(scalarTypes).map(([k,t])=>[k,t==="count"?0:"0"])),manualBase:map(rawIds),manualDuplicates:map(rawIds),manualOutput:map(rawIds),minerOutput:map(rawIds),materials:map(["wood","scrap","metal"]),refineAttempts:map(oreIds,passes),refineSurvived:map(oreIds,passes),refineDestroyed:map(oreIds,passes),sales:{raw:map(rawIds,sale),polished:map(oreIds,sale),refined:map(oreIds,()=>Array.from({length:15},sale))},spending:map(spendIds,()=>"0"),refunds:map(["miner","polisher","refiner"],()=>"0")};}
     function validateScope(v){
         const template=scope();record(v,Object.keys(template));
@@ -2365,7 +2365,7 @@ const GameplayStatisticsModel=(()=>{
         for(const id of oreIds)for(let i=0;i<15;i++)if(v.refineAttempts[id][i]!==add(v.refineSurvived[id][i],v.refineDestroyed[id][i]))throw Error("Refiner accounting mismatch");
         record(v.sales,["raw","polished","refined"]);
         for(const stage of Object.keys(v.sales)){record(v.sales[stage],stage==="raw"?rawIds:oreIds);for(const entry of Object.values(v.sales[stage])){const cells=stage==="refined"?entry:[entry];if(stage==="refined"&&(!Array.isArray(cells)||cells.length!==15||Object.keys(cells).length!==15))throw Error("Invalid sale passes");for(const c of cells){record(c,["amount","cash"]);number(c.amount);currency(c.cash,"cash");}}}
-        const total=values=>values.reduce((n,v)=>add(n,v,"cash"),"0");
+        const total=values=>values.reduce((n,v)=>v==="0"?n:add(n,v,"cash"),"0");
         if(total(Object.values(v.spending))!==v.cashSpent||total(Object.values(v.refunds))!==v.cashRefunded)throw Error("Currency source totals disagree");
         const saleCash=[];for(const stage of Object.keys(v.sales))for(const entry of Object.values(v.sales[stage]))for(const cell of stage==="refined"?entry:[entry])saleCash.push(cell.cash);
         if(total(saleCash)!==v.cashEarned||compare(v.testingCashEarned,v.cashEarned)>0)throw Error("Sale totals disagree");
