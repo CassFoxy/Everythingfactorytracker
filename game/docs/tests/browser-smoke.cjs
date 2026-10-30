@@ -1104,6 +1104,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             const after=await page.evaluate(()=>JSON.parse(JSON.stringify(save))),expected=structuredClone(before);
             expected.cash-=1250;expected.factory.miners[0].oreLuckLevel=2;
             expected.factory.miners[0].investment.entries.push({kind:'oreLuck',targetLevel:2,cashPaid:1250,basis:'actual'});
+            for(const scope of ['lifetime','thisRebirth']){const g=expected.statistics[scope].gameplay;g.cashPurchases++;g.cashSpent=String(Number(g.cashSpent)+1250);g.spending.minerLuck=String(Number(g.spending.minerLuck)+1250);}
             assert.deepEqual(after,expected);
             assert.equal(await page.evaluate(()=>upgradeDevelopmentMinerOreLuck('miner:1')),false);
             assert.equal(await page.locator('#upgradeMinerOreLuck').isDisabled(),true);
