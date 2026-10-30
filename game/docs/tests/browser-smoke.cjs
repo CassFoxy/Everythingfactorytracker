@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const root = path.resolve(__dirname, "../..");
-const files = new Map(["index.html", "game.js", "ores.js", "style.css"].map(name =>
+const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js"].map(name =>
     ["/" + name, fs.readFileSync(path.join(root, name))]));
 const server = http.createServer((req, res) => {
     if (req.url === "/favicon.ico") { res.writeHead(204); return res.end(); }
