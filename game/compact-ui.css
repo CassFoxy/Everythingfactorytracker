@@ -11,6 +11,7 @@
  .mining-panel .mine-scene{height:clamp(100px,21vh,250px);flex:0 1 auto;min-height:80px;margin-bottom:10px}
  .mining-panel .mine-button{min-height:46px;font-size:17px;flex-shrink:0}
  .mining-feedback{padding:10px 0}.mining-total{padding:7px 0}
+ .mining-panel{overflow-y:auto;scrollbar-color:var(--accent) var(--bg-main);scrollbar-width:thin}
  .factory-panel,.shop-panel{overflow-y:auto;scrollbar-color:var(--accent) var(--bg-main);scrollbar-width:thin}
  .factory-panel>.section-heading,.shop-panel>.section-heading{position:sticky;top:-12px;z-index:5;background:var(--bg-panel)}
  .furnace-workbench{padding:10px;margin-bottom:8px}.miner-slots,.polisher-slots{margin:8px 0}
@@ -31,8 +32,8 @@ body.tefi-pixel-ui{background:radial-gradient(ellipse at 50% -30%,#473724 0%,#18
 .tefi-pixel-ui .miner-slot[data-selected="true"]{outline:2px solid #c79455}
 .tefi-pixel-ui .tefi-switcher{display:flex;gap:4px;padding:4px;background:#1f1b16;border:1px solid #775c3a;margin-bottom:10px;flex-shrink:0}
 .tefi-pixel-ui .tefi-switcher button{flex:1;min-width:0;min-height:36px;padding:6px 4px;font-size:12px}
-.tefi-pixel-ui .tefi-switcher button[aria-selected="true"]{background:#995b32;border-color:#d49353;color:#fff1d4}
-.tefi-pixel-ui .tefi-hide-panel{display:none!important}
+.tefi-pixel-ui .tefi-switcher button:focus-visible{background:#995b32;border-color:#d49353;color:#fff1d4}
+
 .tefi-pixel-ui .tefi-small-icon{display:inline-grid;place-items:center;width:29px;height:29px;flex:0 0 29px;background:#28221b;border:1px solid #8a673f;margin-right:8px;font-size:17px}
 .tefi-pixel-ui .shop-row h3{display:flex;align-items:center}
 .tefi-pixel-ui .shop-row h3:before{content:"✦";display:inline-grid;place-items:center;background:#292319;border:1px solid #745534;color:#e1af66;width:29px;height:29px;margin-right:8px;font-size:16px}
