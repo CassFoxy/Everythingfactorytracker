@@ -4196,25 +4196,33 @@ function showAchievementPopup(
 }
 
 function resetSave(){
-    if(recoveryState.active){
-        resetRecoverySave();
-        return;
+    if(recoveryState.active) return resetRecoverySave();
+    const feedback = document.getElementById("devFeedback");
+    if(pendingDevelopmentWrite){
+        feedback.textContent = "A save transaction is pending. Retry that save before resetting.";
+        return false;
     }
+    if(!gameStarted || !confirm("Delete all TEFI save data and start fresh? This cannot be undone.")) return false;
 
-    if(
-        !confirm(
-            "Delete all save data?"
-        )
-    ){
-        return;
+    // Reload is asynchronous: stop all old-state writers before deletion.
+    gameStarted = false;
+    recoveryState.active = true;
+    try{
+        localStorage.removeItem(SAVE_KEY);
+    }catch(error){
+        recoveryState.active = false;
+        gameStarted = true;
+        feedback.textContent = "Reset failed: browser storage could not be changed. Your existing save is unchanged.";
+        return false;
     }
-
-    localStorage.removeItem(
-        "ef_incremental"
-    );
-
+    try{
+        if(localStorage.getItem(SAVE_KEY) !== null) throw Error("Save was not removed");
+    }catch(error){
+        feedback.textContent = "Reset could not be verified. Autosave is paused. Close other TEFI tabs, then reload to check the saved state.";
+        return false;
+    }
     location.reload();
-
+    return true;
 }
 
 document.getElementById("exportRawSave").onclick = exportRecoverySave;
