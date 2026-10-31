@@ -78,6 +78,42 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             };
             return { context, page, errors };
         }
+        // Regression: miner-1 reset cancellation, failed removal and autosave race.
+        {
+            const app = await session(null, true), { page } = app;
+            await page.evaluate(() => addDeveloperCash(1000));
+            const before = await page.evaluate(() => localStorage.getItem("ef_incremental"));
+            await page.locator(".dev-tools summary").click();
+            page.once("dialog", dialog => dialog.dismiss());
+            await page.getByRole("button", { name: "⚠ Reset Save", exact: true }).click();
+            assert.equal(await page.evaluate(() => localStorage.getItem("ef_incremental")), before);
+            await page.evaluate(() => {
+                window.originalRemoveItem = Storage.prototype.removeItem;
+                Storage.prototype.removeItem = function(){ throw Error("blocked"); };
+            });
+            page.once("dialog", dialog => dialog.accept());
+            await page.getByRole("button", { name: "⚠ Reset Save", exact: true }).click();
+            assert.equal(await page.evaluate(() => localStorage.getItem("ef_incremental")), before);
+            assert.match(await page.locator("#devFeedback").textContent(), /Reset failed/);
+            assert.equal(await page.evaluate(() => gameStarted && !recoveryState.active), true);
+            await page.evaluate(() => {
+                Storage.prototype.removeItem = function(key){
+                    originalRemoveItem.call(this, key);
+                    if(key === SAVE_KEY){
+                        testIntervals.find(t => t.ms === 5000).callback();
+                        updateDevelopmentMiner();
+                    }
+                };
+            });
+            page.once("dialog", dialog => dialog.accept());
+            await page.getByRole("button", { name: "⚠ Reset Save", exact: true }).click();
+            await page.waitForFunction(() => save.cash === 0 && localStorage.getItem("ef_incremental") === null);
+            assert.equal(await page.evaluate(() => save.developmentProfile), "miner-1");
+            assert.deepEqual(app.errors, []);
+            await app.context.close();
+            console.log("PASS Miner developer reset: cancel, blocked storage, autosave race and fresh reload.");
+        }
+
         async function normalLoop(legacyBaseline = false) {
             // Seed an existing funded save to compare unchanged gameplay outside the new baseline.
             const app = await session(JSON.stringify({ cash: 100, factoryXP: 100, factoryLevel: 1,
