@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test:syntax": "node --check game/game.js && node --check game/ores.js && node --check game/compact-ui.js && node --check game/docs/tests/save-versioning.test.cjs && node --check game/docs/tests/browser-smoke.cjs",
+    "test:syntax": "node --check game/compact-ui.js && node --check game/game.js && node --check game/ores.js && node --check game/docs/tests/save-versioning.test.cjs && node --check game/docs/tests/browser-smoke.cjs",
     "test:node": "node --test game/docs/tests/save-versioning.test.cjs",
     "test": "npm run test:syntax && npm run test:node",
     "test:browser": "node game/docs/tests/browser-smoke.cjs"

@@ -8,12 +8,16 @@ const http = require("node:http");
 const root = path.resolve(__dirname, "../..");
 const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js"].map(name =>
     ["/" + name, fs.readFileSync(path.join(root, name))]));
+for (const name of fs.readdirSync(path.join(root, 'assets/ui'))) {
+    files.set('/assets/ui/' + name, fs.readFileSync(path.join(root, 'assets/ui', name)));
+}
 const server = http.createServer((req, res) => {
     if (req.url === "/favicon.ico") { res.writeHead(204); return res.end(); }
-    const name = req.url === "/" ? "/index.html" : req.url;
+    const requestPath = req.url.replace(/^\/game\//, '/');
+    const name = requestPath === "/" ? "/index.html" : requestPath;
     if (!files.has(name)) { res.writeHead(404); return res.end(); }
     res.setHeader("Content-Type", name.endsWith(".js") ? "text/javascript; charset=utf-8" :
-        name.endsWith(".css") ? "text/css; charset=utf-8" : "text/html; charset=utf-8");
+        name.endsWith(".css") ? "text/css; charset=utf-8" : name.endsWith('.svg') ? 'image/svg+xml' : name.endsWith('.webp') ? 'image/webp' : "text/html; charset=utf-8");
     res.end(files.get(name));
 });
 
@@ -51,7 +55,27 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             page.on("console", message => {
                 if (message.type() === "error") errors.push(message.text());
             });
-            await page.goto(url);
+            await page.goto(url + '/game/');
+            // Existing gameplay scenarios target stable IDs. Navigate their new category
+            // through its actual tab before interacting, preserving normal actionability.
+            const originalLocator = page.locator.bind(page);
+            page.locator = (...args) => {
+                const locator = originalLocator(...args);
+                for (const method of ['click', 'fill', 'selectOption', 'check', 'uncheck', 'scrollIntoViewIfNeeded']) {
+                    const action = locator[method].bind(locator);
+                    locator[method] = async (...params) => {
+                        if (await locator.count() === 1) {
+                            const category = await locator.evaluate(n => {
+                                const p = n.closest('[data-ui-group]');
+                                return p ? [p.dataset.uiGroup, p.dataset.uiCategory] : null;
+                            });
+                            if (category) await originalLocator('#ui-' + category.join('-')).click();
+                        }
+                        return action(...params);
+                    };
+                }
+                return locator;
+            };
             return { context, page, errors };
         }
         // Regression: miner-1 reset cancellation, failed removal and autosave race.
@@ -127,6 +151,55 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
 
 
 
+
+        // UI02: real category navigation, artwork and viewport fit without state mutation.
+        for (const [width,height] of [[2560,1440],[1920,1080],[1440,900],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]) {
+            const app=await session(null,true),{page}=app;
+            await page.setViewportSize({width,height});
+            await page.evaluate(()=>{
+                addDeveloperCash(2000000000000);buyMiningPower();unlockDevelopmentMiner();
+                for(let slot=1;slot<=5;slot++){if(slot>1)unlockDevelopmentMinerSlot(slot);buyDevelopmentMiner(slot);}
+                for(let slot=1;slot<=3;slot++)buyDevelopmentPolisher(slot);
+                buyDevelopmentRefiner();
+                developmentCommand(n=>{n.inventory.amber=120;n.inventory.ruby=80;n.materials.wood=16;});
+                for(const m of save.factory.miners)advanceDevelopmentMiner(m.id,testNow);
+                testNow+=2000;renderDevelopmentMiner();
+            });
+            await page.waitForTimeout(100);
+            const unchanged=await page.evaluate(()=>JSON.stringify(save));
+            for(const key of ['polishers','refiner','furnace','miners']){
+                await page.getByRole('tab',{name:key==='polishers'?'Polishers':key==='refiner'?'Refiner':key==='furnace'?'Furnace':'Miners',exact:true}).click();
+                assert.equal(await page.locator('#ui-factory-'+key).getAttribute('aria-selected'),'true');
+                if(process.env.TEFI_UI_SCREENSHOTS&&[1920,390].includes(width)){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.waitForTimeout(150);await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`ui02-${key}-${width}.png`),fullPage:true});}
+            }
+            for(const key of ['machines','stardust','mining'])await page.locator('#ui-shop-'+key).click();
+            assert.equal(await page.evaluate(()=>JSON.stringify(save)),unchanged);
+            await page.locator('#ui-factory-miners').focus();await page.keyboard.press('ArrowRight');
+            assert.equal(await page.locator('#ui-factory-polishers').getAttribute('aria-selected'),'true');
+            await page.locator('#ui-factory-miners').click();
+            const dimensions=await page.evaluate(()=>({width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight,ids:[...document.querySelectorAll('[id]')].map(n=>n.id)}));
+            assert.ok(dimensions.width<=width,'No horizontal overflow');
+            if(width>1100)assert.ok(dimensions.height<=height,'Desktop shell fits viewport');
+            assert.equal(new Set(dimensions.ids).size,dimensions.ids.length);
+            assert.equal(await page.locator('.miner-slot .ui-machine-art').count(),8);
+            assert.equal(await page.evaluate(async()=>{const img=new Image();img.src='assets/ui/machines.webp';await img.decode();return img.naturalWidth>0}),true);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`ui02-dashboard-${width}x${height}.png`),fullPage:true});}
+            await page.locator('#ui-nav-inventory').click();
+            for(const stage of ['polished','refined','materials','pickaxes','raw']){await page.locator('#ui-inventory-'+stage).click();assert.equal(await page.locator('[data-ui-inventory="'+stage+'"]').isVisible(),true);}
+            if(process.env.TEFI_UI_SCREENSHOTS&&[1920,390].includes(width))await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`ui02-inventory-${width}.png`)});
+            await page.keyboard.press('Escape');assert.equal(await page.locator('#inventoryModal').isVisible(),false);
+            if(width===390)await page.emulateMedia({reducedMotion:'reduce'});
+            await page.locator('#mineButton').click();await page.waitForTimeout(100);
+            assert.equal(await page.locator('.ui-float').count(),1);
+            if(width===390)assert.equal(await page.locator('.ui-mine-pick').evaluate(n=>getComputedStyle(n).animationName),'none');
+            await page.evaluate(()=>{window.uiWrite=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('UI retry test')};});
+            await page.waitForTimeout(1500);await page.locator('#mineButton').click();await page.waitForTimeout(100);
+            assert.equal(await page.locator('.ui-float').count(),0,'Failed write has no mining celebration');
+            await page.evaluate(()=>Storage.prototype.setItem=uiWrite);await page.locator('#retryDevelopmentWrite').click();await page.waitForTimeout(100);
+            assert.equal(await page.locator('.ui-float').count(),1,'Committed retry has one celebration');
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log(`PASS UI02 ${width}x${height}: tabs, keyboard, assets, inventory, fit and committed-only effects.`);
+        }
+        if(process.env.TEFI_SMOKE_SCOPE==='ui02')return;
 
         // GAME19: physical commits feed one durable observation record.
         for(const [width,height] of [[1920,1080],[1366,768],[768,1024],[390,844]]){
@@ -442,7 +515,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             await page.evaluate(()=>{addDeveloperCash(2105000);developmentCommand(n=>{n.inventory.ruby=30})});
             for(let slot=1;slot<=3;slot++){
                 await page.locator('#polisherAction'+slot).click();if(slot>1)await page.locator('#polisherAction'+slot).click();await page.locator('#polisherOre').selectOption('ruby');
-                if(!await page.locator('#polisherQueueAmount').isVisible())await page.getByText('Queue owned raw input',{exact:true}).click();
+                if(!await page.locator('#polisherQueueAmount').isVisible())await page.locator('#ui-factory-polishers').click();await page.getByText('Queue owned raw input',{exact:true}).click();
                 await page.locator('#polisherQueueAmount').fill('5');await page.locator('#queuePolisher').click();await page.locator('#polisherQueue').getByRole('button',{name:'Process batch',exact:true}).click();
             }
             await page.evaluate(()=>{testNow+=7500;updateDevelopmentMiner()});
@@ -535,7 +608,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
         {
             const app=await session(null),{page}=app;
             await page.evaluate(()=>{addDeveloperCash(5000);buyDevelopmentPolisher(1);developmentCommand(n=>{n.inventory.ruby=10});setDevelopmentPolisherOre('polisher:1','ruby');queueDevelopmentPolisher('polisher:1',5);});
-            await page.getByText('Queue owned raw input',{exact:true}).click();await page.getByRole('button',{name:'Process batch',exact:true}).click();
+            await page.locator('#ui-factory-polishers').click();await page.getByText('Queue owned raw input',{exact:true}).click();await page.getByRole('button',{name:'Process batch',exact:true}).click();
             assert.equal(await page.evaluate(()=>save.inventory.ruby),5);assert.equal(await page.evaluate(()=>save.factory.polishers[0].queue[0].lot.amount),4);
             await page.evaluate(()=>{testNow+=7500;advanceDevelopmentPolisher('polisher:1',testNow);});
             const resolved=await page.evaluate(()=>JSON.parse(JSON.stringify(save)));await page.evaluate(()=>{window.realWrite=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('quota')};advanceDevelopmentPolisher('polisher:1',testNow);});
@@ -1300,7 +1373,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             assert.equal(await page.locator('#lastOre').textContent(), '🪨 Stone');
             assert.equal(await page.locator('#factoryXP').textContent(), await page.evaluate(() => formatXP(2501) + ' / ' + formatXP(3600)));
             for (const [button, modal] of [['Inventory','inventoryModal'], ['Collection Book','collectionModal'], ['Statistics','statsModal'], ['Milestones','milestonesModal'], ['Achievements','achievementsModal']]) {
-                await page.getByRole('button', { name:new RegExp(button) }).click();
+                await page.getByRole('button', { name:new RegExp(button) }).first().click();
                 assert.equal(await page.locator('#'+modal).isVisible(), true);
                 const bounds = await page.locator('#'+modal+' .modal-content').boundingBox();
                 assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width);

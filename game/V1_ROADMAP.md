@@ -1,3 +1,11 @@
+## V1-UI02 — Illustrated dashboard and icon overhaul
+
+Presentation-only dashboard built on PR #57: local cavern and four-machine illustrations, a reusable resource/Pickaxe/action sprite sheet, selected Factory and Shop categories, staged inventory views, live currency summaries and committed-only mining feedback. Existing controls and machine DOM are retained; gameplay models, transactions and save schema are unchanged.
+
+Desktop uses the approved 27/45/28 composition with internal scrolling; tablet/mobile retain ordinary page scrolling. Keyboard tab navigation, visible focus, reduced-motion support, legacy interfaces and save recovery remain available. Verification and final screenshots are recorded on the implementation PR, including seven requested viewports and a short-height desktop check. Asset provenance and presentation boundaries are in `assets/ui/README.md`.
+
+Next: review and merge this visual ticket before resuming approved gameplay development. No new gameplay system or public V2 compatibility is activated here.
+
 ## V1-GAME19 — Gameplay Statistics and Transaction Accounting
 
 Private gameplay implementation: source-separated manual/Miner/material observations, retained Polished maps, Refiner attempts/survivors/destruction/Dust, raw/Polished/Refined Furnace sales, actual Cash spending/refunds, XP sources, Stardust earning/spending, observed Rebirth history and permanent bests. All increments share the originating durable candidate and exact retry. The Statistics interface groups resource/pass breakdowns with Lifetime/This Rebirth switching and truthful coverage labels.
