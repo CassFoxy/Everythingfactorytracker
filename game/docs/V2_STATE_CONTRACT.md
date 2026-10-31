@@ -1,3 +1,7 @@
+## GAME19 bounded private Statistics activation
+
+The schema-1 miner-1 profile now activates [observed gameplay accounting](GAMEPLAY_STATISTICS_CONTRACT.md). It preserves established Polished output, names source-specific lifetime/current counters, and explicitly labels missing earlier coverage. Currency aggregates use exact decimal strings; spendable Cash, Dust/Stardust balances and machine payment fields are unchanged. No public V2 migration, challenge state, offline time or unapproved reward consumer is implied.
+
 ## GAME18 private-profile normal Shop boundary
 
 The schema-1 miner-1 runtime activates Mining Power 0–75, Mining Luck 0–150 and Mining Duplication 0–100. They are normal Cash purchases, not permanent perks or machine investments, and reset on Rebirth. Exact earlier two-field Shop records receive paired absent-field defaults only; see SAVE_VERSIONING.md. This does not activate public V2 or change its migration requirements. Pickaxe-only selection APIs retain Level-0 defaults while an optional validated Shop Luck level supplies the approved combined manual Luck. Material XP and Stone/Ore Value remain unresolved consumers.

@@ -1,3 +1,11 @@
+## V1-GAME19 — observed gameplay statistics
+
+The private profile expands the exact statistics namespace while preserving both GAME09 polishedOutput maps. Exact earlier Polished-only records receive separately labelled zero observations in memory; no stored bytes are rewritten on open. Unknown extensions and malformed partial records recover instead of being replaced. Balances, actual XP, historical counters and prior Rebirths are not backfilled into new event totals.
+
+[The GAME19 field/event contract](GAMEPLAY_STATISTICS_CONTRACT.md) defines all maps, currency sources, exact decimal-string accounting totals, coverage, bounded observed Rebirth history and reset rules. Cash/Stardust balances and machine payments remain unchanged Numbers. Currency totals can represent legitimate high-tier histories exactly; internal BigInt never enters the save. All observations share their gameplay candidate and exact failed-write retry.
+
+Play time remains gated pending active/idle/hidden-tab policy. Challenges and public V2 remain inactive. Established Polished counters retain their earlier observed coverage; the interface explicitly distinguishes it from new GAME19 observations.
+
 ## V1-GAME18 — private manual Cash Shop
 
 Schema 1 / miner-1 now requires shop: miningPower (integer 0–75), miningLuck (0–150), miningDuplication (0–100), minerUnlocked (Boolean). Unlock Miner requires Power >= 1. Only an exact earlier two-field Shop with Power 0/1 receives paired absent Luck/Duplication zero defaults in memory. Partial extensions, malformed values and unknown fields reject through preserved-byte recovery. Opening a save does not write the completion. Untagged legacy mode remains separate.
