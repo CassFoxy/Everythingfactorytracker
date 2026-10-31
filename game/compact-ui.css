@@ -1,44 +1,1092 @@
-/* TEFI compact dashboard concept. Presentation only; no save/gameplay changes. */
-@media(min-width:1101px){
- html,body{height:100%;overflow:hidden}
- #gameRoot:not([hidden]){height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
- .game-header{position:relative;flex:0 0 auto;padding:10px 18px;gap:18px;grid-template-columns:minmax(230px,1fr) minmax(290px,1.2fr) minmax(150px,.65fr)}
- .secondary-nav{flex:0 0 auto;padding:5px 16px;justify-content:space-around}
- .game-layout{flex:1;min-height:0;width:100%;max-width:none;padding:10px 12px 12px;grid-template-columns:minmax(260px,1.05fr) minmax(410px,1.48fr) minmax(280px,1.08fr);gap:10px;align-items:stretch}
- .game-panel{height:100%;min-height:0;overflow:hidden;padding:12px;display:flex;flex-direction:column}
- .section-heading{flex:0 0 auto;padding-bottom:10px;margin-bottom:10px}
- .section-heading h2{font-size:21px;margin:3px 0}
- .mining-panel .mine-scene{height:clamp(100px,21vh,250px);flex:0 1 auto;min-height:80px;margin-bottom:10px}
- .mining-panel .mine-button{min-height:46px;font-size:17px;flex-shrink:0}
- .mining-feedback{padding:10px 0}.mining-total{padding:7px 0}
- .mining-panel{overflow-y:auto;scrollbar-color:var(--accent) var(--bg-main);scrollbar-width:thin}
- .factory-panel,.shop-panel{overflow-y:auto;scrollbar-color:var(--accent) var(--bg-main);scrollbar-width:thin}
- .factory-panel>.section-heading,.shop-panel>.section-heading{position:sticky;top:-12px;z-index:5;background:var(--bg-panel)}
- .furnace-workbench{padding:10px;margin-bottom:8px}.miner-slots,.polisher-slots{margin:8px 0}
- .shop-row{padding:9px 0}.shop-row p{margin:4px 0 7px}
- .game-footer{flex:0 0 auto;padding:4px 16px}
+/* UI02 stone, copper and illustrated pixel-art dashboard. */
+:root {
+  --ui-stone: #211f19;
+  --ui-deep: #131512;
+  --ui-edge: #725a38;
+  --ui-copper: #b66a32;
+  --ui-gold: #f2cd78;
+  --ui-cream: #eddbb8;
+  --ui-muted: #bdb196;
+  --ui-green: #91ba57;
+  --ui-purple: #c39bec;
+  --ui-blue: #83cfe6;
 }
-@media(min-width:1101px) and (max-height:730px){.game-header{padding:5px 14px}.secondary-nav{padding:2px 14px}.mining-panel .mine-scene{height:105px}.mining-feedback{padding:4px 0}.game-panel{padding:9px}.section-heading p{display:none}}
-body.tefi-pixel-ui{background:radial-gradient(ellipse at 50% -30%,#473724 0%,#181713 64%);font-family:system-ui,sans-serif}
-.tefi-pixel-ui .game-panel{border:2px solid #927047;border-top:4px solid #bd8147;border-radius:2px;box-shadow:inset 0 0 0 2px #1c1914,0 4px #0f0d0b}
-.tefi-pixel-ui .game-header,.tefi-pixel-ui .secondary-nav{background:#211d17}
-.tefi-pixel-ui .brand h1,.tefi-pixel-ui .section-heading h2{font-weight:900;letter-spacing:.01em}
-.tefi-pixel-ui .section-heading .eyebrow{color:#d8a974}
-.tefi-pixel-ui button{border-color:#83623f;box-shadow:inset 0 2px #ffffff10,0 3px #17110c;transition:background-color .12s,border-color .12s}
-.tefi-pixel-ui button:hover:not(:disabled){border-color:#e1a061}
-.tefi-pixel-ui .mine-button{background:linear-gradient(#ce8547,#a65b32);color:#ffeed4;text-shadow:1px 2px #4b2b1d}
-.tefi-pixel-ui .mine-scene{background:repeating-linear-gradient(110deg,#211f1c,#211f1c 23px,#2a2722 24px,#2a2722 47px);border-color:#4a3827}
-.tefi-pixel-ui .miner-slot,.tefi-pixel-ui .shop-row,.tefi-pixel-ui .furnace-workbench{border-color:#72583b}
-.tefi-pixel-ui .miner-slot[data-selected="true"]{outline:2px solid #c79455}
-.tefi-pixel-ui .tefi-switcher{display:flex;gap:4px;padding:4px;background:#1f1b16;border:1px solid #775c3a;margin-bottom:10px;flex-shrink:0}
-.tefi-pixel-ui .tefi-switcher button{flex:1;min-width:0;min-height:36px;padding:6px 4px;font-size:12px}
-.tefi-pixel-ui .tefi-switcher button:focus-visible{background:#995b32;border-color:#d49353;color:#fff1d4}
+body.tefi-pixel-ui {
+  background: radial-gradient(ellipse at 50% 0, #393124, #171813 70%);
+  color: var(--ui-cream);
+  font:
+    14px/1.45 system-ui,
+    sans-serif;
+}
+.tefi-pixel-ui [hidden] {
+  display: none !important;
+}
+.ui-category[data-ui-active="false"] {
+  display: none !important;
+}
+.tefi-pixel-ui button,
+.tefi-pixel-ui select,
+.tefi-pixel-ui input {
+  font: inherit;
+  border: 1px solid var(--ui-edge);
+  border-radius: 2px;
+  background: #2c281f;
+  color: var(--ui-cream);
+  min-height: 36px;
+}
+.tefi-pixel-ui button {
+  box-shadow:
+    inset 0 1px #f1cf8b25,
+    0 2px #0e100d;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    transform 0.12s;
+  padding: 7px 10px;
+  line-height: 1.25;
+}
+.tefi-pixel-ui button:hover:not(:disabled) {
+  background: #563c27;
+  border-color: #dfac66;
+}
+.tefi-pixel-ui button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.tefi-pixel-ui button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+.tefi-pixel-ui :focus-visible {
+  outline: 2px solid #ffdc83;
+  outline-offset: 3px;
+}
+.tefi-pixel-ui .game-header {
+  position: relative;
+  background: linear-gradient(105deg, #1c1c17, #252016);
+  border-bottom: 2px solid var(--ui-edge);
+  padding: 10px 18px;
+  grid-template-columns: minmax(220px, 1fr) minmax(250px, 1fr) auto;
+  gap: 20px;
+}
+.tefi-pixel-ui .brand h1,
+.tefi-pixel-ui h2,
+.tefi-pixel-ui h3 {
+  font-family: ui-monospace, "Courier New", monospace;
+  font-weight: 900;
+  letter-spacing: 0.035em;
+}
+.tefi-pixel-ui .brand h1 {
+  text-transform: uppercase;
+  font-size: clamp(19px, 1.6vw, 31px);
+  line-height: 1.1;
+}
+.tefi-pixel-ui .brand h1 span {
+  font-size: 0.65em;
+  letter-spacing: 0.3em;
+  color: #d7b27f;
+}
+.tefi-pixel-ui .brand-icon {
+  display: block;
+  width: 58px;
+  height: 58px;
+}
+.brand-icon .ui-icon {
+  width: 100%;
+  height: 100%;
+}
+.tefi-pixel-ui .build-tag {
+  font-size: 9px;
+  color: var(--ui-muted);
+}
+.ui-wallet {
+  display: flex;
+  align-items: stretch;
+  gap: 7px;
+}
+.ui-wallet .cash-block,
+.ui-currency {
+  display: grid;
+  grid-template-columns: 30px auto;
+  gap: 1px 8px;
+  padding: 8px 10px;
+  background: #181a15;
+  border: 1px solid var(--ui-edge);
+  min-width: 95px;
+  text-align: left;
+}
+.ui-wallet .ui-icon {
+  grid-row: 1/3;
+  align-self: center;
+}
+.ui-wallet .cash-block strong {
+  font:
+    900 clamp(18px, 1.8vw, 28px) ui-monospace,
+    monospace;
+  color: var(--ui-gold);
+}
+.ui-wallet .eyebrow,
+.ui-currency > span {
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ui-currency strong {
+  font:
+    700 17px ui-monospace,
+    monospace;
+}
+.ui-currency.gemDust strong {
+  color: var(--ui-purple);
+}
+.ui-currency.stardust strong {
+  color: var(--ui-blue);
+}
+.tefi-pixel-ui .progress-label {
+  font-size: 13px;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 3px 16px;
+}
+.tefi-pixel-ui .next-level {
+  text-align: center;
+  font-size: 10px;
+}
+.tefi-pixel-ui .xp-bar-container {
+  height: 15px;
+  border: 1px solid #ac8b52;
+  padding: 2px;
+  background: #151711;
+}
+.tefi-pixel-ui .xp-bar-fill {
+  background: linear-gradient(#a2c465, #729c40);
+}
+.tefi-pixel-ui .secondary-nav {
+  background: #231e16;
+  border-bottom: 2px solid var(--ui-edge);
+  padding: 5px 18px;
+  gap: 4px;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+.tefi-pixel-ui .secondary-nav > button {
+  background: none;
+  border: 0;
+  border-right: 1px solid #665033;
+  box-shadow: none;
+  flex: 1;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.tefi-pixel-ui .dev-tools {
+  margin-left: 0;
+  font-size: 12px;
+}
+.tefi-pixel-ui .dev-panel {
+  z-index: 50;
+  max-height: 70dvh;
+  overflow: auto;
+  width: min(420px, 90vw);
+  background: #24231b;
+  border: 2px solid var(--ui-edge);
+}
+.tefi-pixel-ui .game-layout {
+  max-width: none;
+  width: 100%;
+  padding: 10px;
+  gap: 12px;
+  grid-template-columns: minmax(0, 27fr) minmax(0, 45fr) minmax(0, 28fr);
+  align-items: stretch;
+}
+.tefi-pixel-ui .game-panel {
+  padding: 12px;
+  min-width: 0;
+  background: linear-gradient(115deg, #29261d, #201f19);
+  border: 1px solid var(--ui-edge);
+  border-top: 3px solid #b17a41;
+  border-radius: 1px;
+  box-shadow:
+    inset 0 0 0 3px #191b16,
+    0 2px #070a08;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.tefi-pixel-ui .section-heading {
+  padding: 0 0 9px;
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--ui-edge);
+  flex: none;
+}
+.tefi-pixel-ui .section-heading h2 {
+  font-size: 23px;
+  margin: 1px 0;
+  color: #f4e4c5;
+}
+.tefi-pixel-ui .section-heading .eyebrow {
+  color: #dab275;
+  font-size: 11px;
+}
+.tefi-pixel-ui .section-heading p {
+  font-size: 12px;
+  margin: 0;
+  color: var(--ui-muted);
+}
+.ui-icon {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+  image-rendering: pixelated;
+  margin-right: 6px;
+  pointer-events: none;
+}
+button .ui-icon,
+summary .ui-icon {
+  width: 22px;
+  height: 22px;
+}
+.ui-machine-art {
+  display: block;
+  flex: none;
+  width: 100px;
+  height: 100px;
+  background-image: url("assets/ui/machines.webp");
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 4px 2px #080b08);
+  pointer-events: none;
+}
+.ui-dim {
+  filter: grayscale(0.8) brightness(0.45);
+}
+.tefi-switcher {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: #171912;
+  border: 1px solid var(--ui-edge);
+  margin-bottom: 10px;
+  flex: none;
+}
+.tefi-switcher button {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 4px;
+  background: #28251d;
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 650;
+  font-size: 12px;
+}
+.tefi-switcher button[aria-selected="true"] {
+  background: linear-gradient(#b7743b, #8f4e27);
+  border-color: #d39350;
+  color: #fff1d5;
+}
+.ui-panel-scroll {
+  min-height: 0;
+  overflow: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: #997347 #171b15;
+  padding: 1px 3px 4px 0;
+  overscroll-behavior: contain;
+}
+.ui-panel-scroll::-webkit-scrollbar {
+  width: 7px;
+}
+.ui-panel-scroll::-webkit-scrollbar-thumb {
+  background: #80613c;
+}
+.tefi-pixel-ui .furnace-workbench {
+  padding: 10px;
+  margin: 0;
+  border: 1px solid #5e5037;
+  background: #1c1e18;
+}
+.tefi-pixel-ui .furnace-workbench > h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.tefi-pixel-ui .furnace-workbench p {
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 7px 0;
+}
+.tefi-pixel-ui .shop-note {
+  font-size: 11px;
+  color: var(--ui-muted);
+}
+.tefi-pixel-ui .miner-slots {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  margin: 10px 0;
+}
+.tefi-pixel-ui .polisher-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.tefi-pixel-ui .miner-slot {
+  padding: 6px 4px;
+  gap: 4px;
+  background: linear-gradient(140deg, #29281f, #151a15);
+  border: 1px solid #74613f;
+  align-items: stretch;
+}
+.miner-slot .ui-machine-art {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+.tefi-pixel-ui .miner-slot strong {
+  font:
+    700 12px ui-monospace,
+    monospace;
+}
+.tefi-pixel-ui .miner-slot span:not(.ui-machine-art) {
+  font-size: 10px;
+  color: #cfbea0;
+  line-height: 1.35;
+}
+.tefi-pixel-ui .miner-slot button {
+  font-size: 10px;
+  min-height: 36px;
+  padding: 5px 2px;
+}
+.tefi-pixel-ui .miner-slot[data-selected="true"] {
+  border-color: #f1cd6a;
+  box-shadow:
+    inset 0 0 0 1px #d5a44f,
+    0 0 10px #c7893822;
+}
+.miner-slot[data-ui-state="active"] strong:after {
+  content: " ●";
+  color: #8cd369;
+}
+.miner-slot[data-ui-state="locked"] {
+  border-style: dashed;
+  background: #1e201a;
+}
+.ui-detail-art {
+  float: left;
+  width: 136px;
+  height: 136px;
+  margin: 8px 12px 8px 0;
+  border: 1px solid #51442e;
+  background-color: #191d18;
+}
+.tefi-pixel-ui #minerDetailTitle,
+.tefi-pixel-ui #polisherDetailTitle,
+.tefi-pixel-ui #refinerTitle {
+  font:
+    800 17px ui-monospace,
+    monospace;
+  border-top: 1px solid var(--ui-edge);
+  padding-top: 12px;
+  clear: both;
+  margin: 10px 0 6px;
+}
+.tefi-pixel-ui .miner-upgrades {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  clear: both;
+  gap: 7px;
+}
+.tefi-pixel-ui .miner-upgrades button {
+  width: 100%;
+  font-size: 12px;
+  min-height: 50px;
+  background: linear-gradient(#9c5d2d, #754425);
+}
+.tefi-pixel-ui #minerResaleControls {
+  clear: both;
+  border-top: 1px solid #57462e;
+  margin-top: 8px;
+}
+.tefi-pixel-ui #minerProgress {
+  width: 100%;
+  height: 12px;
+}
+.tefi-pixel-ui progress {
+  accent-color: var(--ui-green);
+  height: 12px;
+}
+.tefi-pixel-ui #minerCycleStatus {
+  font-size: 12px;
+}
+.tefi-pixel-ui .factory-note {
+  display: none;
+}
+.ui-furnace-dock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 5px 7px;
+  margin-top: 8px;
+  border: 1px solid var(--ui-edge);
+  background: #26251c;
+}
+.ui-furnace-dock .ui-machine-art {
+  width: 48px;
+  height: 48px;
+}
+.ui-furnace-dock > div {
+  flex: 1;
+  font-weight: 700;
+  font-size: 13px;
+}
+.ui-furnace-dock small {
+  display: block;
+  font-size: 10px;
+  color: var(--ui-muted);
+  font-weight: 400;
+}
+.ui-furnace-dock button {
+  font-size: 11px;
+  padding: 7px;
+}
+.ui-furnace-dock button .ui-icon {
+  display: none;
+}
+.tefi-pixel-ui .machine-heading > span:not(.ui-machine-art) {
+  display: none;
+}
+.tefi-pixel-ui .mine-scene {
+  position: relative;
+  flex: none;
+  height: clamp(130px, 24vh, 340px);
+  min-height: 120px;
+  background: #171e20 url("assets/ui/mine.webp") center/cover;
+  border: 2px solid #655338;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.tefi-pixel-ui .mine-scene:before,
+.tefi-pixel-ui .mine-scene:after {
+  display: none;
+}
+.ui-mine-pick {
+  position: absolute;
+  right: 15%;
+  bottom: 8%;
+  width: 40%;
+  height: 65%;
+  transform: rotate(-15deg);
+  filter: drop-shadow(3px 5px 2px #060b0b);
+  transform-origin: 80% 85%;
+}
+.ui-impact .ui-mine-pick {
+  animation: ui-swing 0.3s ease-out;
+}
+.ui-mine-floats {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ui-float {
+  position: absolute;
+  bottom: 26%;
+  left: 8%;
+  max-width: 85%;
+  padding: 5px 8px;
+  background: #101910d9;
+  border: 1px solid #c79e51;
+  font-weight: 800;
+  color: #ffe8a0;
+  text-shadow: 1px 2px #000;
+  animation: ui-rise 1.4s ease-out forwards;
+}
+.ui-rare {
+  color: #dcb5ff;
+  border-color: #b986e6;
+  box-shadow: 0 0 20px #ab70df77;
+}
+.tefi-pixel-ui .mine-button {
+  order: 0;
+  width: 100%;
+  min-height: 46px;
+  background: linear-gradient(#bd773b, #96522b);
+  border: 1px solid #e5a568;
+  color: #fff0d0;
+  font:
+    900 20px ui-monospace,
+    monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 1px 2px #4a2b1d;
+}
+.tefi-pixel-ui #equippedPickaxeSummary {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 7px 0;
+}
+.tefi-pixel-ui #materialsSummary {
+  font-size: 11px;
+  color: #bfb495;
+  margin: 3px 0;
+}
+.tefi-pixel-ui #pickaxesButton {
+  font-size: 11px;
+  padding: 4px;
+  min-height: 28px;
+  margin-bottom: 7px;
+}
+.tefi-pixel-ui .mining-power-status {
+  font-size: 10px;
+  margin: 4px 0;
+}
+.tefi-pixel-ui .mining-feedback {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  border: 1px solid var(--ui-edge);
+  padding: 9px;
+  gap: 2px 5px;
+  background: #1b1d17;
+  margin-top: 6px;
+}
+.mining-feedback > .ui-icon {
+  grid-row: 1/4;
+  width: 32px;
+  height: 32px;
+  align-self: center;
+}
+.tefi-pixel-ui #lastOre {
+  font-size: 16px;
+  color: #ddb4ef;
+}
+.tefi-pixel-ui .mining-feedback > span {
+  font-size: 11px;
+}
+.tefi-pixel-ui .mining-total {
+  border: 1px solid var(--ui-edge);
+  padding: 8px 10px;
+  margin-top: 7px;
+  font-size: 12px;
+}
+.tefi-pixel-ui .mining-total strong {
+  color: var(--ui-gold);
+  font:
+    800 17px ui-monospace,
+    monospace;
+}
+.ui-recent {
+  padding: 7px;
+  border: 1px solid var(--ui-edge);
+  margin: 7px 0;
+  background: #1d2018;
+}
+.ui-recent > .eyebrow {
+  font-size: 10px;
+}
+.ui-recent-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 5px;
+}
+.ui-recent-grid > div {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  border: 1px solid #5d4e32;
+  padding: 5px 2px;
+  background: #27271d;
+  min-width: 0;
+}
+.ui-recent-grid .ui-icon {
+  width: 32px;
+  height: 32px;
+  margin: 0;
+}
+.ui-recent-grid small {
+  font-size: 10px;
+}
+.ui-recent-grid strong {
+  font-size: 11px;
+  color: var(--ui-gold);
+}
+.ui-empty {
+  grid-column: 1/-1;
+  color: var(--ui-muted);
+  font-size: 11px;
+  margin: 0;
+}
+.tefi-pixel-ui .mining-links button {
+  font-size: 12px;
+  flex: 1;
+  background: #85502c;
+}
+.tefi-pixel-ui .collection-summary {
+  font-size: 10px;
+  margin: 5px 0;
+  text-align: center;
+}
+.tefi-pixel-ui .shop-row {
+  padding: 12px 10px;
+  border: 1px solid var(--ui-edge);
+  margin: 0 0 9px;
+  background: linear-gradient(125deg, #2d2a20, #1e2119);
+}
+.tefi-pixel-ui .shop-row h3 {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  margin: 0 0 7px;
+}
+.tefi-pixel-ui .shop-row h3 > .ui-icon {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #7f6741;
+  background: #161a15;
+  padding: 4px;
+}
+.tefi-pixel-ui .shop-row p {
+  font-size: 12px;
+  color: #cbb998;
+  margin: 7px 0;
+}
+.tefi-pixel-ui .shop-row button {
+  font-size: 11px;
+  padding: 7px 8px;
+}
+.tefi-pixel-ui .shop-row > div:not(.shop-heading) {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.tefi-pixel-ui #uiMachineAccess > button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  margin: 5px 0;
+}
+.ui-machine-art + .ui-machine-art {
+  display: none;
+}
+#uiMachineAccess .ui-machine-art {
+  width: 54px;
+  height: 54px;
+}
+.tefi-pixel-ui .game-footer {
+  padding: 5px 16px;
+  border-top: 1px solid var(--ui-edge);
+  font-size: 10px;
+  background: #1b1c15;
+  flex: none;
+}
+.tefi-pixel-ui .modal-content {
+  background: linear-gradient(120deg, #2c291f, #1f221a);
+  border: 2px solid var(--ui-edge);
+  border-top-color: #c8904d;
+  scrollbar-width: thin;
+  scrollbar-color: #947449 #1b1e16;
+}
+.tefi-pixel-ui .modal {
+  z-index: 100;
+}
+.tefi-pixel-ui .save-recovery {
+  z-index: 250;
+  max-height: 90dvh;
+  overflow: auto;
+}
+.tefi-pixel-ui .save-recovery:not([hidden]) ~ #gameRoot {
+  filter: none;
+}
+.tefi-pixel-ui .ui-resource-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border: 1px solid #5d5037;
+  margin: 5px 0;
+  background: #25271e;
+}
+.ui-resource-row .ui-icon {
+  width: 34px;
+  height: 34px;
+}
+.ui-resource-row > span:last-child {
+  margin-left: auto;
+  font-size: 12px;
+}
+.ui-inventory-tabs {
+  position: sticky;
+  top: -24px;
+  z-index: 2;
+}
+.ui-inventory-tabs button {
+  font-size: 11px;
+}
+.ui-inventory-scope {
+  clear: both;
+}
+#inventoryModal
+  .modal-content:not([data-ui-stage="polished"]):not([data-ui-stage="refined"])
+  #processedInventorySection {
+  display: none !important;
+}
+#processedInventorySection > details,
+#processedInventorySection > p {
+  font-size: 11px;
+}
+.tefi-pixel-ui .pickaxe-card {
+  border: 1px solid var(--ui-edge);
+  background: #22251c;
+}
+.tefi-pixel-ui .pickaxe-card h4 .ui-icon {
+  width: 44px;
+  height: 44px;
+}
+.tefi-pixel-ui .perk-row {
+  border-color: var(--ui-edge);
+}
+@media (min-width: 1101px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+  #gameRoot:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .game-header,
+  .secondary-nav {
+    flex: none;
+  }
+  .tefi-pixel-ui .game-layout {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .tefi-pixel-ui .game-panel {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .tefi-pixel-ui .mining-panel {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #947449 #1b1e16;
+  }
+}
+@media (min-width: 1101px) and (max-height: 800px) {
+  .tefi-pixel-ui {
+    font-size: 12px;
+  }
+  .tefi-pixel-ui .game-header {
+    padding: 6px 12px;
+  }
+  .tefi-pixel-ui .brand-icon {
+    width: 43px;
+    height: 43px;
+  }
+  .tefi-pixel-ui .section-heading p {
+    display: none;
+  }
+  .tefi-pixel-ui .section-heading h2 {
+    font-size: 20px;
+  }
+  .tefi-pixel-ui .game-panel {
+    padding: 9px;
+  }
+  .tefi-pixel-ui .mine-scene {
+    height: 155px;
+  }
+  .tefi-pixel-ui .miner-slot .ui-machine-art {
+    max-height: 78px;
+    max-width: 78px;
+    align-self: center;
+  }
+  .ui-detail-art {
+    width: 110px;
+    height: 110px;
+  }
+  .tefi-pixel-ui .secondary-nav {
+    padding: 3px 12px;
+  }
+  .tefi-pixel-ui .ui-wallet .cash-block,
+  .ui-currency {
+    padding: 4px 7px;
+    min-width: 75px;
+  }
+  .tefi-pixel-ui .ui-recent-grid .ui-icon {
+    height: 25px;
+    width: 25px;
+  }
+  .tefi-pixel-ui .mining-feedback {
+    padding: 6px;
+  }
+  .tefi-pixel-ui .mining-total {
+    padding: 5px 8px;
+  }
+  .tefi-pixel-ui .mine-button {
+    min-height: 40px;
+    font-size: 17px;
+  }
+}
+@media (min-width: 1101px) and (max-width: 1450px) {
+  .tefi-pixel-ui .game-layout {
+    gap: 8px;
+    padding: 8px;
+  }
+  .tefi-pixel-ui .game-header {
+    gap: 12px;
+    grid-template-columns: minmax(200px, 1fr) minmax(200px, 1fr) auto;
+  }
+  .tefi-pixel-ui .brand h1 {
+    font-size: 19px;
+  }
+  .ui-currency .ui-icon {
+    width: 22px;
+  }
+  .ui-wallet {
+    gap: 4px;
+  }
+  .ui-wallet .cash-block,
+  .ui-currency {
+    grid-template-columns: 22px auto;
+    gap: 2px 4px;
+  }
+  .tefi-pixel-ui .miner-slot button {
+    font-size: 9px;
+  }
+  .tefi-pixel-ui .shop-row {
+    padding: 9px 7px;
+  }
+}
+@media (max-width: 1100px) {
+  html,
+  body {
+    height: auto;
+    overflow: auto;
+  }
+  .tefi-pixel-ui .game-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  }
+  .tefi-pixel-ui .shop-panel {
+    grid-column: 1/-1;
+    display: flex;
+  }
+  .ui-panel-scroll {
+    max-height: 700px;
+  }
+  .tefi-pixel-ui .game-header {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ui-wallet {
+    grid-column: 1/-1;
+    justify-content: center;
+  }
+  .tefi-pixel-ui .secondary-nav {
+    flex-wrap: wrap;
+  }
+  .tefi-pixel-ui .secondary-nav > button {
+    flex: 0 1 auto;
+  }
+  .tefi-pixel-ui .miner-slots {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ui-detail-art {
+    width: 110px;
+    height: 110px;
+  }
+  .tefi-pixel-ui .mine-scene {
+    height: 220px;
+  }
+  .tefi-pixel-ui .section-heading h2 {
+    font-size: 21px;
+  }
+  .tefi-pixel-ui .shop-row {
+    min-height: 120px;
+  }
+}
+@media (max-width: 600px) {
+  .tefi-pixel-ui .game-layout {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 8px;
+    gap: 12px;
+  }
+  .tefi-pixel-ui .game-header {
+    padding: 10px;
+    gap: 9px;
+  }
+  .tefi-pixel-ui .brand h1 {
+    font-size: 18px;
+  }
+  .tefi-pixel-ui .brand-icon {
+    width: 40px;
+    height: 40px;
+  }
+  .tefi-pixel-ui .progress-block {
+    grid-column: 1/-1;
+    grid-row: 2;
+  }
+  .ui-wallet {
+    grid-row: 3;
+    width: 100%;
+  }
+  .ui-wallet > * {
+    flex: 1;
+    min-width: 0 !important;
+  }
+  .ui-wallet .cash-block strong {
+    font-size: 19px;
+  }
+  .ui-currency strong {
+    font-size: 14px;
+  }
+  .tefi-pixel-ui .secondary-nav {
+    padding: 5px 8px;
+    gap: 4px;
+  }
+  .tefi-pixel-ui .secondary-nav > button {
+    font-size: 11px;
+    flex: 1 0 22%;
+    min-height: 40px;
+    padding: 5px;
+  }
+  .tefi-pixel-ui .secondary-nav .ui-icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 3px;
+  }
+  .tefi-pixel-ui .game-panel {
+    padding: 10px;
+  }
+  .tefi-pixel-ui .mine-scene {
+    height: 205px;
+  }
+  .ui-panel-scroll {
+    max-height: 650px;
+  }
+  .tefi-pixel-ui .miner-slots {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .tefi-pixel-ui .miner-slot button {
+    font-size: 11px;
+    min-height: 44px;
+  }
+  .tefi-pixel-ui .miner-upgrades {
+    grid-template-columns: 1fr;
+  }
+  .tefi-pixel-ui .tefi-switcher button {
+    min-height: 44px;
+  }
+  .ui-inventory-tabs {
+    top: -16px;
+    flex-wrap: wrap;
+  }
+  .ui-inventory-tabs button {
+    flex: 1 0 28%;
+  }
+  .tefi-pixel-ui .dev-panel {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    top: 70px;
+    width: auto;
+    max-height: 75dvh;
+  }
+  .tefi-pixel-ui .modal-content {
+    padding: 16px;
+  }
+  .ui-detail-art {
+    width: 110px;
+    height: 110px;
+  }
+}
+@keyframes ui-swing {
+  50% {
+    transform: rotate(24deg) translateY(6px);
+  }
+}
+@keyframes ui-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  15% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-45px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tefi-pixel-ui *,
+  .tefi-pixel-ui *:before,
+  .tefi-pixel-ui *:after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
 
-.tefi-pixel-ui .tefi-small-icon{display:inline-grid;place-items:center;width:29px;height:29px;flex:0 0 29px;background:#28221b;border:1px solid #8a673f;margin-right:8px;font-size:17px}
-.tefi-pixel-ui .shop-row h3{display:flex;align-items:center}
-.tefi-pixel-ui .shop-row h3:before{content:"✦";display:inline-grid;place-items:center;background:#292319;border:1px solid #745534;color:#e1af66;width:29px;height:29px;margin-right:8px;font-size:16px}
-.tefi-pixel-ui #miningPowerCard h3:before{content:"⛏"}.tefi-pixel-ui #miningLuckCard h3:before{content:"◆"}.tefi-pixel-ui #miningDuplicationCard h3:before{content:"✧"}
-.tefi-pixel-ui .shop-row .shop-heading h3:before{display:none}
-.tefi-pixel-ui .shop-heading h3{gap:6px}
-.tefi-pixel-ui .mine-scene:after{pointer-events:none}
-@media(prefers-reduced-motion:reduce){.tefi-pixel-ui button{transition:none}}
+@media (max-width: 600px) {
+  .ui-wallet .cash-block,
+  .ui-currency {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 4px;
+  }
+  .ui-wallet .cash-block .eyebrow,
+  .ui-currency > span {
+    width: 100%;
+    order: -1;
+    text-align: center;
+  }
+  .ui-wallet .cash-block strong {
+    font-size: 17px;
+    white-space: nowrap;
+  }
+  .ui-wallet .ui-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 1px;
+  }
+  .ui-currency strong {
+    overflow-wrap: anywhere;
+  }
+  .tefi-pixel-ui .shop-row button {
+    min-height: 44px;
+  }
+  .ui-wallet .cash-block {
+    flex: 1.3;
+  }
+}
+
+.ui-slot-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 2px;
+}
+.ui-slot-state .ui-icon {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+}
+.ui-slot-state span {
+  font-size: 10px !important;
+}
+.tefi-pixel-ui .miner-slot[data-ui-state="active"] .ui-slot-state {
+  color: var(--ui-green);
+}
