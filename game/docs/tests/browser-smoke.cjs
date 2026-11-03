@@ -515,7 +515,10 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             await page.evaluate(()=>{addDeveloperCash(2105000);developmentCommand(n=>{n.inventory.ruby=30})});
             for(let slot=1;slot<=3;slot++){
                 await page.locator('#polisherAction'+slot).click();if(slot>1)await page.locator('#polisherAction'+slot).click();await page.locator('#polisherOre').selectOption('ruby');
-                if(!await page.locator('#polisherQueueAmount').isVisible())await page.locator('#ui-factory-polishers').click();await page.getByText('Queue owned raw input',{exact:true}).click();
+                if(!await page.locator('#polisherQueueAmount').isVisible()){
+                    await page.locator('#ui-factory-polishers').click();
+                    await page.getByText('Queue owned raw input',{exact:true}).click();
+                }
                 await page.locator('#polisherQueueAmount').fill('5');await page.locator('#queuePolisher').click();await page.locator('#polisherQueue').getByRole('button',{name:'Process batch',exact:true}).click();
             }
             await page.evaluate(()=>{testNow+=7500;updateDevelopmentMiner()});
