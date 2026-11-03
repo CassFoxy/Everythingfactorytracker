@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const root = path.resolve(__dirname, "../..");
-const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js"].map(name =>
+const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js", "notification-model.js", "notifications.js"].map(name =>
     ["/" + name, fs.readFileSync(path.join(root, name))]));
 for (const name of fs.readdirSync(path.join(root, 'assets/ui'))) {
     files.set('/assets/ui/' + name, fs.readFileSync(path.join(root, 'assets/ui', name)));
@@ -151,6 +151,49 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
 
 
 
+
+        // GAME20: real committed transitions, priority delivery and critical-overlay safety.
+        for(const [width,height] of [[2560,1440],[1920,1080],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]){
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
+            assert.equal(await page.locator('#notificationRegion').isVisible(),false);
+            await page.locator('#mineButton').click();
+            assert.match(await page.locator('#notificationTitle').textContent(),/First Swing/);
+            await page.locator('#notificationDismiss').click();
+            await page.evaluate(()=>{let rolls=[.002,0,.99];Math.random=()=>rolls.shift()??.99});await page.locator('#mineButton').click();
+            assert.match(await page.locator('#notificationTitle').textContent(),/Amber discovered/);
+            assert.equal(await page.locator('#discoveryPopup').isVisible(),false);
+            const committed=await page.evaluate(()=>JSON.stringify(save));
+            await page.locator('#notificationOpen').click();assert.equal(await page.locator('#collectionModal').isVisible(),true);assert.equal(await page.locator('#notificationRegion').isVisible(),false);
+            await page.locator('#collectionModal .close-button').click();
+            assert.equal(await page.evaluate(()=>JSON.stringify(save)),committed);
+            await page.evaluate(()=>{TEFINotifications.clear();addDeveloperCash(1000000)});
+            assert.match(await page.locator('#notificationTitle').textContent(),/Rebirth is available/);
+            await page.locator('#rebirthButton').click();assert.equal(await page.locator('#notificationRegion').isVisible(),false);await page.locator('#confirmRebirth').click();
+            assert.match(await page.locator('#notificationTitle').textContent(),/Rebirth 1 complete/);
+            await page.evaluate(()=>{TEFINotifications.clear();developmentCommand(n=>{n.achievementStats.totalOresMined=1000;n.achievementStats.oresSmelted=1;prepareDevelopmentAward(n,'ruby',1,false);prepareDevelopmentAward(n,'emerald',1,false);n.factoryXP=90000;prepareDevelopmentProgress(n)})});
+            const facts=await page.evaluate(()=>{const q=TEFINotifications.snapshot();return [q.current,...q.waiting].filter(Boolean)});
+            assert.equal(facts.filter(e=>e.type==='discovery').length,2);
+            assert.equal(facts.filter(e=>e.type==='achievement').length,4);
+            assert.deepEqual(facts.filter(e=>e.type==='milestone').map(e=>e.level),[10,25]);
+            assert.equal(facts.filter(e=>e.type==='level').length,1);
+            assert.equal(await page.locator('#notificationRegion').isVisible(),true);
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+            if(width>1100)assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game20-notifications-${width}x${height}.png`),fullPage:true,animations:'disabled'});}
+            const titles=[];while(await page.evaluate(()=>!!TEFINotifications.snapshot().current)){titles.push(await page.locator('#notificationTitle').textContent());await page.locator('#notificationDismiss').click();}assert.equal(titles.length,facts.length);
+            await page.evaluate(()=>{addDeveloperCash(100000);TEFINotifications.clear()});await page.locator('#buyMiningPower10').click();assert.match(await page.locator('#notificationBody').textContent(),/0 → 10/);
+            await page.locator('#unlockMiner').click();assert.match(await page.locator('#notificationTitle').textContent(),/Miners unlocked/);await page.locator('#notificationOpen').click();assert.equal(await page.locator('#ui-factory-miners').getAttribute('aria-selected'),'true');
+            await page.evaluate(()=>{TEFINotifications.clear();buyPermanentPerk('overallLuck',1)});assert.match(await page.locator('#notificationTitle').textContent(),/Overall Luck upgraded/);
+            await page.evaluate(()=>{TEFINotifications.clear();window.noticeWrite=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('quota')}});
+            const before=await page.evaluate(()=>JSON.stringify(save));await page.locator('#buyMiningLuck').click();assert.equal(await page.locator('#notificationRegion').isVisible(),false);assert.equal(await page.evaluate(()=>JSON.stringify(save)),before);
+            await page.evaluate(()=>Storage.prototype.setItem=noticeWrite);await page.locator('#retryDevelopmentWrite').click();assert.match(await page.locator('#notificationTitle').textContent(),/Mining Luck upgraded/);
+            assert.equal(await page.evaluate(()=>retryDevelopmentWrite()),false);
+            await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('#notificationRegion').evaluate(n=>getComputedStyle(n).animationName),'none');
+            await page.reload();assert.equal(await page.locator('#notificationRegion').isVisible(),false);
+            assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(n=>n.id);return ids.length!==new Set(ids).size}),false);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log(`PASS GAME20 ${width}x${height}: committed queue, multiple records, purchase, Rebirth, recovery, reload and reduced motion.`);
+        }
+        if(process.env.TEFI_SMOKE_SCOPE==='game20')return;
 
         // UI02: real category navigation, artwork and viewport fit without state mutation.
         for (const [width,height] of [[2560,1440],[1920,1080],[1440,900],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]) {

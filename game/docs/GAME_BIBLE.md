@@ -473,7 +473,7 @@ Planned examples and future-expansion lists are not automatically V1.0 requireme
 | Permanent/cycle bonus infrastructure | 🟠 In Progress | 3.13; 3.15; 3.17 | `permanentBonuses`; `cycleBonuses`; multiplier helpers | Saved fields and calculation helpers exist. They do not provide an active reward/bonus system; production, luck, income, XP, capacity and speed integration remains absent. |
 | Full inventory and collection presentation | 🟠 In Progress | 3.5; 3.16 | Fixed resource inventory and collection views | Basic views work. Inventory capacity/sorting, collection percentages/category summaries and variant tracking are absent. |
 | Expanded player statistics | 🟠 In Progress | 3.19 | Current counters and statistics modal | Core resource counters exist; earnings, play time, session/personal-best breakdowns and rebirth history are absent. |
-| Notification coordination | 🟠 In Progress | 3.21 | `pendingMilestone`; `pendingAchievement`; popup/toast functions | Three notification types exist. A single pending slot per type can lose individual notices when several unlock together; no priority or queue exists. |
+| Notification coordination | ✅ Private profile | 3.21 | `notification-model.js`; `notifications.js`; committed-state publication | GAME20 queues all current private-profile progression events after persistence. Untagged legacy popups remain separate; future event consumers stay gated. |
 | Save validation and compatibility | 🟠 In Progress | 3.22 | Initial `JSON.parse()`; nullish defaults; achievement conversion | Basic compatibility exists. No schema version, corrupt-save recovery or storage-error handling is present. |
 | Large-number presentation | 🟠 In Progress | 3.20 | Formatting helpers; `LARGE_NUMBER_SUFFIXES` | Ordinary values, suffixes and Cash tooltips exist. The intended beyond-last-suffix scientific fallback is bypassed because a suffix remains selected; formatting does not extend JavaScript numeric precision. |
 | Complete launch interface and onboarding | 🟠 In Progress | 2.1–2.11; 3.20 | Dashboard and modal controls | Existing controls support the prototype. Settings, remaining feature screens, onboarding and accessibility/device verification remain unfinished. |
@@ -7038,11 +7038,23 @@ Requirements must also be enforced in transaction logic. Show machine-specific t
 >
 > **Section ID:** VOL3-3.21
 >
-> **Implementation Status:** 🟠 In Progress
+> **Implementation Status:** ✅ Current private-profile notification integration (GAME20)
 >
-> **Status Reviewed:** 2026-09-28
+> **Status Reviewed:** 2026-11-03
 >
 > **Historical prototype review (2026-09-28; not current acceptance):** Discovery and milestone modals plus a seven-second achievement toast are implemented. Single pending slots and shared toast timing do not provide reliable queued delivery for simultaneous events; priority handling and offline/rebirth notifications are absent.
+
+---
+
+## GAME20 private implementation boundary
+
+`NotificationModel.events` compares the previous and next validated states only after the development writer publishes a successful commit. Retry publishes its original candidate before producing presentation facts. Preparation, reservations, failed writes, stale confirmations and initial loading produce no accomplishment notices. No notification queue, receipt or history is saved; no schema, reward or accounting changes are introduced.
+
+The shared queue orders major progression (discoveries, achievements, milestones, Rebirth) before progression (Factory Level summaries and existing unlocks), then informational purchases/upgrades. Equal priorities use FIFO. A major notice may preempt an informational notice without losing it. Distinct simultaneous records remain queued; over eight newly earned milestones form a counted summary linking to the complete Milestones screen. Pre-first-Rebirth milestone flags remain silent, and reveal does not reconstruct a backlog. Rebirth preserves already queued accomplishments; reset, recovery and page exit clear transient presentation.
+
+Notifications use UI02 local icons and a dedicated strip below navigation, not an overlay over gameplay buttons. Major/progression/informational notices expire after 9/7/4.5 seconds of uninterrupted presentation, respectively. Hover, keyboard focus, hidden documents, pending failed writes and existing modals pause delivery; resuming gives a full reading interval. Timer generations and notification IDs prevent stale expiry from dismissing later cards. Recovery remains an enduring, higher-priority interface. Dismiss and View details are keyboard accessible, polite live announcements do not steal focus, and reduced-motion disables celebrations. Permanent interfaces retain every accomplishment after expiry.
+
+Current consumers include all canonical ore discoveries, the six existing achievements, currently implemented milestone flags, one summary per Factory Level jump, Miner/slot and automatic-Furnace access, Cash/Stardust bulk upgrades, machine purchase/upgrade/resale/replacement, Pickaxe craft/repair, and actual Rebirth awards/counts. Rebirth eligibility is announced at most once per completed-Rebirth count in the current page session, only on a new eligibility transition. Existing control-specific errors and confirmations remain authoritative. No deferred milestone rewards, challenge notices, offline summaries or audio are activated. Untagged legacy gameplay retains its existing popups.
 
 ---
 

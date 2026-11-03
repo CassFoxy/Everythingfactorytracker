@@ -1,3 +1,7 @@
+## GAME20 — transient committed-state notifications
+
+No persisted fields or save version change. The `miner-1` writer calls the presentation adapter after publishing a successfully persisted candidate, including an exact failed-write retry. Initial load establishes state without replaying discoveries, levels, achievements or milestones. Queue dismissal, expiry and detail navigation never write progression or statistics. Recovery/reset clears transient notices; ordinary confirmation/recovery overlays pause or suppress their presentation. Untagged legacy popups remain separate. See GAME_BIBLE section 3.21 for queue and milestone-reveal semantics.
+
 ## V1-GAME19 — observed gameplay statistics
 
 The private profile expands the exact statistics namespace while preserving both GAME09 polishedOutput maps. Exact earlier Polished-only records receive separately labelled zero observations in memory; no stored bytes are rewritten on open. Unknown extensions and malformed partial records recover instead of being replaced. Balances, actual XP, historical counters and prior Rebirths are not backfilled into new event totals.

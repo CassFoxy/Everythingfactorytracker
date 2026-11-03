@@ -1,4 +1,149 @@
 /* UI02 stone, copper and illustrated pixel-art dashboard. */
+/* GAME20: a dedicated in-flow strip, never an overlay over gameplay controls. */
+.notification-region {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 18px;
+  border: 1px solid #ac8248;
+  background: linear-gradient(100deg, #2d271d, #1b2119);
+  color: #eddbb8;
+  min-width: 0;
+  max-height: 130px;
+  overflow: auto;
+  z-index: 20;
+  box-shadow: inset 4px 0 #c9924d;
+}
+.notification-region[hidden] {
+  display: none !important;
+}
+.notification-region .notice-icon {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  image-rendering: pixelated;
+}
+.notice-copy {
+  min-width: 0;
+  flex: 1;
+}
+.notice-copy strong {
+  font:
+    700 14px ui-monospace,
+    monospace;
+}
+.notice-copy p {
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 3px 0;
+  overflow-wrap: anywhere;
+}
+.notice-copy > span {
+  font-size: 11px;
+  color: #e9cb83;
+}
+.notice-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.notice-actions button {
+  font-size: 12px !important;
+}
+.notice-timer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  background: #bd914d;
+  transform-origin: left;
+  animation: notice-time var(--notice-duration, 9s) linear forwards;
+}
+.notice-enter {
+  animation: notice-in 0.2s ease-out;
+}
+.notification-region[data-priority="major"] {
+  border-color: #d2af64;
+}
+.notification-region[data-type="achievement"],
+.notification-region[data-type="milestone"] {
+  box-shadow: inset 4px 0 #a7c86a;
+}
+.notification-region[data-type="rebirth"] {
+  box-shadow: inset 4px 0 #7ecbe4;
+}
+.notification-region[data-tier="3"],
+.notification-region[data-tier="4"] {
+  box-shadow: inset 4px 0 #c298e9;
+}
+.notification-region[data-type="level"] .notice-icon,
+.notification-region[data-priority="major"] .notice-icon {
+  animation: notice-celebrate 0.5s ease-out;
+}
+.notice-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes notice-time {
+  to {
+    transform: scaleX(0);
+  }
+}
+@keyframes notice-celebrate {
+  50% {
+    transform: scale(1.12);
+  }
+}
+@media (max-width: 1100px) {
+  .notification-region {
+    position: sticky;
+    top: 0;
+    max-height: 150px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .notice-actions {
+    flex-direction: column;
+  }
+  .notice-actions button {
+    min-height: 36px !important;
+    padding: 4px 7px !important;
+  }
+  .notification-region .notice-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .notice-copy strong {
+    font-size: 12px;
+  }
+  .notice-copy p {
+    font-size: 11px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notification-region,
+  .notification-region * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
 :root {
   --ui-stone: #211f19;
   --ui-deep: #131512;

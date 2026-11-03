@@ -1,3 +1,9 @@
+## V1-GAME20 — Notification queue and progression feedback
+
+Current private-profile notification types share a commit-only presentation queue: every new discovery/achievement/milestone, Factory Level summaries, existing unlocks, bulk purchases/upgrades, crafting/repair/resale and Rebirth. UI02 icons, FIFO within priorities, safe expiry/dismissal, persistent detail routes, modal/recovery precedence, keyboard/live-region access and reduced motion are integrated. No save fields, rewards or progression calculations change. Legacy popups remain separate.
+
+Verification: eight syntax checks, complete Node/browser regressions and GitHub Actions are required on the implementation PR. Screenshots cover 2560×1440, 1920×1080, 1366×768, 1280×720, 1280×600, 768×1024 and 390×844. Section 3.21 records the private implementation boundary. Challenge notifications, offline summaries and audio remain unimplemented; no historical backlog is reconstructed.
+
 ## V1-UI02 — Illustrated dashboard and icon overhaul
 
 Presentation-only dashboard built on PR #57: local cavern and four-machine illustrations, a reusable resource/Pickaxe/action sprite sheet, selected Factory and Shop categories, staged inventory views, live currency summaries and committed-only mining feedback. Existing controls and machine DOM are retained; gameplay models, transactions and save schema are unchanged.
@@ -2284,28 +2290,28 @@ Display what was earned while away.
 ## V1-193 — Level-Up Notification
 
 **Priority:** P3
-**Status:** ⚪ NOT STARTED
+**Status:** ✅ COMPLETE — current private-profile consumers (GAME20)
 
 ---
 
 ## V1-194 — Unlock Notification
 
 **Priority:** P3
-**Status:** ⚪ NOT STARTED
+**Status:** ✅ COMPLETE — current private-profile consumers (GAME20)
 
 ---
 
 ## V1-195 — Purchase Feedback
 
 **Priority:** P3
-**Status:** ⚪ NOT STARTED
+**Status:** ✅ COMPLETE — current private-profile consumers (GAME20)
 
 ---
 
 ## V1-196 — Notification Queue
 
 **Priority:** P3
-**Status:** ⚪ NOT STARTED
+**Status:** ✅ COMPLETE — current private-profile consumers (GAME20)
 
 Prevent simultaneous notifications from overlapping or becoming unreadable.
 

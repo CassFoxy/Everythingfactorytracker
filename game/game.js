@@ -200,6 +200,7 @@ function saveLoadError(code, message, cause){
 }
 
 function showSaveRecovery(error){
+    if(typeof TEFINotifications!=="undefined") TEFINotifications.clear();
     recoveryState.active = true;
     recoveryState.error = error;
     document.getElementById("gameRoot").hidden = true;
@@ -4203,6 +4204,7 @@ function resetSave(){
         return false;
     }
     if(!gameStarted || !confirm("Delete all TEFI save data and start fresh? This cannot be undone.")) return false;
+    if(typeof TEFINotifications!=="undefined") TEFINotifications.clear();
 
     // Reload is asynchronous: stop all old-state writers before deletion.
     gameStarted = false;
@@ -4661,6 +4663,8 @@ function publishDevelopmentState(next){
     if(isMinerDevelopment() && previous.rebirthCount !== save.rebirthCount) clearRebirthTransientUI();
     if(isMinerDevelopment()) restoreAutoFurnace();
     document.getElementById("minerFeedback").textContent = "";
+    if(typeof TEFINotifications==="undefined"){
+    // Legacy/non-browser consumers retain their existing popup adapter.
     for(const id of ORE_KEYS) if(previous.oreCollection[id] === 0 && save.oreCollection[id] > 0){
         const ore = developmentOre(id); showDiscoveryPopup(ore.emoji + " " + ore.name, ore.value);
     }
@@ -4668,8 +4672,13 @@ function publishDevelopmentState(next){
         if(progress.unlocked && !previous.achievements[id]?.unlocked) pendingAchievement = ACHIEVEMENTS[id];
     for(const level of FACTORY_MILESTONES)
         if(save.factoryMilestones[level] && !previous.factoryMilestones[level]) pendingMilestone = level;
+    }
     updateUI();
     if(document.getElementById("statsModal").style.display==="block")renderDevelopmentStatistics();
+    // Presentation failures must never turn a successfully persisted transaction into a failed command.
+    if(typeof TEFINotifications!=="undefined"){
+        try{TEFINotifications.committed(previous,next);}catch(error){console.warn("Notification presentation unavailable",error);}
+    }
 }
 function retryDevelopmentWrite(){
     if(!pendingDevelopmentWrite) return false;
