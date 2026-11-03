@@ -1,0 +1,73 @@
+{
+  "resources": [
+    "stone",
+    "amber",
+    "amethyst",
+    "malachite",
+    "quartz",
+    "topaz",
+    "aquamarine",
+    "citrine",
+    "garnet",
+    "jade",
+    "peridot",
+    "emerald",
+    "ruby",
+    "sapphire",
+    "spinel",
+    "tourmaline",
+    "alexandrite",
+    "blackOpal",
+    "diamond",
+    "onyx",
+    "tanzanite"
+  ],
+  "pickaxes": [
+    "pickaxe0",
+    "pickaxe1",
+    "pickaxe2",
+    "pickaxe3",
+    "pickaxe4",
+    "pickaxe5",
+    "pickaxe6",
+    "pickaxe7",
+    "pickaxe8"
+  ],
+  "currencies": [
+    "cash",
+    "stardust",
+    "gemDust"
+  ],
+  "materials": [
+    "wood",
+    "scrap",
+    "metal"
+  ],
+  "actions": [
+    "upgrade",
+    "purchase",
+    "sell",
+    "repair",
+    "craft",
+    "rebirth",
+    "inventory",
+    "collection",
+    "statistics",
+    "achievements",
+    "milestones",
+    "settings",
+    "locked",
+    "active",
+    "idle",
+    "processing",
+    "unaffordable",
+    "max",
+    "broken",
+    "luck",
+    "duplication"
+  ],
+  "other": [
+    "mine",
+    "logo"
+  ]
+}
