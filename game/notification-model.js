@@ -154,7 +154,11 @@
     const milestones =
       after.rebirthCount > 0
         ? catalog.milestones.filter(
-            (l) => after.factoryMilestones[l] && !before.factoryMilestones[l],
+            (l) =>
+              (after.milestoneProgress?.earned || after.factoryMilestones)[l] &&
+              !(before.milestoneProgress?.earned || before.factoryMilestones)[
+                l
+              ],
           )
         : [];
     if (milestones.length > 8)

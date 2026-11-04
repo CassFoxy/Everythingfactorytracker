@@ -1,3 +1,9 @@
+## V1-GAME21 — Canonical milestones and progression tracking
+
+Private implementation of the complete 250-entry Reference G catalogue, all-threshold tracking, first-Rebirth reveal, permanent retention, GAME20 notifications and a filterable, keyboard-accessible Milestones interface. Owner-approved compatibility retains all 113 historical flags unchanged and keeps 94 nonmatching thresholds as historical evidence outside canonical totals. Canonical progress uses a separate validated schema-1 record; no initial-load write, reward or public migration is introduced. See `docs/MILESTONE_CONTRACT.md` for the policy and verification boundaries.
+
+V1-130, V1-131 and the implemented V1-133 scope are complete when the implementation PR's catalogue, save/retry, Rebirth, full Node/Chromium and CI checks pass. V1-132 rewards remain deferred. Screenshots and final counts are recorded on that PR. No further gameplay ticket is started here.
+
 ## V1-GAME20 — Notification queue and progression feedback
 
 Current private-profile notification types share a commit-only presentation queue: every new discovery/achievement/milestone, Factory Level summaries, existing unlocks, bulk purchases/upgrades, crafting/repair/resale and Rebirth. UI02 icons, FIFO within priorities, safe expiry/dismissal, persistent detail routes, modal/recovery precedence, keyboard/live-region access and reduced motion are integrated. No save fields, rewards or progression calculations change. Legacy popups remain separate.
@@ -1849,7 +1855,7 @@ Verify behaviour through saves and later Rebirth.
 
 ## V1-130 — 250 Milestone Thresholds
 
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — current private profile (GAME21)
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-101; V1-016 milestone compatibility contract
 
@@ -1861,7 +1867,7 @@ Replace legacy threshold schedule with exact Reference G 250-entry catalogue/for
 
 ## V1-131 — Milestone Tracking and Reveal
 
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — current private profile (GAME21)
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-130, V1-163
 
@@ -1884,9 +1890,9 @@ Retain earned/claim infrastructure but do not invent reward amounts/types. Detai
 ## V1-133 — Milestone Notifications
 
 **Priority:** P3
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — current private profile (GAME21)
 
-Existing popup can be retained and improved.
+Canonical earned transitions use GAME20 major notifications, ordered/grouped without loss after first-Rebirth reveal. Legacy popups remain separate; deferred reward consumers are not activated.
 
 ---
 

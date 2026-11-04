@@ -1,3 +1,9 @@
+## GAME21 — owner-approved canonical milestone extension
+
+Private schema-1 saves add `milestoneProgress: {catalogue:"reference-g-250", earned:<complete 250-key Boolean map>}`. Supported prior private saves with the entire field absent initialise it silently from retained actual XP-derived Level plus exact-match true historical flags. `factoryMilestones` is retained unchanged, including valid partial maps. Only the canonical record drives new private milestones; unmatched historical earned flags remain visible separately after first Rebirth. No rewards, claims or dates are inferred. Existing unrelated extension data is preserved.
+
+Malformed/conflicting canonical records and invalid historical flags enter preserved-byte recovery. Opening a save does not write or replay notifications. The next ordinary durable transaction persists the candidate; failure retains exact bytes/candidate for Retry. Both milestone records and reveal survive Rebirth. Untagged legacy saves keep their original 113-entry path and receive no private milestone record. This is not public V2 migration. See [MILESTONE_CONTRACT.md](MILESTONE_CONTRACT.md) for the approved policy, all affected historical thresholds and validation rules.
+
 ## GAME20 — transient committed-state notifications
 
 No persisted fields or save version change. The `miner-1` writer calls the presentation adapter after publishing a successfully persisted candidate, including an exact failed-write retry. Initial load establishes state without replaying discoveries, levels, achievements or milestones. Queue dismissal, expiry and detail navigation never write progression or statistics. Recovery/reset clears transient notices; ordinary confirmation/recovery overlays pause or suppress their presentation. Untagged legacy popups remain separate. See GAME_BIBLE section 3.21 for queue and milestone-reveal semantics.

@@ -4046,6 +4046,7 @@ function boot(raw = null, beforeLoad = "", storageFaults = {}, now = 17000000000
     });
     const run = code => vm.runInContext(code, context);
     run("Math.random = () => 0.5; Date.now = () => testClockNow();");
+    vm.runInContext(fs.readFileSync(path.join(root,"milestone-model.js"),"utf8"), context, { filename: "milestone-model.js" });
     vm.runInContext(ores, context, { filename: "ores.js" });
     let error;
     // Optional test-only fault injection after declarations, before startup.
@@ -5766,7 +5767,7 @@ test('GAME15 repeated rebuilding preserves slots and global IDs and cannot repla
  a.run('addDeveloperCash(450);buyMiningPower();unlockDevelopmentMiner();buyDevelopmentMiner(1)');assert.equal(a.state().factory.miners[0].id,'miner:'+next);assert.notEqual(a.state().factory.miners[0].id,first);a.run('addDeveloperCash(1000000)');assert.equal(rebirthForTest(a),true);assert.equal(a.state().stardust,20);assert.equal(a.state().rebirthCount,2);assert.equal(a.elements.get('milestonesButton').hidden,false);assert.deepEqual(ready(a.stored()).state(),a.state());
 });
 test('GAME15 milestones track before reveal and permanent claims are not reawarded',()=>{
- const a=canonicalFurnaceGame();assert.equal(a.elements.get('milestonesButton').hidden,true);a.run('developmentCommand(n=>{n.factoryXP=10000;prepareDevelopmentProgress(n);for(const p of Object.values(n.achievements))p.claimed=true});addDeveloperCash(1000000)');const before=a.state();assert.equal(before.factoryMilestones[10],true);assert.notEqual(a.elements.get('milestonePopup').style.display,'block');assert.equal(rebirthForTest(a),true);assert.deepEqual(a.state().achievements,before.achievements);assert.deepEqual(a.state().factoryMilestones,before.factoryMilestones);assert.equal(a.state().factoryXP,10000);assert.equal(a.state().factoryLevel,10);assert.equal(a.elements.get('milestonesButton').hidden,false);a.run('openMilestones()');assert.equal(a.elements.get('milestonesModal').style.display,'block');
+ const a=canonicalFurnaceGame();assert.equal(a.elements.get('milestonesButton').hidden,true);a.run('developmentCommand(n=>{n.factoryXP=10000;prepareDevelopmentProgress(n);for(const p of Object.values(n.achievements))p.claimed=true});addDeveloperCash(1000000)');const before=a.state();assert.equal(before.milestoneProgress.earned[10],true);assert.notEqual(a.elements.get('milestonePopup').style.display,'block');assert.equal(rebirthForTest(a),true);assert.deepEqual(a.state().achievements,before.achievements);assert.deepEqual(a.state().factoryMilestones,before.factoryMilestones);assert.equal(a.state().factoryXP,10000);assert.equal(a.state().factoryLevel,10);assert.equal(a.elements.get('milestonesButton').hidden,false);a.run('openMilestones()');assert.equal(a.elements.get('milestonesModal').style.display,'block');
 });
 
 function perkGame(){const a=canonicalFurnaceGame();a.run('save.stardust=10000000000;save.cash=1000000000000000;save.factory.furnace.autoEnabled=false');return a;}
@@ -6098,4 +6099,65 @@ test('GAME19 bounded Rebirth history keeps lifetime totals and rejects inconsist
  const a=perkGame();a.run('save.cash=1000000;save.rebirthCount=100;save.statistics.rebirthHistory=Array.from({length:100},(_,i)=>({sequence:i+1,cashBasis:1000000,gainLevel:0,award:10,completedAtMs:Date.now()}));save.statistics.lifetime.gameplay.stardustRebirthEarned="1000"');
  assert.equal(rebirthForTest(a),true);const s=a.state();assert.equal(s.statistics.rebirthHistory.length,100);assert.equal(s.statistics.rebirthHistory[0].sequence,2);assert.equal(s.statistics.rebirthHistory[99].sequence,101);assert.equal(s.statistics.lifetime.gameplay.stardustRebirthEarned,'1010');assert.deepEqual(ready(a.stored()).state().statistics,s.statistics);
  for(const mutate of [s=>s.statistics.lifetime.gameplay.cashSpent='1',s=>s.statistics.thisRebirth.gameplay.manualClicks=1,s=>s.statistics.rebirthHistory[0].award=11]){const bad=structuredClone(s);mutate(bad);const raw=JSON.stringify(bad),b=boot(raw);assert.ok(b.error);assert.equal(b.stored(),raw);}
+});
+
+// GAME21: owner-approved separate canonical progress and unchanged historical evidence.
+function milestoneFacts(before, after, app){
+ const model=require('../../notification-model.js');
+ return model.events(before,after,{ores:[],achievements:JSON.parse(app.run('JSON.stringify(ACHIEVEMENTS)')),milestones:require('../../milestone-model.js').levels,shop:{},perks:{},pickaxes:[]});
+}
+test('GAME21 lossless activation preserves partial historical flags and extensions without a load write',()=>{
+ const a=canonicalFurnaceGame();a.run('developmentCommand(n=>{n.factoryXP=4000000;prepareDevelopmentProgress(n)})');
+ const old=a.state();delete old.milestoneProgress;old.factoryMilestones={10:true,150:true,200:true,250:false};old.historicalClaimExtension={claimed:[200],note:'retained'};
+ const raw=JSON.stringify(old),b=boot(raw);assert.equal(b.error,undefined);assert.equal(b.writes.length,0);assert.equal(b.stored(),raw);
+ assert.deepEqual(b.state().factoryMilestones,old.factoryMilestones);assert.deepEqual(b.state().historicalClaimExtension,old.historicalClaimExtension);
+ assert.equal(b.state().factoryXP,4000000);assert.equal(b.state().factoryLevel,200);
+ assert.equal(Object.values(b.state().milestoneProgress.earned).filter(Boolean).length,10);assert.equal(b.state().milestoneProgress.earned[195],true);assert.equal(Object.hasOwn(b.state().milestoneProgress.earned,'200'),false);
+ b.run('saveGame()');const c=boot(b.stored());assert.equal(c.error,undefined);assert.deepEqual(c.state().milestoneProgress,b.state().milestoneProgress);assert.deepEqual(c.state().factoryMilestones,old.factoryMilestones);
+});
+test('GAME21 every accepted historical ID survives and only exact matches carry into canonical flags',()=>{
+ const a=canonicalFurnaceGame(),old=a.state();delete old.milestoneProgress;
+ old.factoryMilestones=JSON.parse(a.run('JSON.stringify(Object.fromEntries(FACTORY_MILESTONES.map(l=>[l,true])))'));
+ const b=boot(JSON.stringify(old));assert.equal(b.error,undefined);assert.deepEqual(b.state().factoryMilestones,old.factoryMilestones);
+ const levels=require('../../milestone-model.js').levels;const matches=Object.keys(old.factoryMilestones).map(Number).filter(l=>levels.includes(l));assert.equal(matches.length,19);
+ assert.deepEqual(levels.filter(l=>b.state().milestoneProgress.earned[l]),matches);assert.equal(b.writes.length,0);
+});
+test('GAME21 conflicting canonical records and malformed historical records preserve original recovery bytes',()=>{
+ const good=canonicalFurnaceGame().state();
+ const mutations=[s=>s.milestoneProgress=null,s=>s.milestoneProgress=[],s=>s.milestoneProgress.catalogue='unknown',s=>delete s.milestoneProgress.earned[115],s=>s.milestoneProgress.earned[115]=1,s=>s.milestoneProgress.earned[200]=true,s=>s.milestoneProgress.extra=true,s=>s.factoryMilestones[200]='true',s=>s.factoryMilestones[115]=true];
+ for(const mutate of mutations){const bad=structuredClone(good);mutate(bad);const raw=JSON.stringify(bad),a=boot(raw);assert.ok(a.error);assert.equal(a.stored(),raw);assert.equal(a.writes.length,0);}
+});
+test('GAME21 committed level boundaries and large jumps record every milestone without changing the archive',()=>{
+ const a=canonicalFurnaceGame(),archive=a.state().factoryMilestones;
+ for(const level of [0,9,10,11,95,200,10000]){
+  assert.equal(a.run(`developmentCommand(n=>{n.factoryXP=100*${level}**2;prepareDevelopmentProgress(n)})`),true);
+  const s=a.state(),levels=require('../../milestone-model.js').levels;
+  assert.equal(s.factoryLevel,level);assert.equal(s.factoryXP,100*level**2);assert.equal(Object.values(s.milestoneProgress.earned).filter(Boolean).length,levels.filter(l=>l<=level).length);
+  assert.deepEqual(s.factoryMilestones,archive);assert.equal(s.cash,0);assert.equal(s.stardust,0);assert.equal(s.gemDust,0);
+  const before=structuredClone(s.milestoneProgress);a.run('developmentCommand(n=>prepareDevelopmentProgress(n))');assert.deepEqual(a.state().milestoneProgress,before);
+ }
+});
+test('GAME21 exact failed-write retry publishes milestones once and grouped notifications retain every level',()=>{
+ const a=canonicalFurnaceGame();a.run('addDeveloperCash(1000000)');assert.equal(rebirthForTest(a),true);
+ const before=a.state(),stored=a.stored();a.faults.write=true;
+ assert.equal(a.run('developmentCommand(n=>{n.factoryXP=10000000000;prepareDevelopmentProgress(n)})'),false);
+ assert.deepEqual(a.state(),before);assert.equal(a.stored(),stored);assert.deepEqual(milestoneFacts(before,a.state(),a),[]);
+ const bytes=a.run('pendingDevelopmentWrite.serialized');assert.equal(a.run('retryDevelopmentWrite()'),false);assert.equal(a.run('addDeveloperCash(1)'),false);
+ a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.run('retryDevelopmentWrite()'),false);
+ const facts=milestoneFacts(before,a.state(),a);assert.equal(facts.filter(f=>f.type==='milestone').length,1);assert.deepEqual(facts.find(f=>f.type==='milestone').levels,require('../../milestone-model.js').levels);assert.equal(facts.filter(f=>f.type==='level').length,1);assert.ok(facts.some(f=>f.type==='achievement'));
+ const loaded=boot(a.stored());assert.equal(loaded.error,undefined);assert.deepEqual(milestoneFacts(a.state(),loaded.state(),a),[]);
+});
+test('GAME21 hidden tracking and first and subsequent Rebirths retain canonical and historical progress',()=>{
+ const a=canonicalFurnaceGame();a.run('developmentCommand(n=>{n.factoryXP=4000000;prepareDevelopmentProgress(n)});openMilestones()');
+ assert.equal(a.elements.get('milestonesButton').hidden,true);assert.notEqual(a.elements.get('milestonesModal').style.display,'block');
+ assert.equal(Object.values(a.state().milestoneProgress.earned).filter(Boolean).length,10);
+ for(let i=1;i<=2;i++){
+  a.run('addDeveloperCash(1000000)');const before=a.state();assert.equal(rebirthForTest(a),true);const after=a.state();
+  assert.deepEqual(after.milestoneProgress,before.milestoneProgress);assert.deepEqual(after.factoryMilestones,before.factoryMilestones);assert.equal(after.factoryXP,before.factoryXP);assert.equal(after.factoryLevel,200);assert.equal(after.rebirthCount,i);
+  assert.equal(milestoneFacts(before,after,a).some(f=>f.type==='milestone'),false);assert.equal(a.elements.get('milestonesButton').hidden,false);
+ }
+ const b=boot(a.stored());assert.equal(b.error,undefined);assert.equal(b.elements.get('milestonesButton').hidden,false);
+});
+test('GAME21 untagged legacy keeps its original milestone catalogue and does not gain canonical fields',()=>{
+ const raw=JSON.stringify({...legacyFixture(),factoryMilestones:{200:true,250:true},autoFurnaceBatch:[],autoFurnaceStartTime:0});const a=boot(raw);assert.equal(a.error,undefined);assert.equal(Object.hasOwn(a.state(),'milestoneProgress'),false);assert.equal(a.state().factoryMilestones[200],true);assert.equal(a.run('FACTORY_MILESTONES.length'),113);assert.equal(a.stored(),raw);
 });

@@ -16,7 +16,7 @@
     const catalog = {
       ores: ORE_KEYS.map((id) => ({ id, ...developmentOre(id) })),
       achievements: ACHIEVEMENTS,
-      milestones: FACTORY_MILESTONES,
+      milestones: MilestoneModel.levels,
       shop: {
         miningPower: "Mining Power",
         miningLuck: "Mining Luck",
