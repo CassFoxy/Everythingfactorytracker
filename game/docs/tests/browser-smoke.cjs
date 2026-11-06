@@ -152,7 +152,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
 
 
 
-        // GAME21: canonical tracking, approved lossless history and long-list accessibility.
+        // GAME21: canonical tracking, canonical-only compatibility and long-list accessibility.
         for(const [width,height] of [[2560,1440],[1920,1080],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]){
             const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
             assert.equal(await page.locator('#milestonesButton').isVisible(),false);
@@ -193,10 +193,15 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             if(width===390){
                 const raw=await page.evaluate(()=>{const n=structuredClone(save);delete n.milestoneProgress;n.factoryMilestones={150:true,200:true,250:true};n.retainedClaimMetadata={claimed:[200]};return JSON.stringify(n)});
                 const historical=await session(raw,true);await historical.page.setViewportSize({width,height});assert.equal(await historical.page.evaluate(()=>localStorage.getItem(SAVE_KEY)),raw);
-                await historical.page.locator('#milestonesButton').click();assert.equal(await historical.page.locator('#historicalMilestones').isVisible(),true);await historical.page.locator('#historicalMilestones summary').click();assert.equal(await historical.page.locator('#historicalMilestones li').count(),2);assert.deepEqual(await historical.page.evaluate(()=>save.retainedClaimMetadata),{claimed:[200]});
+                await historical.page.locator('#milestonesButton').click();assert.equal(await historical.page.locator('#historicalMilestones').count(),0);assert.equal(await historical.page.locator('#canonical-milestone-200').count(),0);assert.equal(await historical.page.locator('#canonical-milestone-250').count(),0);assert.equal(await historical.page.locator('#canonicalMilestoneList [role="listitem"]').count(),250);assert.deepEqual(await historical.page.evaluate(()=>save.retainedClaimMetadata),{claimed:[200]});
                 assert.deepEqual(historical.errors,[]);await historical.context.close();
+                const legacyRaw=await page.evaluate(()=>JSON.stringify({...createDefaultSave(),factoryXP:902500,factoryLevel:95,factoryMilestones:{150:true,200:true,250:true}}));
+                const legacy=await session(legacyRaw,true);await legacy.page.setViewportSize({width,height});assert.equal(await legacy.page.evaluate(()=>localStorage.getItem(SAVE_KEY)),legacyRaw);
+                await legacy.page.evaluate(()=>openMilestones());assert.equal(await legacy.page.locator('#canonicalMilestoneList [role="listitem"]').count(),250);assert.equal(await legacy.page.locator('#historicalMilestones').count(),0);assert.match(await legacy.page.locator('#milestoneSummary').textContent(),/5 \/ 250/);assert.equal(await legacy.page.locator('#canonical-milestone-200').count(),0);
+                assert.equal(await legacy.page.evaluate(()=>Object.hasOwn(save,'developmentProfile')),false);assert.deepEqual(legacy.errors,[]);await legacy.context.close();
+
             }
-            await app.context.close();console.log(`PASS GAME21 ${width}x${height}: 250 entries, hidden tracking, reveal, history, notifications, exact retry, repeat Rebirth and keyboard navigation.`);
+            await app.context.close();console.log(`PASS GAME21 ${width}x${height}: 250 entries, hidden tracking, reveal, retired-flag exclusion, notifications, exact retry, repeat Rebirth and keyboard navigation.`);
         }
         if(process.env.TEFI_SMOKE_SCOPE==='game21')return;
 

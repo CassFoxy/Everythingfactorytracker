@@ -10,9 +10,9 @@
     if (className) element.className = className;
     return element;
   };
-  function render({ earned, level, historical = [] }) {
+  function render({ earned, level }) {
     const summary = MilestoneModel.summary(earned);
-    const nextSignature = JSON.stringify({ earned, level, historical });
+    const nextSignature = JSON.stringify({ earned, level });
     if (signature === nextSignature && current?.root.isConnected) return;
     signature = nextSignature;
     const container = document.getElementById("milestoneItems");
@@ -50,10 +50,8 @@
       list.setAttribute("role", "list");
       list.setAttribute("aria-label", "Canonical Factory milestones");
       list.tabIndex = 0;
-      const history = node("details", undefined, "milestone-history");
-      history.id = "historicalMilestones";
       controls.append(label, jump);
-      root.append(heading, progress, status, controls, list, history);
+      root.append(heading, progress, status, controls, list);
       container.replaceChildren(root);
       current = {
         root,
@@ -63,7 +61,6 @@
         select,
         jump,
         list,
-        history,
         earned,
         level,
       };
@@ -98,29 +95,6 @@
           Math.max(0, summary.next - level).toLocaleString() +
           " levels remaining.");
     current.jump.disabled = summary.next === null;
-    current.history.hidden = historical.length === 0;
-    current.history.replaceChildren(
-      node("summary", historical.length + " retained historical milestones"),
-    );
-    if (historical.length) {
-      current.history.append(
-        node(
-          "p",
-          "Previously earned records retained unchanged. These are separate from the canonical 250 milestones; no new reward or claim is created.",
-        ),
-      );
-      const list = node("ul");
-      for (const threshold of historical)
-        list.append(
-          node(
-            "li",
-            "Factory Level " +
-              threshold.toLocaleString() +
-              " — Historical completion retained",
-          ),
-        );
-      current.history.append(list);
-    }
     renderList();
   }
   function renderList() {

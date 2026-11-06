@@ -1310,21 +1310,6 @@ summary .ui-icon {
   outline: 2px solid var(--ui-gold);
   outline-offset: 1px;
 }
-.milestone-history {
-  margin-top: 12px;
-  padding: 10px;
-  border: 1px solid var(--ui-edge);
-}
-.milestone-history summary {
-  cursor: pointer;
-  color: var(--ui-gold);
-}
-.milestone-history ul {
-  max-height: 30dvh;
-  overflow: auto;
-  font-size: 12px;
-  line-height: 1.8;
-}
 @media (max-width: 500px) {
   .canonical-milestone-list {
     grid-template-columns: 1fr;

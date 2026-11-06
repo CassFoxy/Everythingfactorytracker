@@ -1,6 +1,6 @@
 ## V1-GAME21 — Canonical milestones and progression tracking
 
-Private implementation of the complete 250-entry Reference G catalogue, all-threshold tracking, first-Rebirth reveal, permanent retention, GAME20 notifications and a filterable, keyboard-accessible Milestones interface. Owner-approved compatibility retains all 113 historical flags unchanged and keeps 94 nonmatching thresholds as historical evidence outside canonical totals. Canonical progress uses a separate validated schema-1 record; no initial-load write, reward or public migration is introduced. See `docs/MILESTONE_CONTRACT.md` for the policy and verification boundaries.
+GAME21-FIX applies Issue #63's superseding canonical-only policy: all supported gameplay uses the 250 Reference G thresholds. Unmatched retired flags have no UI, counts, notices or parallel schedule. Private canonical records and untagged schema-1 maps derive from retained actual Factory Level and exact-match true flags without a load-time write. Unrelated progression remains intact; no rewards or public V2 activation. See `docs/MILESTONE_CONTRACT.md`.
 
 V1-130, V1-131 and the implemented V1-133 scope are complete when the implementation PR's catalogue, save/retry, Rebirth, full Node/Chromium and CI checks pass. V1-132 rewards remain deferred. Screenshots and final counts are recorded on that PR. No further gameplay ticket is started here.
 
@@ -1859,7 +1859,7 @@ Verify behaviour through saves and later Rebirth.
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-101; V1-016 milestone compatibility contract
 
-Replace legacy threshold schedule with exact Reference G 250-entry catalogue/formula, end 10,000. Preserve legitimate earned/claimed historical progress during mapping; do not invent rewards or discard claims.
+Replace legacy threshold schedule with exact Reference G 250-entry catalogue/formula, end 10,000. Use retained actual Factory Level and exact-match true flags per Issue #63; unmatched retired flags have no active interpretation. Preserve unrelated claim data without inventing rewards.
 
 **Acceptance:** Reference L checks 24–25.
 
