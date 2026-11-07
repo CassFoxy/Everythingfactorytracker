@@ -11,132 +11,7 @@ function activeMilestoneFlags(state = save){
     return isMinerDevelopment(state) ? state.milestoneProgress.earned : state.factoryMilestones;
 }
 
-const ACHIEVEMENTS = {
-
-firstSwing: {
-
-    category: "⛏ Mining",
-
-    name: "First Swing",
-
-    description: "Mine your first stone.",
-
-    type: "stat",
-
-stat: "totalOresMined",
-
-    target: 1,
-
-reward:{
-    type:null,
-    value:0
-}
-
-},
-
-stoneMiner: {
-
-    category: "⛏ Mining",
-
-name: "Ore Miner",
-    
-description: "Mine 100 ores.",
-
-    type: "stat",
-
-stat: "totalOresMined",
-
-    target: 100,
-
-reward:{
-    type:null,
-    value:0
-}
-
-},
-
-dedicatedMiner: {
-
-    category: "⛏ Mining",
-
-name: "Dedicated Miner",
-    
-description: "Mine 1,000 ores.",
-
-    type: "stat",
-
-stat: "totalOresMined",
-
-    target: 1000,
-
-reward:{
-    type:null,
-    value:0
-}
-
-},
-firstDiscovery: {
-
-    category: "📖 Collection",
-
-    name: "Shiny!",
-
-    description: "Discover your first ore.",
-
-    type: "stat",
-
-    stat: "oresDiscovered",
-
-    target: 1,
-
-reward:{
-    type:null,
-    value:0
-}
-
-},
-
-firstSmelt: {
-
-    category: "🔥 Furnace",
-
-    name: "First Smelt",
-
-    description: "Smelt an ore.",
-
-    type: "stat",
-
-    stat: "oresSmelted",
-
-    target: 1,
-
-reward:{
-    type:null,
-    value:0
-}
-
-},
-
-factoryOwner: {
-
-    category: "🏭 Factory",
-
-    name: "Factory Owner",
-
-    description: "Reach Factory Level 10.",
-
-    type: "level",
-
-    target: 10,
-
-reward:{
-    type:null,
-    value:0
-}
-
-},
-
-};
+const ACHIEVEMENTS = AchievementModel.catalogue;
 
 function createDefaultMilestones(){
 
@@ -779,79 +654,14 @@ function unlockAchievement(id){
 }
 
 function checkAchievements(){
-
-    Object.entries(
-        ACHIEVEMENTS
-    ).forEach(([id, achievement]) => {
-
-if(
-    save.achievements[id]?.unlocked
-)
-    return;
-
-        if(
-            achievement.type === "stat"
-        ){
-
-            const value =
-
-                save.achievementStats[
-                    achievement.stat
-                ] || 0;
-
-            if(
-                value >=
-                achievement.target
-            ){
-
-                unlockAchievement(id);
-
-            }
-
-        }
-
-        if(
-            achievement.type === "level"
-        ){
-
-            if(
-                save.factoryLevel >=
-                achievement.target
-            ){
-
-                unlockAchievement(id);
-
-            }
-
-        }
-
-    });
-
+    for(const id of AchievementModel.eligible(save)) unlockAchievement(id);
 }
 
 function claimAchievement(id){
-
-    const achievement =
-        save.achievements[id];
-
-    if(
-        !achievement ||
-        !achievement.unlocked ||
-        achievement.claimed
-    ){
-        return;
-    }
-
-    achievement.claimed = true;
-
-    // Reward system goes here later
-
-    saveGame();
-
-    buildAchievementsMenu();
-
-    updateUI();
-
+    if(isMinerDevelopment()) return developmentCommand(next => AchievementModel.claim(next,id));
+    if(recoveryState.active) return false;
+    try{AchievementModel.claim(save,id);}catch(error){return false;}
+    saveGame(); buildAchievementsMenu(); updateUI(); return true;
 }
 
 function saveGame(){
@@ -2409,6 +2219,8 @@ document.getElementById(
 }
 
 function updateUI(){
+    document.getElementById("achievementsButton").hidden = !AchievementModel.revealed(save);
+    if(document.getElementById("achievementsModal").style.display === "block") buildAchievementsMenu();
     renderDevelopmentPickaxes();
     renderDevelopmentRebirth();
     renderPermanentPerks();
@@ -3348,24 +3160,15 @@ function closeMilestones(){
     milestoneReturnFocus = null;
 }
 
-function openAchievements(){
-
-    buildAchievementsMenu();
-
-    document.getElementById(
-        "achievementsModal"
-    ).style.display =
-        "block";
-
+function openAchievements(id){
+    if(!AchievementModel.revealed(save)) return false;
+    if(typeof AchievementView !== "undefined") AchievementView.open(id);
+    else document.getElementById("achievementsModal").style.display="block";
+    return true;
 }
-
 function closeAchievements(){
-
-    document.getElementById(
-        "achievementsModal"
-    ).style.display =
-        "none";
-
+    if(typeof AchievementView !== "undefined") AchievementView.close();
+    else document.getElementById("achievementsModal").style.display="none";
 }
 
 function openFurnace(){
@@ -3748,311 +3551,7 @@ function buildMilestonesMenu(){
 }
 
 function buildAchievementsMenu(){
-
-    const container =
-        document.getElementById(
-            "achievementItems"
-        );
-
-    container.innerHTML = "";
-
-    let currentCategory = "";
-
-Object.entries(
-    ACHIEVEMENTS
-)
-
-.sort((a, b) => {
-
-    const aSave =
-
-        save.achievements[a[0]] ||
-
-        {
-            unlocked:false,
-            claimed:false
-        };
-
-    const bSave =
-
-        save.achievements[b[0]] ||
-
-        {
-            unlocked:false,
-            claimed:false
-        };
-
-    function getPriority(state){
-
-        if(
-            state.unlocked &&
-            !state.claimed
-        ){
-            return 0;
-        }
-
-        if(
-            state.claimed
-        ){
-            return 1;
-        }
-
-        return 2;
-
-    }
-
-    return (
-
-        getPriority(aSave)
-
-        -
-
-        getPriority(bSave)
-
-    );
-
-})
-
-.forEach(([id, achievement]) => {
-
-        if(
-            achievement.category !==
-            currentCategory
-        ){
-
-            currentCategory =
-                achievement.category;
-
-            const heading =
-                document.createElement(
-                    "h3"
-                );
-
-            heading.textContent =
-                currentCategory;
-
-            container.appendChild(
-                heading
-            );
-
-        }
-const achievementSave =
-
-    save.achievements[id] ||
-
-    {
-
-        unlocked:false,
-
-        claimed:false
-
-    };
-
-const unlocked =
-    achievementSave.unlocked;
-
-const claimed =
-    achievementSave.claimed;
-
-const div =
-    document.createElement(
-        "div"
-    );
-
-div.dataset.id = id;
-
-div.className =
-    "achievement-item " +
-
-    (
-
-        claimed
-
-        ?
-
-        "achievement-unlocked"
-
-        :
-
-        "achievement-locked"
-
-    );
-
-        if(
-    unlocked &&
-    !claimed
-){
-
-    div.style.cursor =
-        "pointer";
-
-    div.onclick = () => {
-
-        claimAchievement(id);
-
-    };
-
-}
-
-// Build the progress text
-
-let progressText = "";
-let progressPercent = 0;
-        
-if(
-    achievement.type === "stat"
-){
-
-    const current = Math.min(
-
-        save.achievementStats[
-            achievement.stat
-        ] || 0,
-
-        achievement.target
-
-    );
-
-    progressPercent =
-
-    (current /
-
-    achievement.target)
-
-    * 100;
-
-    progressText =
-
-        formatNumber(current)
-
-        +
-
-        " / "
-
-        +
-
-        formatNumber(
-            achievement.target
-        );
-
-}
-
-else if(
-    achievement.type === "level"
-){
-
-    const current = Math.min(
-
-        save.factoryLevel,
-
-        achievement.target
-
-    );
-
-    progressPercent =
-
-    (current /
-
-    achievement.target)
-
-    * 100;
-
-    progressText =
-
-        formatNumber(current)
-
-        +
-
-        " / "
-
-        +
-
-        formatNumber(
-            achievement.target
-        );
-
-}
-
-let rewardText = "???";
-
-div.innerHTML =
-
-    "<strong>" +
-
-    achievement.name +
-
-    "</strong><br>" +
-
-    achievement.description +
-
-    "<br><br>" +
-
-    (
-claimed
-
-?
-
-"🟢 Completed"
-
-:
-
-unlocked
-
-?
-
-"🟡 Reward Available"
-
-:
-
-"<strong>Progress</strong><br>" +
-
-        progressText +
-
-        "<div class='achievement-progress'>" +
-
-            "<div class='achievement-progress-fill' style='width:" +
-
-                progressPercent +
-
-                "%'></div>" +
-
-        "</div>"
-
-    )
-
-    +
-
-    "<br><br>" +
-"<strong>Reward</strong><br>" +
-
-rewardText +
-
-(
-
-    unlocked &&
-
-    !claimed
-
-    ?
-
-    "<div class='achievement-claim-banner'>" +
-
-    "🎁 CLAIM REWARD" +
-
-    "</div>"
-
-    :
-
-    ""
-
-);
-
-        container.appendChild(
-    div
-);
-
-    });
-
+    if(typeof AchievementView !== "undefined") AchievementView.render();
 }
 
           function showDiscoveryPopup(
@@ -4588,11 +4087,7 @@ function exactDevelopmentAdd(before, amount){
 function prepareDevelopmentProgress(state){
     state.factoryLevel = getFactoryLevelFromXP(state.factoryXP);
     state.milestoneProgress.earned = MilestoneModel.complete(state.milestoneProgress.earned, state.factoryLevel);
-    for(const [id, achievement] of Object.entries(ACHIEVEMENTS)){
-        const value = achievement.type === "stat" ? state.achievementStats[achievement.stat] || 0 : state.factoryLevel;
-        if(value >= achievement.target && !state.achievements[id]?.unlocked)
-            state.achievements[id] = { unlocked: true, claimed: false };
-    }
+    AchievementModel.complete(state);
 }
 function prepareDevelopmentAward(state, resourceId, amount, manual, xpLevel=perkLevel(state,"factoryXP")){
     const ore = developmentOre(resourceId);

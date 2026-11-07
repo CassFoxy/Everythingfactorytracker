@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const root = path.resolve(__dirname, "../..");
-const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js", "notification-model.js", "notifications.js", "milestone-model.js", "milestone-ui.js", "collection-model.js", "collection-ui.js"].map(name =>
+const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js", "notification-model.js", "notifications.js", "milestone-model.js", "milestone-ui.js", "collection-model.js", "collection-ui.js", "achievement-model.js", "achievement-ui.js"].map(name =>
     ["/" + name, fs.readFileSync(path.join(root, name))]));
 for (const name of fs.readdirSync(path.join(root, 'assets/ui'))) {
     files.set('/assets/ui/' + name, fs.readFileSync(path.join(root, 'assets/ui', name)));
@@ -152,6 +152,34 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
 
 
 
+
+        // GAME23: reveal, state-only claims and committed notifications at every supported size.
+        for(const [width,height]of [[2560,1440],[1920,1080],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]){
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});await page.emulateMedia({reducedMotion:'reduce'});
+            assert.equal(await page.locator('#achievementsButton').isVisible(),false);assert.equal(await page.evaluate(()=>openAchievements()),false);assert.equal(await page.evaluate(()=>localStorage.getItem(SAVE_KEY)),null);
+            await page.evaluate(()=>{window.originalSet=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw Error('test failure')};mineDevelopmentOre()});
+            assert.equal(await page.locator('#achievementsButton').isVisible(),false);assert.equal(await page.evaluate(()=>TEFINotifications.snapshot().current),null);
+            await page.evaluate(()=>{Storage.prototype.setItem=originalSet;retryDevelopmentWrite()});
+            assert.equal(await page.locator('#achievementsButton').isVisible(),true);assert.match(await page.locator('#notificationTitle').textContent(),/First Swing unlocked/);
+            await page.locator('#notificationOpen').click();assert.equal(await page.evaluate(()=>document.activeElement.id),'achievement-firstSwing');assert.equal(await page.locator('.achievement-card').count(),6);assert.equal(await page.locator('.achievement-card.locked').count(),5);
+            assert.match(await page.locator('#achievement-stoneMiner-progress').textContent(),/1 \/ 100 manual actions/);assert.match(await page.locator('.achievement-note').textContent(),/rewards remain deferred/);
+            await page.locator('#claim-firstSwing').focus();await page.keyboard.press('Enter');assert.match(await page.locator('#achievement-firstSwing .achievement-state').textContent(),/Claimed/);assert.equal(await page.evaluate(()=>document.activeElement.id),'achievement-firstSwing');
+            await page.keyboard.press('Escape');await page.locator('#achievementsButton').click();await page.keyboard.press('Shift+Tab');assert.equal(await page.evaluate(()=>document.activeElement.id),'achievement-factoryOwner');await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('close-button')),true);await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>document.activeElement.id),'achievementsButton');
+            await page.evaluate(()=>{TEFINotifications.clear();developmentCommand(next=>{prepareDevelopmentAward(next,'amber',1,false);next.achievementStats.totalOresMined=100;prepareDevelopmentProgress(next);});openAchievements('firstDiscovery')});
+            assert.equal(await page.locator('.achievement-card.unlocked').count(),2);assert.equal(await page.locator('.achievement-card.claimed').count(),1);assert.equal(await page.locator('.achievement-card.locked').count(),3);
+            const cached=await page.evaluate(()=>{const n=document.getElementById('achievement-firstSwing');buildAchievementsMenu();return n===document.getElementById('achievement-firstSwing')});assert.equal(cached,true);
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);if(width>=1024)assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),true);
+            const box=await page.locator('#achievementsModal .modal-content').boundingBox();assert.ok(box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game23-achievements-${width}x${height}.png`),animations:'disabled'});}
+            await page.evaluate(()=>{window.claimBefore=JSON.stringify(save);Storage.prototype.setItem=function(){throw Error('test claim failure')};claimAchievement('firstDiscovery')});assert.equal(await page.evaluate(()=>JSON.stringify(save)===claimBefore),true);assert.match(await page.locator('#achievement-firstDiscovery .achievement-state').textContent(),/Unlocked/);
+            const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);await page.evaluate(()=>retryDevelopmentWrite());assert.equal(await page.evaluate(()=>pendingDevelopmentWrite.serialized),bytes);await page.evaluate(()=>{Storage.prototype.setItem=originalSet;retryDevelopmentWrite()});assert.match(await page.locator('#achievement-firstDiscovery .achievement-state').textContent(),/Claimed/);assert.equal(await page.evaluate(()=>claimAchievement('firstDiscovery')),false);
+            await page.evaluate(()=>{closeAchievements();addDeveloperCash(1000000);prepareDevelopmentRebirth();confirmDevelopmentRebirth();TEFINotifications.clear();developmentCommand(next=>{next.factoryXP=10000;next.achievementStats.totalOresMined=1000;next.achievementStats.oresSmelted=1;prepareDevelopmentAward(next,'ruby',1,false);})});
+            const events=await page.evaluate(()=>{const q=TEFINotifications.snapshot();return [q.current,...q.waiting].filter(Boolean).map(x=>({type:x.type,id:x.recordId}))});assert.equal(events.filter(e=>e.type==='achievement').length,3);assert.ok(events.some(e=>e.type==='discovery'));assert.ok(events.some(e=>e.type==='milestone'));assert.equal(await page.locator('#achievementToast').isVisible(),false);
+            await page.evaluate(()=>{TEFINotifications.clear();developmentCommand(next=>prepareDevelopmentProgress(next))});assert.equal(await page.evaluate(()=>TEFINotifications.snapshot().current),null);
+            await page.reload();assert.equal(await page.locator('#achievementsButton').isVisible(),true);assert.equal(await page.evaluate(()=>save.achievements.firstSwing.claimed&&save.achievements.firstDiscovery.claimed),true);assert.equal(await page.evaluate(()=>TEFINotifications.snapshot().current),null);
+            await page.locator('#achievementsButton').click();assert.equal(await page.locator('.achievement-card').count(),6);assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(n=>n.id);return ids.length===new Set(ids).size}),true);assert.deepEqual(app.errors,[]);await app.context.close();console.log(`PASS GAME23 achievements ${width}x${height}: reveal, claim, notification focus, retry, permanence and accessibility.`);
+        }
+        if(process.env.TEFI_SMOKE_SCOPE==='game23')return;
 
         // GAME22: the real discovery book, hidden identities, durable discoveries and focus routes.
         for(const [width,height] of [[2560,1440],[1920,1080],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]){

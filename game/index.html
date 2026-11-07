@@ -29,7 +29,7 @@
  <nav class="secondary-nav" aria-label="Progress and tools">
   <button onclick="openStats()">📊 Statistics</button>
   <button id="milestonesButton" onclick="openMilestones()">🏆 Milestones <span id="milestoneCount">0</span></button>
-  <button onclick="openAchievements()">🏅 Achievements <span id="achievementCount">0</span>/<span id="achievementTotal">0</span></button>
+  <button id="achievementsButton" hidden onclick="openAchievements()">🏅 Achievements <span id="achievementCount">0</span>/<span id="achievementTotal">0</span></button>
   <details class="dev-tools"><summary>⚙ Dev tools</summary><div class="dev-panel">
    <p class="dev-panel-label">Private testing only · Disable or exclude these tools before public release.</p>
    <section><h3>Cash controls</h3><div id="devCashControls"><div class="dev-presets"><button onclick="addDeveloperCash(1000)">Add $1,000</button><button onclick="addDeveloperCash(1000000)">Add $1,000,000</button><button onclick="addDeveloperCash(1000000000)">Add $1,000,000,000</button></div><label for="devCashAmount">Custom Cash amount (whole number)</label><div class="dev-input-row"><input id="devCashAmount" type="text" inputmode="numeric" placeholder="2500000" autocomplete="off"><button id="devAddCash" onclick="addDeveloperCash(document.getElementById('devCashAmount').value)">Add Cash</button></div></div></section>
@@ -439,5 +439,7 @@
 
 </div>
 </div>
-<script src="ores.js"></script><script src="collection-model.js"></script><script src="milestone-model.js"></script><script src="notification-model.js"></script><script src="notifications.js"></script><script src="game.js"></script><script src="milestone-ui.js"></script><script src="collection-ui.js"></script><script src="compact-ui.js"></script>
+<script src="ores.js"></script><script src="achievement-model.js"></script>
+<script src="collection-model.js"></script><script src="milestone-model.js"></script><script src="notification-model.js"></script><script src="notifications.js"></script><script src="game.js"></script><script src="milestone-ui.js"></script><script src="collection-ui.js"></script>
+<script src="achievement-ui.js"></script><script src="compact-ui.js"></script>
 </body></html>

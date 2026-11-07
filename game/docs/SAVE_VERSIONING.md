@@ -2,6 +2,14 @@
 
 No new save fields or migration. `oreCollection` remains the authoritative cumulative acquisition map in supported private and untagged saves. Completion is derived from positive counts for exactly the 20 `ORES` keys; Stone, materials and processed variants do not count. No history is inferred from inventory. Existing validation, recoverable bytes, no-load-write behaviour and persist-before-publish Retry are unchanged. Selling, processing and Rebirth retain these counters. Collection selection, progress percentage and rendered details are transient UI only. GAME20 discovery facts carry a transient resource ID for navigation after successful commit. No public V2 activation.
 
+## GAME23 — Achievement compatibility and durable claims
+
+No schema/version changes or additional saved fields. The existing six-ID `achievements` map remains the only unlock/claim authority; reveal derives from any unlocked record. Valid legacy Booleans still complete to `{unlocked: value, claimed: false}` after validation, without writing on load. Previously claimed records are never downgraded or re-earned. Existing malformed-state recovery retains original bytes.
+
+Private claim actions validate the full authoritative state, change only the target's claimed flag on an independent candidate and use `developmentCommand`. Failed writes retain the exact candidate and bytes, with no speculative claim or award. Retry publishes once. Claims reject locked, unknown and already claimed IDs. No reward, economic bonus or statistics consumer is activated. Untagged legacy claim persistence remains on its existing save path.
+
+`achievementStats.totalOresMined` remains a manual-action counter, not ore quantity; the UI says “manual actions” while preserving historical achievement descriptions. Rebirth retains existing counters and unlock/claim records. GAME20 alone delivers private committed unlock notifications; initial load/reload never reconstructs a notification backlog. See [GAME23](game23/README.md).
+
 ## GAME21-FIX — Issue #63 canonical-only milestone policy
 
 The later owner decision in Issue #63 supersedes historical-display retention. Only Reference G's 250 thresholds drive gameplay, counts, UI and notifications in both supported modes. Private schema-1 saves use the validated `milestoneProgress` record; absent records derive silently from retained XP-derived Factory Level plus exact-match true old flags. Original private `factoryMilestones` flags may remain inert data, never a parallel schedule or visible history.
