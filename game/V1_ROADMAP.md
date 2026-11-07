@@ -4,6 +4,10 @@ The 20 authoritative `ORES` entries now form a tier-ordered discovery book with 
 
 V1-121, V1-122, V1-123 and V1-125 are complete for base ores, subject to the implementation PR's final full regression/CI verification. V1-225's base Collection interface scope is complete; broader future variants are not activated. V1-124 mutations, rewards, relics and public V2 remain deferred.
 
+## GAME23 — Six-Achievement Consolidation
+
+The six historical IDs now share a pure catalogue/progress model and a UI02 achievement panel. Access derives from the first durable unlock; claims use the private persist-before-publish transaction and grant no rewards. Manual-action counter meanings, Boolean compatibility, Rebirth permanence and GAME20 notifications remain intact. Additional catalogue entries and rewards stay deferred. See [implementation and visual review](docs/game23/README.md).
+
 ## V1-GAME21 — Canonical milestones and progression tracking
 
 GAME21-FIX applies Issue #63's superseding canonical-only policy: all supported gameplay uses the 250 Reference G thresholds. Unmatched retired flags have no UI, counts, notices or parallel schedule. Private canonical records and untagged schema-1 maps derive from retained actual Factory Level and exact-match true flags without a load-time write. Unrelated progression remains intact; no rewards or public V2 activation. See `docs/MILESTONE_CONTRACT.md`.
@@ -1906,7 +1910,7 @@ Canonical earned transitions use GAME20 major notifications, ordered/grouped wit
 
 ## V1-140 — Achievement Compatibility and Reveal
 
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — existing six-achievement scope (GAME23)
 **Design:** DESIGN COMPLETE retained infrastructure
 **Dependencies:** V1-022; compatible persistence
 
@@ -1948,7 +1952,7 @@ Preserve existing permanent effects/claims and no-repeat granting. Exact new sta
 
 ## V1-144 — Achievement Claim Compatibility
 
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — existing six-achievement scope (GAME23)
 **Design:** DESIGN COMPLETE retained state; reward granting Deferred
 **Dependencies:** V1-140; V1-142 only when rewards are approved
 
@@ -1959,7 +1963,7 @@ Preserve unlocked/claimed ordering and one-time semantics through migration/Rebi
 ## V1-145 — Achievement Regression Tests
 
 **Priority:** P3
-**Status:** ⚪ NOT STARTED
+**Status:** ✅ COMPLETE — existing six-achievement scope (GAME23)
 
 ---
 
@@ -2488,7 +2492,7 @@ Allow easy inspection of current save/state during development.
 ## V1-227 — Achievement Interface
 
 **Priority:** P4
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — existing six-achievement scope (GAME23)
 
 ---
 

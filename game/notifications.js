@@ -119,6 +119,11 @@
       perks: openPermanentPerks,
     };
     if (routes[target]) {
+      if(target === "achievements"){
+        openAchievements(current.recordId);
+        syncVisibility();
+        return;
+      }
       if(target === "collection"){
         openCollection(current.resourceId);
         syncVisibility();

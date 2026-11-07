@@ -4048,6 +4048,7 @@ function boot(raw = null, beforeLoad = "", storageFaults = {}, now = 17000000000
     run("Math.random = () => 0.5; Date.now = () => testClockNow();");
     vm.runInContext(fs.readFileSync(path.join(root,"milestone-model.js"),"utf8"), context, { filename: "milestone-model.js" });
     vm.runInContext(fs.readFileSync(path.join(root,"collection-model.js"),"utf8"), context, { filename: "collection-model.js" });
+    vm.runInContext(fs.readFileSync(path.join(root,"achievement-model.js"),"utf8"), context, { filename: "achievement-model.js" });
     vm.runInContext(ores, context, { filename: "ores.js" });
     let error;
     // Optional test-only fault injection after declarations, before startup.
@@ -6194,4 +6195,21 @@ test('GAME22 failed acquisition retains original Collection and exact retry comm
 });
 test('GAME22 malformed Collection preserves original recoverable bytes',()=>{
  for(const change of [s=>s.oreCollection.ruby=-1,s=>s.oreCollection.amber=.5,s=>s.oreCollection.stone=1,s=>s.oreCollection=null]){const s=canonicalFurnaceGame().state();change(s);const raw=JSON.stringify(s),a=boot(raw);assert.ok(a.error);assert.equal(a.stored(),raw);assert.equal(a.writes.length,0);}
+});
+
+// GAME23: claims are state-only, durable and never speculative.
+test('GAME23 all six claims are atomic, reward-free and retained through reload/Rebirth',()=>{
+ const a=canonicalFurnaceGame();a.run('developmentCommand(next=>{next.achievementStats={totalOresMined:1000,oresDiscovered:20,oresSmelted:1};next.factoryXP=10000;prepareDevelopmentProgress(next);})');
+ for(const id of Object.keys(a.run('ACHIEVEMENTS'))){const before=a.state();assert.equal(a.run(`claimAchievement(${JSON.stringify(id)})`),true);const expected=structuredClone(before);expected.achievements[id].claimed=true;assert.deepEqual(a.state(),expected);assert.equal(a.run(`claimAchievement(${JSON.stringify(id)})`),false);}
+ const records=a.state().achievements;assert.deepEqual(ready(a.stored()).state().achievements,records);a.run('addDeveloperCash(1000000)');assert.equal(rebirthForTest(a),true);assert.deepEqual(a.state().achievements,records);assert.equal(a.elements.get('achievementsButton').hidden,false);
+});
+test('GAME23 rejected claims and failed writes preserve live state with exact retry',()=>{
+ const a=canonicalFurnaceGame();assert.equal(a.run('claimAchievement("firstSwing")'),false);assert.equal(a.elements.get('achievementsButton').hidden,true);a.run('mineDevelopmentOre()');const before=a.state();a.faults.write=true;assert.equal(a.run('claimAchievement("firstSwing")'),false);assert.deepEqual(a.state(),before);const bytes=a.run('pendingDevelopmentWrite.serialized');assert.equal(a.run('claimAchievement("firstSwing")'),false);assert.equal(a.run('retryDevelopmentWrite()'),false);assert.equal(a.run('pendingDevelopmentWrite.serialized'),bytes);a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.run('retryDevelopmentWrite()'),false);assert.equal(a.run('claimAchievement("firstSwing")'),false);
+});
+test('GAME23 historical Boolean records reveal without writes and malformed records recover',()=>{
+ const a=canonicalFurnaceGame(),s=a.state();s.achievements={firstSwing:true,firstDiscovery:false,factoryOwner:{unlocked:true,claimed:true}};const raw=JSON.stringify(s),b=boot(raw);assert.equal(b.error,undefined);assert.equal(b.writes.length,0);assert.equal(b.stored(),raw);assert.equal(b.elements.get('achievementsButton').hidden,false);assert.deepEqual(b.state().achievements,{firstSwing:{unlocked:true,claimed:false},firstDiscovery:{unlocked:false,claimed:false},factoryOwner:{unlocked:true,claimed:true}});
+ for(const value of [{unlocked:false,claimed:true},{unlocked:1,claimed:false},null]){const bad=structuredClone(s);bad.achievements.firstSwing=value;const bytes=JSON.stringify(bad),c=boot(bytes);assert.ok(c.error);assert.equal(c.stored(),bytes);assert.equal(c.writes.length,0);}
+});
+test('GAME23 one high-quantity manual action keeps the established click counter',()=>{
+ const a=canonicalFurnaceGame();a.run('developmentCommand(next=>prepareDevelopmentAward(next,"ruby",1000,true))');assert.equal(a.state().achievementStats.totalOresMined,1);assert.equal(a.state().oreCollection.ruby,1000);assert.equal(a.state().achievements.firstSwing.unlocked,true);assert.equal(a.state().achievements.stoneMiner,undefined);
 });
