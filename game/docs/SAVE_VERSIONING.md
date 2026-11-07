@@ -1,3 +1,7 @@
+## GAME22 — Base Ore Collection presentation
+
+No new save fields or migration. `oreCollection` remains the authoritative cumulative acquisition map in supported private and untagged saves. Completion is derived from positive counts for exactly the 20 `ORES` keys; Stone, materials and processed variants do not count. No history is inferred from inventory. Existing validation, recoverable bytes, no-load-write behaviour and persist-before-publish Retry are unchanged. Selling, processing and Rebirth retain these counters. Collection selection, progress percentage and rendered details are transient UI only. GAME20 discovery facts carry a transient resource ID for navigation after successful commit. No public V2 activation.
+
 ## GAME21-FIX — Issue #63 canonical-only milestone policy
 
 The later owner decision in Issue #63 supersedes historical-display retention. Only Reference G's 250 thresholds drive gameplay, counts, UI and notifications in both supported modes. Private schema-1 saves use the validated `milestoneProgress` record; absent records derive silently from retained XP-derived Factory Level plus exact-match true old flags. Original private `factoryMilestones` flags may remain inert data, never a parallel schedule or visible history.

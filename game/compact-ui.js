@@ -398,8 +398,6 @@
         count.parentElement.classList.add("ui-resource-row");
         count.parentElement.prepend(icon(id));
       }
-      const label = $(id + "Label");
-      if (label) label.parentElement.prepend(icon(id));
     }
     const buttonIcons = {
       mineButton: "mine",

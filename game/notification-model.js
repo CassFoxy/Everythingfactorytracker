@@ -135,7 +135,7 @@
           "Tier " + ore.tier + " · Added to your Collection.",
           ore.id,
           "collection",
-          { tier: ore.tier },
+          { tier: ore.tier, resourceId: ore.id },
         );
     for (const [id, a] of Object.entries(catalog.achievements))
       if (

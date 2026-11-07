@@ -1325,3 +1325,34 @@ summary .ui-icon {
     font-size: 15px;
   }
 }
+/* GAME22: permanent base-ore discovery book, scoped to the existing modal. */
+#collectionModal .modal-content { width: min(960px, calc(100vw - 24px)); max-height: 92dvh; overflow: auto; }
+#collectionBook { min-width: 0; }
+.collection-progress-label { color: var(--ui-gold); font-weight: 700; margin: 10px 0; }
+#collectionProgress { width: 100%; height: 12px; accent-color: #8eae59; }
+.collection-note { color: var(--ui-muted); font-size: 12px; line-height: 1.5; }
+.collection-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr); gap: 14px; }
+.collection-tiers, .collection-detail { min-width: 0; max-height: 52dvh; overflow: auto; scrollbar-gutter: stable; }
+.collection-tiers { padding: 3px; }
+.collection-tiers h3 { color: var(--ui-gold); margin: 8px 0; }
+.collection-entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.collection-entry { box-sizing: border-box; min-height: 70px; min-width: 0; display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 3px 8px; padding: 8px; border: 1px solid var(--ui-edge); background: var(--ui-deep); text-align: left; color: var(--ui-cream); }
+.collection-entry svg { width: 32px; height: 32px; grid-row: span 2; image-rendering: pixelated; }
+.collection-entry strong { font-size: 13px; overflow-wrap: anywhere; }
+.collection-entry span { font-size: 11px; color: var(--ui-muted); }
+.collection-entry.unknown { border-style: dashed; background: #191b18; }
+.collection-entry.unknown svg { opacity: .6; }
+.collection-entry[aria-pressed="true"] { border-color: var(--ui-gold); background: #353120; box-shadow: inset 3px 0 #a9bd73; }
+.collection-detail { padding: 14px; border: 1px solid var(--ui-edge); background: var(--ui-deep); box-sizing: border-box; }
+.collection-detail > svg { width: 64px; height: 64px; image-rendering: pixelated; }
+.collection-detail h3 { margin: 8px 0 16px; color: var(--ui-gold); }
+.collection-detail dt { color: var(--ui-muted); font-size: 12px; margin-top: 10px; }
+.collection-detail dd { margin: 2px 0; overflow-wrap: anywhere; }
+#collectionModal :focus-visible { outline: 2px solid var(--ui-gold); outline-offset: 2px; }
+@media (max-width: 600px) {
+  .collection-layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .collection-tiers { max-height: 30dvh; }
+  .collection-detail { max-height: 24dvh; padding: 10px; }
+  .collection-detail > svg { width: 40px; height: 40px; float: right; }
+  .collection-entry { min-height: 64px; }
+}

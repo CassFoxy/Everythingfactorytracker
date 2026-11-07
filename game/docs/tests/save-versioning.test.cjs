@@ -4047,6 +4047,7 @@ function boot(raw = null, beforeLoad = "", storageFaults = {}, now = 17000000000
     const run = code => vm.runInContext(code, context);
     run("Math.random = () => 0.5; Date.now = () => testClockNow();");
     vm.runInContext(fs.readFileSync(path.join(root,"milestone-model.js"),"utf8"), context, { filename: "milestone-model.js" });
+    vm.runInContext(fs.readFileSync(path.join(root,"collection-model.js"),"utf8"), context, { filename: "collection-model.js" });
     vm.runInContext(ores, context, { filename: "ores.js" });
     let error;
     // Optional test-only fault injection after declarations, before startup.
@@ -6171,4 +6172,26 @@ test('GAME21-FIX untagged legacy retires unmatched flags without public migratio
 test('GAME21-FIX unmatched private flags cannot affect counts or notification transitions',()=>{
  const a=canonicalFurnaceGame();a.run('save.rebirthCount=1');const before=a.state(),after=structuredClone(before);after.factoryMilestones[200]=true;after.factoryMilestones[250]=true;
  assert.deepEqual(milestoneFacts(before,after,a),[]);assert.equal(Object.values(after.milestoneProgress.earned).filter(Boolean).length,0);
+});
+
+// GAME22 observes established acquisition records; no new save fields or producers.
+test('GAME22 partial and legacy Collections load without writes or inventory reconstruction',()=>{
+ for(const base of [canonicalFurnaceGame().state(),legacyFixture()]){
+  base.oreCollection={amber:7,ruby:2};base.inventory.amber=0;base.inventory.diamond=50;const raw=JSON.stringify(base),a=boot(raw);assert.equal(a.error,undefined);assert.equal(a.stored(),raw);assert.equal(a.writes.length,0);assert.equal(a.state().oreCollection.amber,7);assert.equal(a.state().oreCollection.diamond,0);assert.equal(a.run('CollectionModel.snapshot(ORES,save.oreCollection).percentage'),10);
+ }
+});
+test('GAME22 acquisitions, sale, Polisher and Rebirth preserve cumulative Collection',()=>{
+ const a=canonicalFurnaceGame();a.run('developmentCommand(n=>prepareDevelopmentAward(n,"amber",5,false));addDeveloperCash(1000000)');const initial=a.state().oreCollection;assert.equal(initial.amber,5);
+ a.run('prepareDevelopmentSmelt("amber",.25);confirmSmelt()');a.advance(10000);a.run('updateDevelopmentMiner()');assert.deepEqual(a.state().oreCollection,initial);
+ a.run('buyDevelopmentPolisher(1);setDevelopmentPolisherOre("polisher:1","amber");advanceDevelopmentPolisher("polisher:1",Date.now())');a.advance(7500);a.run('advanceDevelopmentPolisher("polisher:1",Date.now());advanceDevelopmentPolisher("polisher:1",Date.now())');assert.deepEqual(a.state().oreCollection,initial);assert.ok(a.state().processedInventory.polished.length);
+ a.run('buyDevelopmentRefiner();setDevelopmentRefinerSelection(save.factory.refiner.id,processedSelection(save.processedInventory.polished[0]));advanceDevelopmentRefiner(save.factory.refiner.id,Date.now())');a.advance(15000);a.run('Math.random=()=>0.5;advanceDevelopmentRefiner(save.factory.refiner.id,Date.now());advanceDevelopmentRefiner(save.factory.refiner.id,Date.now())');assert.ok(a.state().processedInventory.refined.length);assert.deepEqual(a.state().oreCollection,initial);
+
+ a.run('addDeveloperCash(1000000)');assert.equal(rebirthForTest(a),true);assert.deepEqual(a.state().oreCollection,initial);assert.deepEqual(ready(a.stored()).state().oreCollection,initial);
+});
+test('GAME22 failed acquisition retains original Collection and exact retry commits once',()=>{
+ const a=canonicalFurnaceGame(),before=a.state();a.faults.write=true;assert.equal(a.run('developmentCommand(n=>{prepareDevelopmentAward(n,"amber",3,false);prepareDevelopmentAward(n,"ruby",2,false)})'),false);assert.deepEqual(a.state(),before);
+ const bytes=a.run('pendingDevelopmentWrite.serialized');assert.equal(a.run('retryDevelopmentWrite()'),false);a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.run('retryDevelopmentWrite()'),false);assert.equal(a.state().oreCollection.amber,3);assert.equal(a.state().oreCollection.ruby,2);
+});
+test('GAME22 malformed Collection preserves original recoverable bytes',()=>{
+ for(const change of [s=>s.oreCollection.ruby=-1,s=>s.oreCollection.amber=.5,s=>s.oreCollection.stone=1,s=>s.oreCollection=null]){const s=canonicalFurnaceGame().state();change(s);const raw=JSON.stringify(s),a=boot(raw);assert.ok(a.error);assert.equal(a.stored(),raw);assert.equal(a.writes.length,0);}
 });
