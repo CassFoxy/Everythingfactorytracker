@@ -119,6 +119,11 @@
       perks: openPermanentPerks,
     };
     if (routes[target]) {
+      if(target === "collection"){
+        openCollection(current.resourceId);
+        syncVisibility();
+        return;
+      }
       routes[target]();
       const dialogs = [
         ...document.querySelectorAll('.modal,[role="dialog"]'),

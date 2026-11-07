@@ -1,3 +1,9 @@
+## V1-GAME22 — Complete Base Ore Collection
+
+The 20 authoritative `ORES` entries now form a tier-ordered discovery book with derived unique count/percentage, redacted unknown entries and reusable discovered-ore details. Cumulative acquisitions remain distinct from available stock and survive sales, processing and Rebirth. GAME20 discovery actions focus the correct entry; no second notification system or save fields are added. UI02 styling, cached rendering, keyboard focus and seven viewport checks are covered in `docs/game22/README.md`.
+
+V1-121, V1-122, V1-123 and V1-125 are complete for base ores, subject to the implementation PR's final full regression/CI verification. V1-225's base Collection interface scope is complete; broader future variants are not activated. V1-124 mutations, rewards, relics and public V2 remain deferred.
+
 ## V1-GAME21 — Canonical milestones and progression tracking
 
 GAME21-FIX applies Issue #63's superseding canonical-only policy: all supported gameplay uses the 250 Reference G thresholds. Unmatched retired flags have no UI, counts, notices or parallel schedule. Private canonical records and untagged schema-1 maps derive from retained actual Factory Level and exact-match true flags without a load-time write. Unrelated progression remains intact; no rewards or public V2 activation. See `docs/MILESTONE_CONTRACT.md`.
@@ -1813,7 +1819,7 @@ Current ore discovery tracking works.
 ## V1-121 — Data-Driven Collection UI
 
 **Priority:** P3
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — base-ore scope (GAME22)
 
 Generate entries from resource data rather than manually maintaining every ore entry where practical.
 
@@ -1822,14 +1828,14 @@ Generate entries from resource data rather than manually maintaining every ore e
 ## V1-122 — Collection Completion Percentage
 
 **Priority:** P3
-**Status:** ⚪ NOT STARTED
+**Status:** ✅ COMPLETE — base-ore scope (GAME22)
 
 ---
 
 ## V1-123 — Collection Entry Details
 
 **Priority:** P3
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — base-ore scope (GAME22)
 
 Show useful discovered-resource information.
 
@@ -1845,7 +1851,7 @@ Show useful discovered-resource information.
 ## V1-125 — Collection Persistence
 
 **Priority:** P3
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — base-ore scope (GAME22)
 
 Verify behaviour through saves and later Rebirth.
 
@@ -2468,7 +2474,7 @@ Allow easy inspection of current save/state during development.
 ## V1-225 — Collection Interface
 
 **Priority:** P4
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — base-ore scope (GAME22)
 
 ---
 

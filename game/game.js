@@ -2621,16 +2621,7 @@ document.getElementById("furnaceCard")
 .style.display =
     "block";
 
-ORE_KEYS.forEach(key => {
-
-    updateOreDisplay(
-        key + "Label",
-        key + "Count",
-        ORES[key].name,
-        save.oreCollection[key]
-    );
-
-});
+if(typeof CollectionView!=="undefined" && document.getElementById("collectionModal").style.display === "block") CollectionView.render();
 
 updateInventoryTooltip(
     "invStone",
@@ -2652,11 +2643,7 @@ ORE_KEYS.forEach(key => {
 
 });
     
-    const discovered = Object.values(
-    save.oreCollection
-).filter(
-    count => count > 0
-).length;
+    const discovered = CollectionModel.snapshot(ORES,save.oreCollection).discovered;
 
 document.getElementById(
     "discoveredCount"
@@ -3301,20 +3288,13 @@ function addFactoryXP(amount){
 
 }
 
-          function openCollection(){
-
-    document.getElementById(
-        "collectionModal"
-    ).style.display = "block";
-
+function openCollection(resourceId){
+    if(typeof CollectionView!=="undefined") CollectionView.open(resourceId);
+    else document.getElementById("collectionModal").style.display="block";
 }
-
 function closeCollection(){
-
-    document.getElementById(
-        "collectionModal"
-    ).style.display = "none";
-
+    if(typeof CollectionView!=="undefined") CollectionView.close();
+    else document.getElementById("collectionModal").style.display="none";
 }
 
           function openInventory(){

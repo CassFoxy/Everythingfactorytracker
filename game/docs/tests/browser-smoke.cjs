@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const root = path.resolve(__dirname, "../..");
-const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js", "notification-model.js", "notifications.js", "milestone-model.js", "milestone-ui.js"].map(name =>
+const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js", "notification-model.js", "notifications.js", "milestone-model.js", "milestone-ui.js", "collection-model.js", "collection-ui.js"].map(name =>
     ["/" + name, fs.readFileSync(path.join(root, name))]));
 for (const name of fs.readdirSync(path.join(root, 'assets/ui'))) {
     files.set('/assets/ui/' + name, fs.readFileSync(path.join(root, 'assets/ui', name)));
@@ -151,6 +151,43 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
 
 
 
+
+
+        // GAME22: the real discovery book, hidden identities, durable discoveries and focus routes.
+        for(const [width,height] of [[2560,1440],[1920,1080],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]){
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
+            await page.locator('#mineButton').focus();await page.evaluate(()=>{window.collectionBefore=localStorage.getItem(SAVE_KEY);openCollection()});
+            assert.match(await page.locator('#collectionProgressLabel').textContent(),/0 \/ 20 — 0%/);
+            assert.equal(await page.locator('.collection-entry').count(),20);assert.equal(await page.locator('.collection-tiers h3').count(),4);
+            const hidden=await page.locator('#collectionBook').innerHTML();for(const id of await page.evaluate(()=>ORE_KEYS))assert.ok(!hidden.toLowerCase().includes(id.toLowerCase()),'unknown identity leaked: '+id);
+            assert.equal(await page.locator('.collection-entry button').count(),0);assert.equal(await page.evaluate(()=>localStorage.getItem(SAVE_KEY)===collectionBefore),true);
+            await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>document.activeElement.id),'mineButton');await page.locator('#mineButton').click();await page.evaluate(()=>{TEFINotifications.clear();let rolls=[.002,0,.99];Math.random=()=>rolls.shift()??.99});await page.locator('#mineButton').click();
+            assert.match(await page.locator('#notificationTitle').textContent(),/Amber discovered/);await page.locator('#notificationOpen').click();
+            assert.equal(await page.evaluate(()=>document.activeElement.dataset.oreId),'amber');assert.match(await page.locator('#collectionDetail').textContent(),/Amber/);assert.match(await page.locator('#collectionProgressLabel').textContent(),/1 \/ 20 — 5%/);
+            await page.locator('[data-ore-id="amber"]').press('Enter');assert.equal(await page.evaluate(()=>document.activeElement.id),'collectionDetail');assert.match(await page.locator('#collectionDetail').textContent(),/Base ore value.*\$10/s);
+            await page.locator('#collectionModal .close-button').focus();await page.keyboard.press('Shift+Tab');assert.equal(await page.evaluate(()=>document.activeElement.id),'collectionDetail');await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('close-button')),true);
+            await page.keyboard.press('Escape');
+            await page.evaluate(()=>{TEFINotifications.clear();window.collectionWrite=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('GAME22 write')};developmentCommand(n=>{prepareDevelopmentAward(n,'ruby',2,false);prepareDevelopmentAward(n,'diamond',3,false)})});
+            assert.equal(await page.evaluate(()=>save.oreCollection.ruby),0);assert.equal(await page.locator('#notificationRegion').isVisible(),false);
+            const pending=await page.evaluate(()=>pendingDevelopmentWrite.serialized);await page.evaluate(()=>retryDevelopmentWrite());assert.equal(await page.evaluate(()=>pendingDevelopmentWrite.serialized),pending);
+            await page.evaluate(()=>Storage.prototype.setItem=collectionWrite);await page.locator('#retryDevelopmentWrite').click();
+            assert.deepEqual(await page.evaluate(()=>{const q=TEFINotifications.snapshot();return [q.current,...q.waiting].filter(n=>n?.type==='discovery').map(n=>n.resourceId)}),['ruby','diamond']);assert.equal(await page.evaluate(()=>retryDevelopmentWrite()),false);
+            await page.locator('#notificationOpen').click();assert.equal(await page.evaluate(()=>document.activeElement.dataset.oreId),'ruby');await page.keyboard.press('Escape');
+            await page.evaluate(()=>{TEFINotifications.clear();developmentCommand(n=>{prepareDevelopmentAward(n,'ruby',2,false);for(const id of ['quartz','citrine','spinel','onyx'])prepareDevelopmentAward(n,id,1,false)});TEFINotifications.clear();openCollection('ruby')});
+            assert.match(await page.locator('#collectionProgressLabel').textContent(),/7 \/ 20 — 35%/);assert.match(await page.locator('#collectionDetail').textContent(),/Cumulative acquired.*4/s);
+            await page.evaluate(()=>{window.collectionEntry=document.querySelector('[data-ore-id="ruby"]');updateUI()});assert.equal(await page.evaluate(()=>collectionEntry===document.querySelector('[data-ore-id="ruby"]')),true);
+            const before=await page.evaluate(()=>JSON.stringify(save.oreCollection));await page.evaluate(()=>developmentCommand(n=>{n.inventory.ruby=0}));assert.equal(await page.evaluate(()=>JSON.stringify(save.oreCollection)),before);assert.match(await page.locator('#collectionDetail').textContent(),/Cumulative acquired.*4/s);
+            await page.emulateMedia({reducedMotion:'reduce'});
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(width>=1000)assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
+            const modal=await page.locator('#collectionModal .modal-content').boundingBox();assert.ok(modal.x>=0&&modal.y>=0&&modal.x+modal.width<=width+1&&modal.y+modal.height<=height+1);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game22-collection-${width}x${height}.png`),animations:'disabled'});}
+            await page.keyboard.press('Escape');await page.evaluate(()=>{addDeveloperCash(1000000);TEFINotifications.clear()});await page.locator('#rebirthButton').click();await page.locator('#confirmRebirth').click();assert.equal(await page.evaluate(()=>JSON.stringify(save.oreCollection)),before);
+            await page.reload();assert.equal(await page.locator('#notificationRegion').isVisible(),false);assert.equal(await page.evaluate(()=>JSON.stringify(save.oreCollection)),before);
+            await page.evaluate(()=>{developmentCommand(n=>{for(const id of ORE_KEYS)if(!n.oreCollection[id])prepareDevelopmentAward(n,id,1,false)});TEFINotifications.clear();openCollection()});assert.match(await page.locator('#collectionProgressLabel').textContent(),/20 \/ 20 — 100%/);
+            assert.equal(await page.locator('.collection-entry.unknown').count(),0);assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(n=>n.id);return ids.length!==new Set(ids).size}),false);assert.deepEqual(app.errors,[]);
+            await app.context.close();console.log(`PASS GAME22 ${width}x${height}: hidden catalogue, details, notifications, exact retry, retention, keyboard and responsive book.`);
+        }
+        if(process.env.TEFI_SMOKE_SCOPE==='game22')return;
 
         // GAME21: canonical tracking, canonical-only compatibility and long-list accessibility.
         for(const [width,height] of [[2560,1440],[1920,1080],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]){
