@@ -1,3 +1,9 @@
+## V1-GAME21 — Canonical milestones and progression tracking
+
+GAME21-FIX applies Issue #63's superseding canonical-only policy: all supported gameplay uses the 250 Reference G thresholds. Unmatched retired flags have no UI, counts, notices or parallel schedule. Private canonical records and untagged schema-1 maps derive from retained actual Factory Level and exact-match true flags without a load-time write. Unrelated progression remains intact; no rewards or public V2 activation. See `docs/MILESTONE_CONTRACT.md`.
+
+V1-130, V1-131 and the implemented V1-133 scope are complete when the implementation PR's catalogue, save/retry, Rebirth, full Node/Chromium and CI checks pass. V1-132 rewards remain deferred. Screenshots and final counts are recorded on that PR. No further gameplay ticket is started here.
+
 ## V1-GAME20 — Notification queue and progression feedback
 
 Current private-profile notification types share a commit-only presentation queue: every new discovery/achievement/milestone, Factory Level summaries, existing unlocks, bulk purchases/upgrades, crafting/repair/resale and Rebirth. UI02 icons, FIFO within priorities, safe expiry/dismissal, persistent detail routes, modal/recovery precedence, keyboard/live-region access and reduced motion are integrated. No save fields, rewards or progression calculations change. Legacy popups remain separate.
@@ -1849,11 +1855,11 @@ Verify behaviour through saves and later Rebirth.
 
 ## V1-130 — 250 Milestone Thresholds
 
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — current private profile (GAME21)
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-101; V1-016 milestone compatibility contract
 
-Replace legacy threshold schedule with exact Reference G 250-entry catalogue/formula, end 10,000. Preserve legitimate earned/claimed historical progress during mapping; do not invent rewards or discard claims.
+Replace legacy threshold schedule with exact Reference G 250-entry catalogue/formula, end 10,000. Use retained actual Factory Level and exact-match true flags per Issue #63; unmatched retired flags have no active interpretation. Preserve unrelated claim data without inventing rewards.
 
 **Acceptance:** Reference L checks 24–25.
 
@@ -1861,7 +1867,7 @@ Replace legacy threshold schedule with exact Reference G 250-entry catalogue/for
 
 ## V1-131 — Milestone Tracking and Reveal
 
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — current private profile (GAME21)
 **Design:** DESIGN COMPLETE
 **Dependencies:** V1-130, V1-163
 
@@ -1884,9 +1890,9 @@ Retain earned/claim infrastructure but do not invent reward amounts/types. Detai
 ## V1-133 — Milestone Notifications
 
 **Priority:** P3
-**Status:** 🟠 IN PROGRESS
+**Status:** ✅ COMPLETE — current private profile (GAME21)
 
-Existing popup can be retained and improved.
+Canonical earned transitions use GAME20 major notifications, ordered/grouped without loss after first-Rebirth reveal. Legacy popups remain separate; deferred reward consumers are not activated.
 
 ---
 

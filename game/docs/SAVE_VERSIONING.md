@@ -1,3 +1,9 @@
+## GAME21-FIX — Issue #63 canonical-only milestone policy
+
+The later owner decision in Issue #63 supersedes historical-display retention. Only Reference G's 250 thresholds drive gameplay, counts, UI and notifications in both supported modes. Private schema-1 saves use the validated `milestoneProgress` record; absent records derive silently from retained XP-derived Factory Level plus exact-match true old flags. Original private `factoryMilestones` flags may remain inert data, never a parallel schedule or visible history.
+
+Untagged legacy saves remain untagged schema 1 with no private/V2 fields. Validated milestone flags are interpreted in memory into the canonical `factoryMilestones` map using retained actual Factory Level and exact matches. Unmatched keys are ignored and omitted on normal subsequent writes. All unrelated state remains intact. No load-time localStorage write, opt-in conversion, nearest-threshold substitution, rewards or compensation occurs. Original bytes remain recoverable; malformed input enters recovery. Private commits and exact Retry remain atomic. See [MILESTONE_CONTRACT.md](MILESTONE_CONTRACT.md). Public V2 remains gated.
+
 ## GAME20 — transient committed-state notifications
 
 No persisted fields or save version change. The `miner-1` writer calls the presentation adapter after publishing a successfully persisted candidate, including an exact failed-write retry. Initial load establishes state without replaying discoveries, levels, achievements or milestones. Queue dismissal, expiry and detail navigation never write progression or statistics. Recovery/reset clears transient notices; ordinary confirmation/recovery overlays pause or suppress their presentation. Untagged legacy popups remain separate. See GAME_BIBLE section 3.21 for queue and milestone-reveal semantics.

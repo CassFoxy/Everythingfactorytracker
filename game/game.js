@@ -1,47 +1,15 @@
-function generateMilestones(){
-
-    const milestones = [];
-
-    // Early Game
-
-    milestones.push(
-        10,
-        25,
-        50,
-        75,
-        100
-    );
-
-    // Mid Game
-
-    for(
-        let level = 150;
-        level <= 1000;
-        level += 50
-    ){
-
-        milestones.push(level);
-
-    }
-
-    // Late Game
-
-    for(
-        let level = 1100;
-        level <= 10000;
-        level += 100
-    ){
-
-        milestones.push(level);
-
-    }
-
-    return milestones;
-
+// Reference G is the only active milestone catalogue in every supported mode.
+const FACTORY_MILESTONES = MilestoneModel.levels;
+// Input validation only: recognise retired keys without recreating their schedule.
+function isRetiredMilestoneKey(id){
+    const n = Number(id);
+    return String(n) === id && ([10,25,50,75,100].includes(n) ||
+        (n >= 150 && n <= 1000 && n % 50 === 0) ||
+        (n >= 1100 && n <= 10000 && n % 100 === 0));
 }
-
-const FACTORY_MILESTONES =
-    generateMilestones();
+function activeMilestoneFlags(state = save){
+    return isMinerDevelopment(state) ? state.milestoneProgress.earned : state.factoryMilestones;
+}
 
 const ACHIEVEMENTS = {
 
@@ -430,7 +398,7 @@ function validateSaveData(data){
         record(value, path);
         const ids = FACTORY_MILESTONES.map(String);
         for(const [id, unlocked] of Object.entries(value)){
-            if(!ids.includes(id)) invalid(path + "." + id, "has an unknown milestone ID");
+            if(!ids.includes(id) && !isRetiredMilestoneKey(id)) invalid(path + "." + id, "has an unknown milestone ID");
             boolean(unlocked, path + "." + id);
         }
     });
@@ -634,6 +602,13 @@ function readVersionedSave(serializedSave){
         completeDevelopmentPickaxeFields(migrated);
         completeDevelopmentShopFields(migrated);
         completeDevelopmentStatistics(migrated);
+        completeDevelopmentMilestones(migrated);
+        if(!isMinerDevelopment(migrated)){
+            // Retire unmatched keys in memory only; loading never writes original bytes.
+            const earned = MilestoneModel.complete(MilestoneModel.createEarned(), getFactoryLevelFromXP(migrated.factoryXP || 0));
+            for(const level of FACTORY_MILESTONES) if(migrated.factoryMilestones?.[level] === true) earned[level] = true;
+            migrated.factoryMilestones = earned;
+        }
         validateDevelopmentSave(migrated);
     }catch(error){
         throw error?.code ? error : saveLoadError("VALIDATION_ERROR", "Save validation failed. Stored data was not changed.", error);
@@ -707,6 +682,8 @@ function completeValidatedSave(validatedSave){
         }
     }
     if(hasCanonicalFurnace(completed)) for(const key of furnaceLegacyKeys()) delete defaults[key];
+    // Private historical milestone evidence is retained byte-for-value, including partial maps.
+    if(isMinerDevelopment(completed)) delete defaults.factoryMilestones;
     fillMissing(completed, defaults);
     // DEV01: only an absent optional setting defaults off after validation.
     if(isMinerDevelopment(completed) && !Object.hasOwn(completed, "developerTools"))
@@ -2685,12 +2662,8 @@ document.getElementById(
     "discoveredCount"
 ).textContent = discovered;
 
-    const completedMilestones =
-    Object.values(
-        save.factoryMilestones
-    ).filter(
-        unlocked => unlocked
-    ).length;
+    const completedMilestones = isMinerDevelopment() ? MilestoneModel.summary(save.milestoneProgress.earned).completed :
+    MilestoneModel.summary(save.factoryMilestones).completed;
 
 document.getElementById(
     "milestoneCount"
@@ -3379,25 +3352,20 @@ function closeStats(){
 
 }
 
+let milestoneReturnFocus = null;
 function openMilestones(){
     if(isMinerDevelopment() && save.rebirthCount === 0) return;
-
+    milestoneReturnFocus = document.activeElement;
     buildMilestonesMenu();
-
-    document.getElementById(
-        "milestonesModal"
-    ).style.display =
-        "block";
-
+    document.getElementById("milestonesModal").style.display = "block";
+    document.querySelector?.("#milestonesModal .close-button")?.focus?.();
 }
 
 function closeMilestones(){
-
-    document.getElementById(
-        "milestonesModal"
-    ).style.display =
-        "none";
-
+    document.getElementById("milestonesModal").style.display = "none";
+    const target = milestoneReturnFocus?.isConnected ? milestoneReturnFocus : document.getElementById("milestonesButton");
+    target?.focus?.();
+    milestoneReturnFocus = null;
 }
 
 function openAchievements(){
@@ -3748,6 +3716,11 @@ if(container.innerHTML === ""){
 }
 
 function buildMilestonesMenu(){
+    if(isMinerDevelopment() && save.rebirthCount === 0) return;
+    if(typeof MilestoneView !== "undefined"){
+        MilestoneView.render({ earned: activeMilestoneFlags(), level: save.factoryLevel });
+        return;
+    }
 
     const container =
         document.getElementById(
@@ -3759,7 +3732,7 @@ function buildMilestonesMenu(){
     FACTORY_MILESTONES.forEach(level => {
 
         const unlocked =
-            save.factoryMilestones[
+            activeMilestoneFlags()[
                 level
             ];
 
@@ -4248,6 +4221,7 @@ function createMinerDevelopmentSave(){
         stardust: 0,
         permanentPerks: PermanentPerkModel.createOwnership(),
         rebirthCount: 0,
+        milestoneProgress: { catalogue: "reference-g-250", earned: MilestoneModel.createEarned() },
         processedInventory: { polished: [], refined: [] },
         statistics: PolishedOutputStatisticsCandidateModel.createStatistics(),
         identity: { nextEntitySequence: 1, nextManualEquipSequence: 1 }
@@ -4543,6 +4517,7 @@ function validateDevelopmentSave(state){
     try{
         if(!isMinerDevelopment(state)) throw Error("Unsupported development profile");
         validateDevelopmentRebirth(state);
+        validateDevelopmentMilestones(state);
         PermanentPerkModel.validateOwnership(state.permanentPerks);
         if(Object.hasOwn(state, "developerTools")){
             developmentRecord(state.developerTools, ["furnaceEnabled"]);
@@ -4632,7 +4607,7 @@ function exactDevelopmentAdd(before, amount){
 }
 function prepareDevelopmentProgress(state){
     state.factoryLevel = getFactoryLevelFromXP(state.factoryXP);
-    for(const level of FACTORY_MILESTONES) if(state.factoryLevel >= level) state.factoryMilestones[level] = true;
+    state.milestoneProgress.earned = MilestoneModel.complete(state.milestoneProgress.earned, state.factoryLevel);
     for(const [id, achievement] of Object.entries(ACHIEVEMENTS)){
         const value = achievement.type === "stat" ? state.achievementStats[achievement.stat] || 0 : state.factoryLevel;
         if(value >= achievement.target && !state.achievements[id]?.unlocked)
@@ -4671,10 +4646,11 @@ function publishDevelopmentState(next){
     for(const [id, progress] of Object.entries(save.achievements))
         if(progress.unlocked && !previous.achievements[id]?.unlocked) pendingAchievement = ACHIEVEMENTS[id];
     for(const level of FACTORY_MILESTONES)
-        if(save.factoryMilestones[level] && !previous.factoryMilestones[level]) pendingMilestone = level;
+        if(activeMilestoneFlags(save)[level] && !activeMilestoneFlags(previous)[level]) pendingMilestone = level;
     }
     updateUI();
     if(document.getElementById("statsModal").style.display==="block")renderDevelopmentStatistics();
+    if(isMinerDevelopment() && document.getElementById("milestonesModal").style.display === "block") buildMilestonesMenu();
     // Presentation failures must never turn a successfully persisted transaction into a failed command.
     if(typeof TEFINotifications!=="undefined"){
         try{TEFINotifications.committed(previous,next);}catch(error){console.warn("Notification presentation unavailable",error);}
@@ -6202,4 +6178,18 @@ function renderDevelopmentStatistics(scope=developmentStatisticsScope){
     group("Stardust and Gem Dust",["Record","Amount"],[["Stardust balance",save.stardust],["Rebirth Stardust earned",g.stardustRebirthEarned],["Perk Stardust spent",g.stardustPerksSpent],["Perk purchase transactions",g.perkPurchases],["Gem Dust balance",save.gemDust],["Refiner Gem Dust earned",g.gemDustEarned]]);
     group("Rebirth history — latest 100 observed completions",["Sequence / UTC completion","Cash basis","Gain level","Award"],stats.rebirthHistory.slice().reverse().map(h=>[h.sequence+" · "+new Date(h.completedAtMs).toISOString(),h.cashBasis,h.gainLevel,h.award]));
     group("Personal bests — observed since tracking began",["Record","Best"],Object.entries(stats.bests).map(([k,v])=>[label(k),v]));
+}
+
+// GAME21-FIX / Issue #63: canonical-only interpretation; no public V2 conversion.
+function completeDevelopmentMilestones(state){
+    if(!isMinerDevelopment(state)) return;
+    if(Object.hasOwn(state,"milestoneProgress")) { validateDevelopmentMilestones(state); return; }
+    const earned = MilestoneModel.complete(MilestoneModel.createEarned(), getFactoryLevelFromXP(state.factoryXP));
+    for(const level of MilestoneModel.levels) if(state.factoryMilestones?.[level] === true) earned[level] = true;
+    state.milestoneProgress = { catalogue: "reference-g-250", earned };
+}
+function validateDevelopmentMilestones(state){
+    developmentRecord(state.milestoneProgress,["catalogue","earned"]);
+    if(state.milestoneProgress.catalogue !== "reference-g-250") throw Error("Unsupported milestone catalogue");
+    MilestoneModel.validateEarned(state.milestoneProgress.earned);
 }

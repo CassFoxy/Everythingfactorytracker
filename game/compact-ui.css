@@ -1235,3 +1235,93 @@ summary .ui-icon {
 .tefi-pixel-ui .miner-slot[data-ui-state="active"] .ui-slot-state {
   color: var(--ui-green);
 }
+/* GAME21 canonical catalogue presentation; activated only by the private milestone adapter. */
+.canonical-milestones h3 {
+  font-size: 17px;
+  color: var(--ui-gold);
+  margin: 8px 0;
+}
+.canonical-milestones progress {
+  display: block;
+  width: 100%;
+  height: 16px;
+  accent-color: var(--ui-green);
+}
+.canonical-milestones p {
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.milestone-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 12px 0;
+}
+.milestone-controls label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.canonical-milestone-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 46dvh;
+  overflow: auto;
+  padding: 4px;
+  scrollbar-color: var(--ui-copper) var(--ui-deep);
+}
+.canonical-milestone-list .milestone-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 0;
+  padding: 10px;
+  min-width: 0;
+}
+.canonical-milestone-list svg {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  image-rendering: pixelated;
+}
+.canonical-milestone-list strong,
+.canonical-milestone-list span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.canonical-milestone-list strong {
+  font-size: 13px;
+}
+.canonical-milestone-list span {
+  font-size: 12px;
+  margin-top: 4px;
+}
+.canonical-milestone-list .milestone-unlocked {
+  background: #283020;
+}
+.canonical-milestone-list .milestone-locked {
+  background: var(--ui-deep);
+}
+.canonical-milestone-list:focus-visible,
+.canonical-milestone-list .milestone-item:focus-visible {
+  outline: 2px solid var(--ui-gold);
+  outline-offset: 1px;
+}
+@media (max-width: 500px) {
+  .canonical-milestone-list {
+    grid-template-columns: 1fr;
+    max-height: 42dvh;
+  }
+  .milestone-controls {
+    gap: 8px;
+  }
+  .milestone-controls button {
+    width: 100%;
+  }
+  .canonical-milestones h3 {
+    font-size: 15px;
+  }
+}

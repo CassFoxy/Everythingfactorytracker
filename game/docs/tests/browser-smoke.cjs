@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const root = path.resolve(__dirname, "../..");
-const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js", "notification-model.js", "notifications.js"].map(name =>
+const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js", "notification-model.js", "notifications.js", "milestone-model.js", "milestone-ui.js"].map(name =>
     ["/" + name, fs.readFileSync(path.join(root, name))]));
 for (const name of fs.readdirSync(path.join(root, 'assets/ui'))) {
     files.set('/assets/ui/' + name, fs.readFileSync(path.join(root, 'assets/ui', name)));
@@ -151,6 +151,59 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
 
 
 
+
+        // GAME21: canonical tracking, canonical-only compatibility and long-list accessibility.
+        for(const [width,height] of [[2560,1440],[1920,1080],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]){
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
+            assert.equal(await page.locator('#milestonesButton').isVisible(),false);
+            await page.evaluate(()=>developmentCommand(n=>{n.factoryXP=100*95**2;prepareDevelopmentProgress(n)}));
+            assert.equal(await page.evaluate(()=>Object.values(save.milestoneProgress.earned).filter(Boolean).length),4);
+            assert.equal(await page.evaluate(()=>{const q=TEFINotifications.snapshot();return [q.current,...q.waiting].some(n=>n?.type==='milestone')}),false);
+            await page.evaluate(()=>openMilestones());assert.equal(await page.locator('#milestonesModal').isVisible(),false);
+            await page.evaluate(()=>addDeveloperCash(1000000));await page.locator('#rebirthButton').click();await page.locator('#confirmRebirth').click();
+            assert.equal(await page.locator('#milestonesButton').isVisible(),true);
+            assert.equal(await page.evaluate(()=>{const q=TEFINotifications.snapshot();return [q.current,...q.waiting].some(n=>n?.type==='milestone')}),false);
+            await page.evaluate(()=>TEFINotifications.clear());await page.locator('#milestonesButton').click();
+            assert.equal(await page.locator('#canonicalMilestoneList [role="listitem"]').count(),250);
+            assert.match(await page.locator('#milestoneSummary').textContent(),/4 \/ 250/);assert.match(await page.locator('#milestoneNext').textContent(),/100.*5 levels remaining/);
+            await page.locator('#milestoneFilter').selectOption('earned');assert.equal(await page.locator('#canonicalMilestoneList [role="listitem"]').count(),4);
+            await page.locator('#milestoneJump').click();assert.equal(await page.evaluate(()=>document.activeElement.id),'canonical-milestone-100');
+            await page.locator('#milestoneFilter').selectOption('all');await page.locator('#canonical-milestone-10000').scrollIntoViewIfNeeded();assert.equal(await page.locator('#canonical-milestone-10000').isVisible(),true);
+            await page.keyboard.press('Escape');assert.equal(await page.locator('#milestonesModal').isVisible(),false);assert.equal(await page.evaluate(()=>document.activeElement.id),'milestonesButton');
+            await page.evaluate(()=>{TEFINotifications.clear();developmentCommand(n=>{n.factoryXP=100*200**2;prepareDevelopmentProgress(n)})});
+            const small=await page.evaluate(()=>{const q=TEFINotifications.snapshot();return [q.current,...q.waiting].filter(Boolean)});
+            assert.deepEqual(small.filter(n=>n.type==='milestone').map(n=>n.level),[100,115,130,150,170,195]);assert.equal(small.filter(n=>n.type==='level').length,1);
+            await page.locator('#milestonesButton').click();assert.equal(await page.locator('#notificationRegion').isVisible(),false);
+            assert.match(await page.locator('#milestoneSummary').textContent(),/10 \/ 250/);assert.match(await page.locator('#milestoneNext').textContent(),/215.*15 levels remaining/);
+            await page.locator('#milestoneFilter').selectOption('all');await page.locator('#canonicalMilestoneList').evaluate(n=>n.scrollTop=0);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game21-milestones-${width}x${height}.png`),animations:'disabled'});}
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+            if(width>1100)assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight>innerHeight),false);
+            await page.locator('#milestonesModal .close-button').focus();await page.keyboard.press('Shift+Tab');assert.equal(await page.evaluate(()=>document.activeElement.id),'canonicalMilestoneList');await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('close-button')),true);
+            await page.keyboard.press('Escape');await page.evaluate(()=>{TEFINotifications.clear();window.game21Write=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('quota')}});
+            const before=await page.evaluate(()=>JSON.stringify(save));await page.evaluate(()=>developmentCommand(n=>{n.factoryXP=100*1000**2;prepareDevelopmentProgress(n)}));
+            assert.equal(await page.evaluate(()=>JSON.stringify(save)),before);assert.equal(await page.locator('#notificationRegion').isVisible(),false);
+            const pending=await page.evaluate(()=>pendingDevelopmentWrite.serialized);await page.evaluate(()=>retryDevelopmentWrite());assert.equal(await page.evaluate(()=>pendingDevelopmentWrite.serialized),pending);
+            await page.evaluate(()=>Storage.prototype.setItem=game21Write);await page.locator('#retryDevelopmentWrite').click();
+            const grouped=await page.evaluate(()=>{const q=TEFINotifications.snapshot();return [q.current,...q.waiting].find(n=>n?.type==='milestone')});assert.equal(grouped.levels.length,28);assert.equal(await page.evaluate(()=>retryDevelopmentWrite()),false);
+            const progress=await page.evaluate(()=>JSON.stringify(save.milestoneProgress));await page.evaluate(()=>addDeveloperCash(1000000));await page.locator('#rebirthButton').click();await page.locator('#confirmRebirth').click();assert.equal(await page.evaluate(()=>JSON.stringify(save.milestoneProgress)),progress);
+            await page.reload();assert.equal(await page.locator('#notificationRegion').isVisible(),false);assert.equal(await page.evaluate(()=>JSON.stringify(save.milestoneProgress)),progress);
+            await page.locator('#milestonesButton').click();await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('#canonicalMilestoneList [role="listitem"]').count(),250);await page.keyboard.press('Escape');
+            assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(n=>n.id);return ids.length!==new Set(ids).size}),false);assert.deepEqual(app.errors,[]);
+            if(width===390){
+                const raw=await page.evaluate(()=>{const n=structuredClone(save);delete n.milestoneProgress;n.factoryMilestones={150:true,200:true,250:true};n.retainedClaimMetadata={claimed:[200]};return JSON.stringify(n)});
+                const historical=await session(raw,true);await historical.page.setViewportSize({width,height});assert.equal(await historical.page.evaluate(()=>localStorage.getItem(SAVE_KEY)),raw);
+                await historical.page.locator('#milestonesButton').click();assert.equal(await historical.page.locator('#historicalMilestones').count(),0);assert.equal(await historical.page.locator('#canonical-milestone-200').count(),0);assert.equal(await historical.page.locator('#canonical-milestone-250').count(),0);assert.equal(await historical.page.locator('#canonicalMilestoneList [role="listitem"]').count(),250);assert.deepEqual(await historical.page.evaluate(()=>save.retainedClaimMetadata),{claimed:[200]});
+                assert.deepEqual(historical.errors,[]);await historical.context.close();
+                const legacyRaw=await page.evaluate(()=>JSON.stringify({...createDefaultSave(),factoryXP:902500,factoryLevel:95,factoryMilestones:{150:true,200:true,250:true}}));
+                const legacy=await session(legacyRaw,true);await legacy.page.setViewportSize({width,height});assert.equal(await legacy.page.evaluate(()=>localStorage.getItem(SAVE_KEY)),legacyRaw);
+                await legacy.page.evaluate(()=>openMilestones());assert.equal(await legacy.page.locator('#canonicalMilestoneList [role="listitem"]').count(),250);assert.equal(await legacy.page.locator('#historicalMilestones').count(),0);assert.match(await legacy.page.locator('#milestoneSummary').textContent(),/5 \/ 250/);assert.equal(await legacy.page.locator('#canonical-milestone-200').count(),0);
+                assert.equal(await legacy.page.evaluate(()=>Object.hasOwn(save,'developmentProfile')),false);assert.deepEqual(legacy.errors,[]);await legacy.context.close();
+
+            }
+            await app.context.close();console.log(`PASS GAME21 ${width}x${height}: 250 entries, hidden tracking, reveal, retired-flag exclusion, notifications, exact retry, repeat Rebirth and keyboard navigation.`);
+        }
+        if(process.env.TEFI_SMOKE_SCOPE==='game21')return;
 
         // GAME20: real committed transitions, priority delivery and critical-overlay safety.
         for(const [width,height] of [[2560,1440],[1920,1080],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]){
