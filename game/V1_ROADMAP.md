@@ -4,6 +4,10 @@ The 20 authoritative `ORES` entries now form a tier-ordered discovery book with 
 
 V1-121, V1-122, V1-123 and V1-125 are complete for base ores, subject to the implementation PR's final full regression/CI verification. V1-225's base Collection interface scope is complete; broader future variants are not activated. V1-124 mutations, rewards, relics and public V2 remain deferred.
 
+## GAME24 — Mining Animations and Visual Feedback
+
+Manual mining now has a commit-only cosmetic adapter: the performing Pickaxe swings, a local impact uses tier-sensitive particles, and floating UI02 resource/material icons show exact committed quantities. Rapid clicks aggregate within one transient burst; one expiry timer, at most ten particles and two Web Animations keep work bounded. Reduced motion retains readable static awards. Recovery, reset, Rebirth, hidden tabs and page exit clear obsolete effects. No gameplay RNG, rates, durability, save fields or progression change. See [API and visual verification](docs/game24/README.md). Future machine/Furnace effects, additional celebrations and audio remain separate work.
+
 ## GAME23 — Six-Achievement Consolidation
 
 The six historical IDs now share a pure catalogue/progress model and a UI02 achievement panel. Access derives from the first durable unlock; claims use the private persist-before-publish transaction and grant no rewards. Manual-action counter meanings, Boolean compatibility, Rebirth permanence and GAME20 notifications remain intact. Additional catalogue entries and rewards stay deferred. See [implementation and visual review](docs/game23/README.md).

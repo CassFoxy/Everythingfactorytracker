@@ -486,8 +486,7 @@
           if (id) row.prepend(icon(id));
         }
     }
-    let clicks = active() ? save.statistics.lifetime.gameplay.manualClicks : 0,
-      invSignature = "",
+    let invSignature = "",
       recentSignature = "";
     function refresh() {
       const dev = active();
@@ -532,19 +531,6 @@
         lastIcon
           .querySelector("use")
           .setAttribute("href", asset + "icons.svg#" + (found || "stone"));
-        const n = save.statistics.lifetime.gameplay.manualClicks;
-        if (n > clicks) {
-          scene.classList.remove("ui-impact");
-          void scene.offsetWidth;
-          scene.classList.add("ui-impact");
-          const f = el("span", "ui-float", save.lastOre);
-          f.prepend(icon(found || "stone"));
-          if (found && resources.indexOf(found) > 10)
-            f.classList.add("ui-rare");
-          floats.replaceChildren(f);
-          setTimeout(() => f.remove(), 1400);
-        }
-        clicks = n;
         for (let i = 1; i <= 5; i++) {
           const m = save.factory.miners.find((m) => m.slot === i),
             card = $("minerSlot" + i);

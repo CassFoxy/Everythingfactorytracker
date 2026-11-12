@@ -4049,6 +4049,7 @@ function boot(raw = null, beforeLoad = "", storageFaults = {}, now = 17000000000
     vm.runInContext(fs.readFileSync(path.join(root,"milestone-model.js"),"utf8"), context, { filename: "milestone-model.js" });
     vm.runInContext(fs.readFileSync(path.join(root,"collection-model.js"),"utf8"), context, { filename: "collection-model.js" });
     vm.runInContext(fs.readFileSync(path.join(root,"achievement-model.js"),"utf8"), context, { filename: "achievement-model.js" });
+    vm.runInContext(fs.readFileSync(path.join(root,"mining-feedback-model.js"),"utf8"), context, { filename: "mining-feedback-model.js" });
     vm.runInContext(ores, context, { filename: "ores.js" });
     let error;
     // Optional test-only fault injection after declarations, before startup.
@@ -6212,4 +6213,12 @@ test('GAME23 historical Boolean records reveal without writes and malformed reco
 });
 test('GAME23 one high-quantity manual action keeps the established click counter',()=>{
  const a=canonicalFurnaceGame();a.run('developmentCommand(next=>prepareDevelopmentAward(next,"ruby",1000,true))');assert.equal(a.state().achievementStats.totalOresMined,1);assert.equal(a.state().oreCollection.ruby,1000);assert.equal(a.state().achievements.firstSwing.unlocked,true);assert.equal(a.state().achievements.stoneMiner,undefined);
+});
+
+// GAME24 effects observe publication only, never preparation or RNG.
+test('GAME24 failed mining retry delivers exact committed feedback once',()=>{
+ const a=canonicalFurnaceGame();a.run('var visualFacts=[];var TEFIMiningFeedback={committed:(before,after)=>{const e=MiningFeedbackModel.event(before,after,ORES);if(e)visualFacts.push(e)}}');const before=a.state();a.faults.write=true;assert.equal(a.run('mineDevelopmentOre()'),false);assert.deepEqual(a.state(),before);assert.equal(a.run('visualFacts.length'),0);const bytes=a.run('pendingDevelopmentWrite.serialized');a.run('Math.random=()=>{throw Error("Retry rerolled")};retryDevelopmentWrite()');assert.equal(a.run('visualFacts.length'),0);a.faults.write=false;assert.equal(a.run('retryDevelopmentWrite()'),true);assert.equal(a.stored(),bytes);assert.equal(a.run('visualFacts.length'),1);assert.equal(a.run('visualFacts[0].rewards[0].amount'),'1');assert.equal(a.run('retryDevelopmentWrite()'),false);assert.equal(a.run('visualFacts.length'),1);assert.deepEqual(ready(a.stored()).state(),a.state());
+});
+test('GAME24 animation exception cannot fail or repeat a persisted mining action',()=>{
+ const a=canonicalFurnaceGame();a.run('var TEFIMiningFeedback={committed:()=>{throw Error("visual failure")}}');assert.equal(a.run('mineDevelopmentOre()'),true);assert.equal(a.state().inventory.stone,1);assert.equal(a.run('pendingDevelopmentWrite'),null);assert.equal(a.run('retryDevelopmentWrite()'),false);assert.equal(a.state().achievementStats.totalOresMined,1);
 });

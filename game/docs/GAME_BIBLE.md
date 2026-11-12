@@ -488,7 +488,7 @@ Planned examples and future-expansion lists are not automatically V1.0 requireme
 | Settings interface and persistence | ⚪ Not Started | 1.7; 3.20 | No runtime implementation | No player settings controls or settings model. |
 | Inventory limits and storage upgrades | ⚪ Not Started | 3.5 | No runtime implementation | No enforced capacity, capacity display, full-inventory behaviour or storage upgrades. |
 | Additional playable currencies | ⚪ Not Started | 4.2 | No runtime implementation | Cash is implemented; Gems, Stardust and Ancient Shards have no balances, earning/spending logic or UI. Catalogue names do not establish additional launch requirements. |
-| Gameplay audio and world production animation | ⚪ Not Started | 2.1–2.11 | No runtime implementation | No sound playback, mining/world animation or moving factory resources. Existing CSS progress and toast effects are implemented separately. |
+| Gameplay audio and world production animation | ⚪ Not Started | 2.1–2.11 | No runtime implementation | GAME24 provides bounded manual Pickaxe/impact/reward effects. No sound playback, moving factory resources or broader machine animation is activated. Existing progress and GAME20 effects remain separate. |
 | Automated gameplay test suite | ⚪ Not Started | Volume V; Volume VI | No test files in the inspected game tree | No calculation, save, rebirth or economy tests. A roadmap checkbox is not evidence of implemented tests. |
 
 ## Design and Documentation Discrepancies
@@ -7023,6 +7023,8 @@ Total Resources Gathered includes materials. Ore-specific counters exclude mater
 ---
 
 # 3.20 User Interface Behaviour
+
+**GAME24 implementation:** Manual mining feedback observes successfully published private-profile state. `mining-feedback-model.js` reads exact manual-output/material counter deltas; `mining-feedback.js` renders the performing Pickaxe, scene-local impact/particles and bounded burst totals. Cosmetic work uses no RNG or gameplay loop. Static awards remain under reduced motion; GAME20 remains the important-event queue. No new saved fields or economy changes. [API, tests and genuine browser frames](game24/README.md).
 
 **Design status:** Defined except explicit Recommended/Open/Deferred entries. **Implementation:** not certified against this revision; see the roadmap.
 
