@@ -1374,3 +1374,20 @@ summary .ui-icon {
 .tefi-pixel-ui .achievement-card button { margin-top: 8px; min-height: 40px; }
 .tefi-pixel-ui .achievement-card:focus-visible { outline: 2px solid var(--ui-gold); outline-offset: 2px; }
 @media(max-width:600px) { .tefi-pixel-ui .achievement-grid { grid-template-columns: 1fr; } }
+
+/* GAME24: bounded scene-local feedback, never an input surface. */
+.mining-effects { --mining-accent: #c5bda8; contain: layout paint; pointer-events: none; }
+.mining-effects[data-tier="1"] { --mining-accent: #e3bb64; }
+.mining-effects[data-tier="2"] { --mining-accent: #85c3db; }
+.mining-effects[data-tier="3"] { --mining-accent: #c9a3e6; }
+.mining-effects[data-tier="4"] { --mining-accent: #ffd589; }
+.mining-effects .mining-rewards { animation: none; inset: 8% auto auto 4%; bottom: auto; max-width: 92%; max-height: 85%; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 5px 9px; z-index: 3; border-color: var(--mining-accent); color: var(--mining-accent); background: #131810ed; font-size: clamp(11px, .9vw, 15px); overflow: hidden; }
+.mining-reward { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; overflow-wrap: anywhere; }
+.mining-reward svg { width: 20px; height: 20px; flex: none; }
+.mining-effects[data-tier="3"] .mining-rewards,.mining-effects[data-tier="4"] .mining-rewards { box-shadow: 0 0 10px color-mix(in srgb, var(--mining-accent) 30%, transparent); }
+.mining-impact { z-index: 2; position: absolute; left: 60%; top: 64%; width: 24px; height: 12px; border: 2px solid var(--mining-accent); transform: rotate(-12deg); animation: mining-impact 280ms ease-out both; }
+.mining-particle { z-index: 2; position: absolute; left: 62%; top: 65%; width: 4px; height: 4px; background: var(--mining-accent); animation: mining-fragment 400ms ease-out both; }
+.mining-effects[data-tier="4"] .mining-particle { width: 5px; height: 5px; }
+@keyframes mining-impact { from { opacity: .8; transform: scale(.4) rotate(-12deg); } to { opacity: 0; transform: scale(1.7) rotate(-12deg); } }
+@keyframes mining-fragment { from { opacity: .9; transform: translate(0,0); } to { opacity: 0; transform: translate(var(--dx),var(--dy)); } }
+@media(prefers-reduced-motion:reduce) { .mining-impact,.mining-particle { display: none; } .mining-effects .mining-rewards { box-shadow: none; } }
