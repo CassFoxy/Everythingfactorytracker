@@ -489,6 +489,7 @@
     let invSignature = "",
       recentSignature = "";
     function refresh() {
+      try { globalThis.TEFIFactoryFeedback?.sync(save); } catch(error) { console.warn("Factory status unavailable",error); }
       const dev = active();
       document.body.classList.toggle("ui-legacy", !dev);
       for (const key of ["miners", "polishers", "refiner"])

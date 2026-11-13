@@ -488,7 +488,7 @@ Planned examples and future-expansion lists are not automatically V1.0 requireme
 | Settings interface and persistence | ⚪ Not Started | 1.7; 3.20 | No runtime implementation | No player settings controls or settings model. |
 | Inventory limits and storage upgrades | ⚪ Not Started | 3.5 | No runtime implementation | No enforced capacity, capacity display, full-inventory behaviour or storage upgrades. |
 | Additional playable currencies | ⚪ Not Started | 4.2 | No runtime implementation | Cash is implemented; Gems, Stardust and Ancient Shards have no balances, earning/spending logic or UI. Catalogue names do not establish additional launch requirements. |
-| Gameplay audio and world production animation | ⚪ Not Started | 2.1–2.11 | No runtime implementation | GAME24 provides bounded manual Pickaxe/impact/reward effects. No sound playback, moving factory resources or broader machine animation is activated. Existing progress and GAME20 effects remain separate. |
+| Gameplay audio and world production animation | ⚪ Not Started | 2.1–2.11 | Cosmetic local feedback only | GAME24 provides manual Pickaxe/impact/reward effects; GAME25 extends the same lifetime controller to committed machine/Furnace output, captured progress and GAME20 progression celebrations. Sound and moving factory resources remain unimplemented. |
 | Automated gameplay test suite | ⚪ Not Started | Volume V; Volume VI | No test files in the inspected game tree | No calculation, save, rebirth or economy tests. A roadmap checkbox is not evidence of implemented tests. |
 
 ## Design and Documentation Discrepancies
@@ -7883,3 +7883,6 @@ The table below refers only to the existence of the document framework and reser
 
 # End of Framework Part 3
 
+
+
+**GAME25 presentation boundary:** Factory effects observe successful publication only. Captured cycle timing supplies progress; it never schedules completion. GAME20 owns achievement/milestone/level notification facts, grouping and reveal. Legacy modifiers have static status only, without invented processing events. No saved fields, rewards, economic changes or additional live announcements. [API and verification](game25/README.md).

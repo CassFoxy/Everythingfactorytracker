@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const root = path.resolve(__dirname, "../..");
-const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js", "notification-model.js", "notifications.js", "milestone-model.js", "milestone-ui.js", "collection-model.js", "collection-ui.js", "achievement-model.js", "achievement-ui.js", "mining-feedback-model.js", "mining-feedback.js"].map(name =>
+const files = new Map(["index.html", "game.js", "ores.js", "style.css", "compact-ui.css", "compact-ui.js", "notification-model.js", "notifications.js", "milestone-model.js", "milestone-ui.js", "collection-model.js", "collection-ui.js", "achievement-model.js", "achievement-ui.js", "mining-feedback-model.js", "mining-feedback.js", "factory-feedback-model.js", "factory-feedback.js"].map(name =>
     ["/" + name, fs.readFileSync(path.join(root, name))]));
 for (const name of fs.readdirSync(path.join(root, 'assets/ui'))) {
     files.set('/assets/ui/' + name, fs.readFileSync(path.join(root, 'assets/ui', name)));
@@ -152,6 +152,113 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
 
 
 
+
+        // GAME25: genuine committed cycles, presentation-only progress and exact retry.
+        if(process.env.TEFI_SMOKE_SCOPE!=="game25extra")
+        for(const [width,height] of [[2560,1440],[1920,1080],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]){
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width,height});
+            await page.locator('#ui-factory-furnace').click();
+            await page.evaluate(()=>{developmentCommand(n=>{n.inventory.stone=20});TEFINotifications.clear();TEFIFactoryFeedback.clear()});
+            assert.equal(await page.locator('#factoryFurnaceTiming').textContent(),'Idle');
+            await page.evaluate(()=>{prepareCanonicalSmelt(InventoryModel.createLot({resourceId:'stone',stage:'raw',refineCount:0,amount:1,polishedValue:null,preRefinerValue:null,refineBonus:null}),1);confirmSmelt()});
+            assert.equal(await page.evaluate(()=>save.factory.furnace.cycle.phase),'reserved');
+            assert.match(await page.locator('#furnaceCard .factory-effect-label').textContent(),/Ignition/);
+            const before=await page.evaluate(()=>JSON.stringify(save));
+            await page.evaluate(()=>{testNow+=5000;renderCanonicalFurnace();TEFIFactoryFeedback.sync(save)});
+            assert.match(await page.locator('#factoryFurnaceTiming').textContent(),/50%.*5.0s/);
+            assert.equal(await page.evaluate(()=>JSON.stringify(save)),before);
+            if(process.env.TEFI_UI_SCREENSHOTS){fs.mkdirSync(process.env.TEFI_UI_SCREENSHOTS,{recursive:true});await page.locator('#factoryFurnaceTiming').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game25-processing-${width}x${height}.png`)});}
+            await page.evaluate(()=>{testNow+=5000;advanceCanonicalFurnace(testNow);TEFIFactoryFeedback.clear()});
+            assert.equal(await page.evaluate(()=>save.cash),0);assert.equal(await page.locator('.factory-effect').count(),0);
+            await page.evaluate(()=>{window.write25=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw Error('quota')};advanceCanonicalFurnace(testNow)});
+            assert.equal(await page.locator('.factory-effect').count(),0);assert.equal(await page.evaluate(()=>save.cash),0);
+            const bytes=await page.evaluate(()=>pendingDevelopmentWrite.serialized);
+            await page.evaluate(()=>{Storage.prototype.setItem=write25;retryDevelopmentWrite()});
+            assert.equal(await page.evaluate(()=>localStorage.getItem(SAVE_KEY)),bytes);
+            assert.match(await page.locator('#furnaceCard .factory-effect-label').textContent(),/Batch delivered/);
+            assert.equal(await page.evaluate(()=>save.factory.furnace.cycle),null);assert.equal(await page.evaluate(()=>retryDevelopmentWrite()),false);
+            if(process.env.TEFI_UI_SCREENSHOTS){await page.locator('#furnaceName').scrollIntoViewIfNeeded();await page.evaluate(()=>{for(const a of document.querySelector('#furnaceCard').getAnimations({subtree:true})){a.pause();a.currentTime=450}});await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game25-completion-${width}x${height}.png`)});if(width===1920)for(const time of [100,450,850]){await page.evaluate(time=>{for(const a of document.querySelector('#furnaceCard').getAnimations({subtree:true})){a.pause();a.currentTime=time}},time);await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,`game25-frame-${time}.png`)});}}
+            await page.emulateMedia({reducedMotion:'reduce'});
+            await page.evaluate(()=>{TEFINotifications.clear();TEFIFactoryFeedback.clear();mineDevelopmentOre()});
+            assert.equal(await page.locator('.factory-effect i').count(),0);
+            assert.ok(await page.evaluate(()=>TEFIFactoryFeedback.snapshot().effects<=4));
+            await page.waitForTimeout(1200);assert.equal(await page.locator('.factory-effect').count(),0);
+            await page.reload();assert.equal(await page.locator('.factory-effect').count(),0);
+            assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+            if(width>=1024)assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),true);
+            assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(n=>n.id);return ids.length===new Set(ids).size}),true);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log(`PASS GAME25 ${width}x${height}: activation, progress, commit, failed write/retry, reduced motion and reload.`);
+        }
+        {
+            const app=await session(null,true),{page}=app;await page.setViewportSize({width:1920,height:1080});
+            await page.evaluate(()=>{addDeveloperCash(1000000);buyDevelopmentShopUpgrade('miningPower',1);unlockDevelopmentMiner();buyDevelopmentMiner(1);buyDevelopmentPolisher(1);buyDevelopmentRefiner();developmentCommand(n=>{n.inventory.ruby=10});TEFINotifications.clear()});
+            await page.locator('#ui-factory-miners').click();
+            await page.evaluate(()=>{advanceDevelopmentMiner(save.factory.miners[0].id,testNow);testNow+=30000;advanceDevelopmentMiner(save.factory.miners[0].id,testNow);advanceDevelopmentMiner(save.factory.miners[0].id,testNow)});
+            assert.match(await page.locator('#minerSlot1 .factory-effect-label').textContent(),/Output delivered/);
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-miner.png')});
+            await page.locator('#ui-factory-polishers').click();
+            await page.evaluate(()=>{setDevelopmentPolisherOre(save.factory.polishers[0].id,'ruby');advanceDevelopmentPolisher(save.factory.polishers[0].id,testNow);testNow+=7500;advanceDevelopmentPolisher(save.factory.polishers[0].id,testNow);advanceDevelopmentPolisher(save.factory.polishers[0].id,testNow);TEFINotifications.clear()});
+            assert.match(await page.locator('#polisherPanel .factory-effect-label').textContent(),/Output delivered/);
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-polisher.png')});
+            await page.locator('#ui-factory-refiner').click();
+            await page.evaluate(()=>{setDevelopmentRefinerSelection(save.factory.refiner.id,processedSelection(save.processedInventory.polished[0]));advanceDevelopmentRefiner(save.factory.refiner.id,testNow);testNow+=15000;Math.random=()=>0;advanceDevelopmentRefiner(save.factory.refiner.id,testNow);advanceDevelopmentRefiner(save.factory.refiner.id,testNow)});
+            assert.match(await page.locator('#refinerPanel .factory-effect-label').textContent(),/0 survived · 1 destroyed · \+1 Dust/);
+            assert.equal(await page.locator('#refinerPanel .factory-effect').getAttribute('data-effect'),'destroyed');
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-refiner-destruction.png')});
+            await page.evaluate(()=>{TEFIFactoryFeedback.clear();developmentCommand(n=>{n.processedInventory.polished.push(PolisherModel.createPolishedLot('ruby',1,100))});setDevelopmentRefinerSelection(save.factory.refiner.id,processedSelection(save.processedInventory.polished[0]));advanceDevelopmentRefiner(save.factory.refiner.id,testNow);testNow+=15000;Math.random=()=>.99;advanceDevelopmentRefiner(save.factory.refiner.id,testNow);advanceDevelopmentRefiner(save.factory.refiner.id,testNow)});
+            assert.match(await page.locator('#refinerPanel .factory-effect-label').textContent(),/1 survived · 0 destroyed/);
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-refiner-survivor.png')});
+            await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));advanceDevelopmentRefiner(save.factory.refiner.id,testNow)});
+            assert.equal(await page.locator('.factory-effect').count(),0);
+            await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))});assert.equal(await page.locator('.factory-effect').count(),0);
+            await page.evaluate(()=>{TEFINotifications.clear();developmentCommand(n=>{n.factoryXP=90000;prepareDevelopmentProgress(n)})});
+            assert.equal(await page.evaluate(()=>{const q=TEFINotifications.snapshot();return [q.current,...q.waiting].filter(Boolean).some(n=>n.type==='milestone')}),false);
+            await page.evaluate(()=>{addDeveloperCash(1000000);prepareDevelopmentRebirth();confirmDevelopmentRebirth();TEFINotifications.clear();developmentCommand(n=>{n.factoryXP=10000000000;n.achievementStats.totalOresMined=1000;prepareDevelopmentProgress(n)})});
+            const types=[];
+            while(await page.evaluate(()=>!!TEFINotifications.snapshot().current)){
+                const type=await page.evaluate(()=>TEFINotifications.snapshot().current.type);types.push(type);
+                if(['achievement','milestone','level'].includes(type)){
+                    assert.ok(await page.locator('.factory-effect[data-effect="'+type+'"]').count(), type+': '+JSON.stringify(await page.evaluate(()=>({effects:TEFIFactoryFeedback.snapshot(),notice:TEFINotifications.snapshot(),modal:[...document.querySelectorAll('.modal')].filter(n=>!n.hidden&&getComputedStyle(n).display!=='none').map(n=>n.id)}))));
+                    const previous=await page.evaluate(()=>TEFIFactoryFeedback.snapshot());
+                    await page.evaluate(()=>{const n=TEFINotifications.snapshot().current;TEFIFactoryFeedback.notice(n,document.getElementById('notificationRegion'))});
+                    assert.deepEqual(await page.evaluate(()=>TEFIFactoryFeedback.snapshot()),previous);
+                    if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-'+type+'.png')});
+                }
+                await page.locator('#notificationDismiss').click();
+            }
+            assert.ok(types.includes('achievement'));assert.ok(types.includes('milestone'));assert.ok(types.includes('level'));
+            await page.locator('#ui-factory-miners').click();
+            await page.evaluate(()=>{addDeveloperCash(10000);buyDevelopmentShopUpgrade('miningPower',1);unlockDevelopmentMiner();buyDevelopmentMiner(1);TEFINotifications.clear();for(let i=0;i<40;i++){advanceDevelopmentMiner(save.factory.miners[0].id,testNow);testNow+=30000;advanceDevelopmentMiner(save.factory.miners[0].id,testNow);advanceDevelopmentMiner(save.factory.miners[0].id,testNow)}});
+            assert.ok(await page.evaluate(()=>TEFIFactoryFeedback.snapshot().effects<=4));assert.ok(await page.evaluate(()=>TEFIFactoryFeedback.snapshot().particles<=24));
+            await page.evaluate(()=>openCollection());assert.equal(await page.locator('.factory-effect').count(),0);await page.evaluate(()=>closeCollection());
+            await page.evaluate(()=>showSaveRecovery(saveLoadError('VALIDATION_ERROR','GAME25 test')));assert.equal(await page.locator('.factory-effect').count(),0);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME25 machines, destruction/Dust, survival, milestone concealment, grouped progression, deduplication, 40 cycles, hidden tabs and recovery.');
+        }
+
+        {
+            const app=await session(null,true),{page}=app;
+            await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));mineDevelopmentOre()});
+            await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))});
+            assert.equal(await page.locator('.factory-effect').count(),0);assert.equal(await page.locator('#notificationRegion').isVisible(),true);
+            await page.locator('#ui-factory-furnace').click();
+            await page.evaluate(()=>{TEFINotifications.clear();window.write25b=Storage.prototype.setItem;prepareCanonicalSmelt(furnaceRawLot('stone',1),1);Storage.prototype.setItem=()=>{throw Error('quota')};confirmSmelt()});
+            assert.equal(await page.evaluate(()=>save.factory.furnace.cycle),null);assert.equal(await page.locator('.factory-effect').count(),0);
+            await page.evaluate(()=>{Storage.prototype.setItem=write25b;retryDevelopmentWrite()});
+            assert.match(await page.locator('#furnaceCard .factory-effect-label').textContent(),/Ignition/);
+            await page.reload();assert.equal(await page.locator('.factory-effect').count(),0);
+            await page.evaluate(()=>{testNow+=10000;advanceCanonicalFurnace(testNow)});assert.equal(await page.locator('.factory-effect').count(),0);
+            await page.reload();assert.equal(await page.evaluate(()=>save.cash),1);assert.equal(await page.evaluate(()=>save.factory.furnace.cycle),null);
+            await page.reload();assert.equal(await page.locator('.factory-effect').count(),0);assert.equal(await page.evaluate(()=>save.cash),1);await page.locator('#ui-factory-furnace').click();
+            await page.evaluate(()=>{addDeveloperCash(2000);upgradeFurnace();upgradeFurnace();developmentCommand(n=>{n.inventory.stone=1000});TEFINotifications.clear();TEFIFactoryFeedback.clear();advanceCanonicalFurnace(testNow);testNow+=10000;updateDevelopmentMiner()});
+            assert.equal(await page.evaluate(()=>save.factory.furnace.cycle.phase),'reserved');
+            assert.match(await page.locator('#furnaceCard .factory-effect-label').textContent(),/Batch delivered/);
+            await page.evaluate(()=>{TEFIFactoryFeedback.clear();window.savedEffect25=TEFIFactoryFeedback.committed;TEFIFactoryFeedback.committed=()=>{throw Error('cosmetic failure')};addDeveloperCash(1);TEFIFactoryFeedback.committed=savedEffect25});
+            assert.equal(await page.evaluate(()=>!!pendingDevelopmentWrite),false);
+            await page.evaluate(()=>window.dispatchEvent(new Event('pagehide')));assert.equal(await page.locator('.factory-effect').count(),0);
+            assert.deepEqual(app.errors,[]);await app.context.close();console.log('PASS GAME25 hidden progression suppression, reservation retry, reserved/resolved reload, consecutive auto batches and cosmetic failure isolation.');
+        }
+
+        if(['game25','game25extra'].includes(process.env.TEFI_SMOKE_SCOPE))return;
 
         // GAME24: committed local effects, real controls, bounded bursts and genuine animation frames.
         for(const [width,height]of [[2560,1440],[1920,1080],[1366,768],[1280,720],[1280,600],[768,1024],[390,844]]){
