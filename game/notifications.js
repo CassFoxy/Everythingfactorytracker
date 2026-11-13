@@ -46,7 +46,7 @@
     const transaction = ++sequence;
     syncVisibility();
     queue.enqueueMany(
-      facts.map((event, i) => ({ ...event, id: transaction + ":" + i })),
+      facts.map((event, i) => ({ ...event, id: transaction + ":" + i, presentationToken: { suppressAnimation: document.hidden } })),
     );
   }
   function render(snapshot) {
@@ -84,6 +84,7 @@
       void view.region.offsetWidth;
       view.region.classList.add("notice-enter");
       view.live.textContent = current.title + ". " + current.body;
+      try { globalThis.TEFIFactoryFeedback?.notice(current,view.region); } catch(error) { console.warn("Celebration unavailable",error); }
     }
   }
   function syncVisibility() {
