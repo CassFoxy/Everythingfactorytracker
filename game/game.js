@@ -4129,6 +4129,9 @@ function publishDevelopmentState(next){
     if(typeof TEFIMiningFeedback!=="undefined"){
         try{TEFIMiningFeedback.committed(previous,next);}catch(error){console.warn("Mining feedback unavailable",error);}
     }
+    if(typeof TEFIFactoryFeedback!=="undefined"){
+        try{TEFIFactoryFeedback.committed(previous,next);}catch(error){console.warn("Factory feedback unavailable",error);}
+    }
     // Presentation failures must never turn a successfully persisted transaction into a failed command.
     if(typeof TEFINotifications!=="undefined"){
         try{TEFINotifications.committed(previous,next);}catch(error){console.warn("Notification presentation unavailable",error);}

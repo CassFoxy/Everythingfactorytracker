@@ -4,9 +4,13 @@ The 20 authoritative `ORES` entries now form a tier-ordered discovery book with 
 
 V1-121, V1-122, V1-123 and V1-125 are complete for base ores, subject to the implementation PR's final full regression/CI verification. V1-225's base Collection interface scope is complete; broader future variants are not activated. V1-124 mutations, rewards, relics and public V2 remain deferred.
 
+## GAME25 — Factory Production Animations and Progression Celebrations
+
+Cosmetic Furnace ignition/completion, captured-cycle progress, machine activity and committed output feedback extend GAME24. GAME20's displayed achievement, canonical milestone, Factory Level and Rebirth notices receive bounded celebrations without a second queue. Reduced motion, recovery/modal precedence and hidden-tab cleanup preserve accessibility and long-running production. Legacy modifiers receive truthful static status only. No gameplay or save fields change. See [API and verification](docs/game25/README.md); final full-suite and CI results are required before acceptance. Audio, conveyors and world-resource movement remain deferred.
+
 ## GAME24 — Mining Animations and Visual Feedback
 
-Manual mining now has a commit-only cosmetic adapter: the performing Pickaxe swings, a local impact uses tier-sensitive particles, and floating UI02 resource/material icons show exact committed quantities. Rapid clicks aggregate within one transient burst; one expiry timer, at most ten particles and two Web Animations keep work bounded. Reduced motion retains readable static awards. Recovery, reset, Rebirth, hidden tabs and page exit clear obsolete effects. No gameplay RNG, rates, durability, save fields or progression change. See [API and visual verification](docs/game24/README.md). Future machine/Furnace effects, additional celebrations and audio remain separate work.
+Manual mining now has a commit-only cosmetic adapter: the performing Pickaxe swings, a local impact uses tier-sensitive particles, and floating UI02 resource/material icons show exact committed quantities. Rapid clicks aggregate within one transient burst; one expiry timer, at most ten particles and two Web Animations keep work bounded. Reduced motion retains readable static awards. Recovery, reset, Rebirth, hidden tabs and page exit clear obsolete effects. No gameplay RNG, rates, durability, save fields or progression change. See [API and visual verification](docs/game24/README.md). GAME25 extends this foundation to machine/Furnace feedback and progression celebrations; audio remains deferred.
 
 ## GAME23 — Six-Achievement Consolidation
 
