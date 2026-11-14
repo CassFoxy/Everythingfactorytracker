@@ -195,19 +195,19 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
             await page.locator('#ui-factory-miners').click();
             await page.evaluate(()=>{advanceDevelopmentMiner(save.factory.miners[0].id,testNow);testNow+=30000;advanceDevelopmentMiner(save.factory.miners[0].id,testNow);advanceDevelopmentMiner(save.factory.miners[0].id,testNow)});
             assert.match(await page.locator('#minerSlot1 .factory-effect-label').textContent(),/Output delivered/);
-            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-miner.png')});
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.waitForTimeout(180);if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-miner.png')});
             await page.locator('#ui-factory-polishers').click();
             await page.evaluate(()=>{setDevelopmentPolisherOre(save.factory.polishers[0].id,'ruby');advanceDevelopmentPolisher(save.factory.polishers[0].id,testNow);testNow+=7500;advanceDevelopmentPolisher(save.factory.polishers[0].id,testNow);advanceDevelopmentPolisher(save.factory.polishers[0].id,testNow);TEFINotifications.clear()});
             assert.match(await page.locator('#polisherPanel .factory-effect-label').textContent(),/Output delivered/);
-            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-polisher.png')});
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.waitForTimeout(180);if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-polisher.png')});
             await page.locator('#ui-factory-refiner').click();
             await page.evaluate(()=>{setDevelopmentRefinerSelection(save.factory.refiner.id,processedSelection(save.processedInventory.polished[0]));advanceDevelopmentRefiner(save.factory.refiner.id,testNow);testNow+=15000;Math.random=()=>0;advanceDevelopmentRefiner(save.factory.refiner.id,testNow);advanceDevelopmentRefiner(save.factory.refiner.id,testNow)});
             assert.match(await page.locator('#refinerPanel .factory-effect-label').textContent(),/0 survived · 1 destroyed · \+1 Dust/);
             assert.equal(await page.locator('#refinerPanel .factory-effect').getAttribute('data-effect'),'destroyed');
-            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-refiner-destruction.png')});
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.waitForTimeout(180);if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-refiner-destruction.png')});
             await page.evaluate(()=>{TEFIFactoryFeedback.clear();developmentCommand(n=>{n.processedInventory.polished.push(PolisherModel.createPolishedLot('ruby',1,100))});setDevelopmentRefinerSelection(save.factory.refiner.id,processedSelection(save.processedInventory.polished[0]));advanceDevelopmentRefiner(save.factory.refiner.id,testNow);testNow+=15000;Math.random=()=>.99;advanceDevelopmentRefiner(save.factory.refiner.id,testNow);advanceDevelopmentRefiner(save.factory.refiner.id,testNow)});
             assert.match(await page.locator('#refinerPanel .factory-effect-label').textContent(),/1 survived · 0 destroyed/);
-            if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-refiner-survivor.png')});
+            if(process.env.TEFI_UI_SCREENSHOTS)await page.waitForTimeout(180);if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-refiner-survivor.png')});
             await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));advanceDevelopmentRefiner(save.factory.refiner.id,testNow)});
             assert.equal(await page.locator('.factory-effect').count(),0);
             await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))});assert.equal(await page.locator('.factory-effect').count(),0);
@@ -222,7 +222,7 @@ const defaults=createDefaultSave();for(const key of furnaceLegacyKeys())state[ke
                     const previous=await page.evaluate(()=>TEFIFactoryFeedback.snapshot());
                     await page.evaluate(()=>{const n=TEFINotifications.snapshot().current;TEFIFactoryFeedback.notice(n,document.getElementById('notificationRegion'))});
                     assert.deepEqual(await page.evaluate(()=>TEFIFactoryFeedback.snapshot()),previous);
-                    if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-'+type+'.png')});
+                    if(process.env.TEFI_UI_SCREENSHOTS)await page.waitForTimeout(180);if(process.env.TEFI_UI_SCREENSHOTS)await page.screenshot({path:path.join(process.env.TEFI_UI_SCREENSHOTS,'game25-'+type+'.png')});
                 }
                 await page.locator('#notificationDismiss').click();
             }
